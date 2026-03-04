@@ -1,0 +1,153 @@
+---
+description: 
+alwaysApply: true
+enabled: true
+updatedAt: 2026-03-04T09:58:15.557Z
+provider: 
+---
+
+# 新功能开发标准规范
+
+## 1. 概述
+为了保证 `Markdown` 项目的高质量和稳定性，所有新功能的开发必须严格遵循本规范。本规范涵盖单元测试编写、测试执行流程以及预览功能的实现。
+
+## 2. Parser 模块测试规范
+
+对于 `markdown-parser` 模块的任何修改或新功能添加，**必须**同步补充对应的单元测试。
+
+### 2.1 测试文件结构
+测试文件应位于 `markdown-parser/src/commonTest/kotlin/com/hrm/markdown/parser/` 目录下。
+
+```
+markdown-parser/
+├── src/
+│   ├── commonMain/kotlin/  # 源代码
+│   └── commonTest/kotlin/  # 测试代码
+│       └── com/hrm/markdown/parser/
+│           ├── NewFeatureTest.kt  # 新功能的测试文件
+│           └── ...
+```
+
+### 2.2 测试命名规范
+- **测试类名**：`FeatureNameTest` (例如 `HeadingParserTest`、`EmphasisParserTest`)
+- **测试方法**：`should_expectedBehavior_when_condition` 或清晰描述测试目的的句子。
+
+### 2.3 测试编写模板
+使用 `kotlin.test` 框架编写测试：
+
+```kotlin
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertTrue
+
+class NewFeatureTest {
+
+    @Test
+    fun should_parse_heading_correctly() {
+        // Arrange
+        val input = "# Hello World"
+        val parser = MarkdownParser()
+
+        // Act
+        val result = parser.parse(input)
+
+        // Assert
+        val heading = result.children.first()
+        assertTrue(heading is Heading)
+        assertEquals(1, (heading as Heading).level)
+    }
+
+    @Test
+    fun should_handle_invalid_input_gracefully() {
+        // Edge case testing
+        // ...
+    }
+}
+```
+
+### 2.4 覆盖率要求
+- ✅ **正常路径 (Happy Path)**：验证功能在标准输入下工作正常。
+- ✅ **边界条件 (Edge Cases)**：空输入、特殊字符、嵌套结构等。
+- ✅ **错误处理 (Error Handling)**：验证解析器在非法输入下能否优雅降级（如将无法解析的内容作为纯文本），而不是崩溃。
+
+## 3. Renderer 模块规范
+
+对于 `markdown-renderer` 模块的任何修改或新功能添加，**必须**同步补充对应的渲染支持。
+
+### 3.1 渲染实现
+- 在 `markdown-renderer/src/commonMain/kotlin/com/hrm/markdown/renderer/` 中更新或添加渲染逻辑。
+- 块级节点在 `block/` 子包中添加对应的 Renderer。
+- 行内节点在 `inline/` 子包中更新 `InlineRenderer`。
+
+### 3.2 渲染测试
+- 渲染器的测试文件位于 `markdown-renderer/src/commonTest/kotlin/com/hrm/markdown/renderer/`。
+- 验证 AST 节点能正确映射为 Compose UI 元素。
+
+## 4. 测试执行流程
+
+在提交代码前，必须执行测试并确保所有测试通过。
+
+### 4.1 执行命令
+```bash
+# Parser 模块测试
+./gradlew :markdown-parser:allTests
+
+# Renderer 模块测试
+./gradlew :markdown-renderer:allTests
+
+# 全部测试
+./gradlew allTests
+```
+
+### 4.2 通过标准
+- Gradle 任务退出代码必须为 `0`。
+- 控制台输出必须显示 "BUILD SUCCESSFUL"。
+- **严禁**在测试失败的情况下提交代码。
+
+## 5. Preview 预览规范
+
+为了验证渲染效果和提升开发体验，所有涉及渲染的新功能必须在 `composeApp` 模块的 Demo 页面中添加预览支持。
+
+### 5.1 预览实现
+- 在 `composeApp` 的 Demo 页面中更新或添加预览逻辑。
+- 如果是新的 Markdown 语法支持，请在 Demo 的示例数据中添加相应的 Markdown 字符串，以便在 Demo App 中直观展示。
+
+### 5.2 示例
+在预览数据列表或 Demo 页面中添加 case：
+
+```kotlin
+// 在 Demo 数据源中添加
+val newFeatureSample = """
+    # Heading 1
+    ## Heading 2
+
+    This is a paragraph with **bold** and *italic* text.
+
+    - Item 1
+    - Item 2
+      - Nested item
+
+    ```kotlin
+    fun hello() = println("Hello")
+    ```
+""".trimIndent()
+```
+
+## 6. 文档维护 (Documentation)
+
+如果新增了对特定 Markdown 语法的支持，**必须**检查并更新 `markdown-parser/PARSER_COVERAGE_ANALYSIS.md` 文件。
+- 将新支持的语法状态从 ❌ 标记为 ✅。
+- 更新对应章节的覆盖率统计。
+- 更新总体覆盖率汇总表。
+- 如果是部分实现，请添加相关备注。
+
+## 7. 总结 (Checklist)
+
+开发新功能时，请自查以下清单：
+- [ ] `markdown-parser` 中实现了解析逻辑。
+- [ ] `markdown-parser` 中添加了对应的单元测试 (`commonTest`)。
+- [ ] `markdown-renderer` 中实现了渲染逻辑（如涉及渲染）。
+- [ ] `markdown-renderer` 中添加了对应的单元测试（如涉及渲染）。
+- [ ] 运行 `./gradlew allTests` 并全部通过。
+- [ ] `composeApp` 中添加了该功能的预览示例。
+- [ ] 更新 `markdown-parser/PARSER_COVERAGE_ANALYSIS.md` 支持列表。
