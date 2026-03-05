@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.Modifier
 import com.hrm.markdown.parser.ast.Document
 
 /**
@@ -14,6 +15,7 @@ import com.hrm.markdown.parser.ast.Document
 internal data class RendererContext(
     val document: Document = Document(),
     val onLinkClick: ((String) -> Unit)? = null,
+    val imageRenderer: (@Composable (url: String, altText: String, title: String?, modifier: Modifier) -> Unit)? = null,
 )
 
 internal val LocalRendererContext = staticCompositionLocalOf { RendererContext() }
@@ -22,11 +24,13 @@ internal val LocalRendererContext = staticCompositionLocalOf { RendererContext()
 internal fun ProvideRendererContext(
     document: Document,
     onLinkClick: ((String) -> Unit)?,
+    imageRenderer: (@Composable (url: String, altText: String, title: String?, modifier: Modifier) -> Unit)?,
     content: @Composable () -> Unit,
 ) {
     val context = RendererContext(
         document = document,
         onLinkClick = onLinkClick,
+        imageRenderer = imageRenderer,
     )
     CompositionLocalProvider(LocalRendererContext provides context) {
         content()

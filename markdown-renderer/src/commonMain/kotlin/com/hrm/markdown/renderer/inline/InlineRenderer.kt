@@ -128,19 +128,13 @@ private fun AnnotatedString.Builder.renderInlineNode(
         }
 
         is Image -> {
-            val id = "img_${node.hashCode()}"
-            appendInlineContent(id, node.title ?: node.destination)
-            inlineContents[id] = InlineTextContent(
-                placeholder = Placeholder(
-                    width = 200.sp,
-                    height = 150.sp,
-                    placeholderVerticalAlign = PlaceholderVerticalAlign.AboveBaseline,
-                ),
-            ) {
-                androidx.compose.material3.Text(
-                    text = node.children.filterIsInstance<Text>().joinToString("") { it.literal },
-                    style = theme.bodyStyle.copy(fontStyle = FontStyle.Italic),
-                )
+            // inline images render as styled alt text with image indicator
+            val altText = node.children.filterIsInstance<Text>().joinToString("") { it.literal }
+            val display = altText.ifBlank { node.destination }
+            withStyle(SpanStyle(fontStyle = FontStyle.Italic, color = theme.linkColor)) {
+                append("[")
+                append(display)
+                append("]")
             }
         }
 

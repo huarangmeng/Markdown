@@ -30,6 +30,9 @@ import com.hrm.markdown.renderer.block.BlockRenderer
  * @param theme 可选的自定义主题
  * @param listState LazyColumn 的滚动状态
  * @param onLinkClick 链接点击回调
+ * @param imageRenderer optional custom composable for rendering images.
+ *        receives (url, altText, title, modifier).
+ *        if null, images are rendered as alt text placeholders.
  */
 @Composable
 fun Markdown(
@@ -38,6 +41,7 @@ fun Markdown(
     theme: MarkdownTheme = MarkdownTheme(),
     listState: LazyListState = rememberLazyListState(),
     onLinkClick: ((String) -> Unit)? = null,
+    imageRenderer: (@Composable (url: String, altText: String, title: String?, modifier: Modifier) -> Unit)? = null,
 ) {
     val document = remember(markdown) {
         MarkdownParser().parse(markdown)
@@ -48,6 +52,7 @@ fun Markdown(
         theme = theme,
         listState = listState,
         onLinkClick = onLinkClick,
+        imageRenderer = imageRenderer,
     )
 }
 
@@ -62,6 +67,7 @@ internal fun InnerMarkdown(
     theme: MarkdownTheme = MarkdownTheme(),
     listState: LazyListState = rememberLazyListState(),
     onLinkClick: ((String) -> Unit)? = null,
+    imageRenderer: (@Composable (url: String, altText: String, title: String?, modifier: Modifier) -> Unit)? = null,
 ) {
     val blockNodes = remember(document) {
         document.children.filter { it !is BlankLine }
@@ -71,6 +77,7 @@ internal fun InnerMarkdown(
         ProvideRendererContext(
             document = document,
             onLinkClick = onLinkClick,
+            imageRenderer = imageRenderer,
         ) {
             LazyColumn(
                 modifier = modifier,
