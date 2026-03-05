@@ -10,6 +10,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.hrm.markdown.parser.ast.Image
 import com.hrm.markdown.parser.ast.Paragraph
+import com.hrm.markdown.parser.ast.HardLineBreak
 import com.hrm.markdown.parser.ast.SoftLineBreak
 import com.hrm.markdown.renderer.LocalMarkdownTheme
 import com.hrm.markdown.renderer.LocalRendererContext
@@ -26,8 +27,8 @@ internal fun ParagraphRenderer(
     node: Paragraph,
     modifier: Modifier = Modifier,
 ) {
-    val images = node.children.filter { it !is SoftLineBreak }.filterIsInstance<Image>()
-    val nonImageNonBreak = node.children.filter { it !is SoftLineBreak && it !is Image }
+    val images = node.children.filter { it !is SoftLineBreak && it !is HardLineBreak }.filterIsInstance<Image>()
+    val nonImageNonBreak = node.children.filter { it !is SoftLineBreak && it !is HardLineBreak && it !is Image }
 
     if (images.isNotEmpty() && nonImageNonBreak.isEmpty()) {
         // image-only paragraph: render as block-level images

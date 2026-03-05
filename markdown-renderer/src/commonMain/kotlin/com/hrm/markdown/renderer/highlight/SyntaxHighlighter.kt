@@ -330,7 +330,7 @@ internal fun tokenize(code: String, language: String): List<Token> {
                 while (i < len && (code[i] == '0' || code[i] == '1' || code[i] == '_')) i++
             } else {
                 while (i < len && (code[i].isDigit() || code[i] == '_')) i++
-                if (i < len && code[i] == '.') {
+                if (i < len && code[i] == '.' && i + 1 < len && code[i + 1].isDigit()) {
                     i++
                     while (i < len && (code[i].isDigit() || code[i] == '_')) i++
                 }
