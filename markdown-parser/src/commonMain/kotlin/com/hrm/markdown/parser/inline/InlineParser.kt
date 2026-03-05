@@ -328,6 +328,25 @@ private class InlineParserInstance(
             return
         }
 
+        // 尝试脚注引用：[^label]
+        if (!bracket.isImage) {
+            val footnoteRef = tryParseFootnoteReference(bracket)
+            if (footnoteRef != null) {
+                // 移除方括号内的所有节点
+                var cur = bracket.llNode.next
+                while (cur != null) {
+                    val next = cur.next
+                    removeLL(cur)
+                    cur.delimEntry?.let { removeDelim(it) }
+                    cur = next
+                }
+                // 用脚注引用节点替换方括号开始符
+                bracket.llNode.astNode = footnoteRef
+                bracketTop = bracket.prev
+                return
+            }
+        }
+
         // 尝试行内链接：[text](url "title")
         val linkResult = tryParseLinkTail()
         if (linkResult != null) {
@@ -468,10 +487,15 @@ private class InlineParserInstance(
         } else if (count == 1) {
             val charBefore = if (pos > 0) input[pos - 1] else '\n'
             val charAfter = if (scanner.pos < input.length) input[scanner.pos] else '\n'
+            val canOpen = !CharacterUtils.isUnicodeWhitespace(charAfter)
+            val canClose = !CharacterUtils.isUnicodeWhitespace(charBefore)
             val textNode = Text("~")
             val ll = appendLL(textNode)
-            // 单个 ~ 可能是下标（非标准，但作为扩展支持）
-            // 目前作为文本处理
+            if (canOpen || canClose) {
+                val entry = DelimEntry(ll, '~', 1, 1, canOpen, canClose)
+                ll.delimEntry = entry
+                pushDelim(entry)
+            }
         } else {
             appendLL(Text("~".repeat(count)))
         }
@@ -680,8 +704,13 @@ private class InlineParserInstance(
                     }
                 }
                 '~' -> {
-                    useCount = 2
-                    wrapperNode = Strikethrough()
+                    if (opener.count >= 2 && closer.count >= 2) {
+                        useCount = 2
+                        wrapperNode = Strikethrough()
+                    } else {
+                        useCount = 1
+                        wrapperNode = Subscript()
+                    }
                 }
                 '=' -> {
                     useCount = 2
@@ -764,7 +793,10 @@ private class InlineParserInstance(
             }
         }
         if (opener.char == '~') {
-            return opener.count >= 2 && closer.count >= 2
+            // 双 ~ 匹配删除线，单 ~ 匹配下标，不混合
+            if (opener.count >= 2 && closer.count >= 2) return true
+            if (opener.count == 1 && closer.count == 1) return true
+            return false
         }
         if (opener.char == '=' || opener.char == '+') {
             return opener.count >= 2 && closer.count >= 2
@@ -904,6 +936,32 @@ private class InlineParserInstance(
         }
 
         return null
+    }
+
+    private fun tryParseFootnoteReference(bracket: BracketEntry): FootnoteReference? {
+        // 提取方括号内的文本内容
+        val text = extractBracketText(bracket)
+        // 脚注引用格式：[^label]，内容必须以 ^ 开头
+        if (!text.startsWith("^")) return null
+        val label = text.substring(1)
+        if (label.isEmpty() || label.contains(' ') || label.contains('\n')) return null
+
+        // 不后跟 ( 或 [（否则可能是链接）
+        val pos = scanner.pos
+        if (pos < input.length && (input[pos] == '(' || input[pos] == '[')) return null
+
+        // 查找对应的脚注定义
+        val def = document.footnoteDefinitions[label]
+        val index = if (def != null) {
+            if (def.index == 0) {
+                def.index = document.footnoteDefinitions.values.count { it.index > 0 } + 1
+            }
+            def.index
+        } else {
+            0
+        }
+
+        return FootnoteReference(label = label, index = index)
     }
 
     private fun extractBracketText(bracket: BracketEntry): String {

@@ -398,9 +398,12 @@ class InlineParserTest {
         val doc = parser.parse("H~2~O")
         val para = doc.children.first()
         assertIs<Paragraph>(para)
-        // Subscript 使用单 ~ 包裹, 可能与 strikethrough(~~) 实现有交互
-        // 验证解析产出非空的行内节点
-        assertTrue(para.children.isNotEmpty())
+        // 验证下标节点被正确创建
+        assertTrue(para.children.any { it is Subscript })
+        val sub = para.children.filterIsInstance<Subscript>().first()
+        val text = sub.children.first()
+        assertIs<Text>(text)
+        assertEquals("2", text.literal)
     }
 
     @Test
@@ -418,10 +421,26 @@ class InlineParserTest {
     fun should_parse_footnote_definition_and_reference() {
         val input = "[^1]: This is footnote.\n\nText with [^1]."
         val doc = parser.parse(input)
-        // 验证文档能正常解析，包含脚注定义和段落
         assertTrue(doc.children.isNotEmpty())
         val para = doc.children.filterIsInstance<Paragraph>().firstOrNull()
         assertIs<Paragraph>(para)
+        // 验证脚注引用节点被正确创建
+        assertTrue(para.children.any { it is FootnoteReference })
+        val ref = para.children.filterIsInstance<FootnoteReference>().first()
+        assertEquals("1", ref.label)
+        assertTrue(ref.index > 0)
+    }
+
+    @Test
+    fun should_parse_footnote_reference_without_definition() {
+        val doc = parser.parse("Text with [^unknown].")
+        val para = doc.children.first()
+        assertIs<Paragraph>(para)
+        // 即使没有定义也创建 FootnoteReference 节点（index=0）
+        assertTrue(para.children.any { it is FootnoteReference })
+        val ref = para.children.filterIsInstance<FootnoteReference>().first()
+        assertEquals("unknown", ref.label)
+        assertEquals(0, ref.index)
     }
 
     // ────── Link Edge Cases ──────

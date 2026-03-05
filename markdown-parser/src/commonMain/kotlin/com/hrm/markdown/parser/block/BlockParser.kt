@@ -194,9 +194,43 @@ class BlockParser(
                     val paragraphNode = lastMatched.node
                     val paragraphParent = paragraphNode.parent as? ContainerNode
 
-                    // 对于 Setext 标题和表格，段落是被替换的，不仅仅是关闭
-                    if (newBlock.node is SetextHeading || newBlock.node is Table) {
-                        // 从父节点中移除段落节点，因为它将被替换
+                    if (newBlock.node is DefinitionDescription) {
+                        // 将段落转换为定义术语，包装在定义列表中
+                        val termContent = lastMatched.paragraphContent.toString().trim()
+                        finalizeBlock(lastMatched)
+                        openBlocks.removeAt(openBlocks.size - 1)
+
+                        val para = paragraphNode as Paragraph
+
+                        // 创建定义术语
+                        val term = DefinitionTerm()
+                        term.lineRange = para.lineRange
+
+                        // 创建定义列表
+                        val defList = DefinitionList()
+                        defList.lineRange = LineRange(para.lineRange.startLine, lineIdx + 1)
+
+                        // 将段落替换为定义列表
+                        paragraphParent?.replaceChild(para, defList)
+                        defList.appendChild(term)
+
+                        // 将术语内容存入 term（后续行内解析会处理）
+                        // 从段落的子节点复制到术语
+                        for (child in para.children.toList()) {
+                            term.appendChild(child)
+                        }
+
+                        val defListOb = OpenBlock(defList, contentStartLine = defList.lineRange.startLine, lastLineIndex = lineIdx)
+                        openBlocks.add(defListOb)
+
+                        // DefinitionDescription 将作为 defList 的子节点添加
+                        defList.appendChild(newBlock.node)
+                        openBlocks.add(newBlock)
+                        lastMatched = newBlock
+                        blockStarted = true
+                        continue
+                    } else if (newBlock.node is SetextHeading || newBlock.node is Table) {
+                        // 对于 Setext 标题和表格，段落是被替换的，不仅仅是关闭
                         paragraphParent?.removeChild(paragraphNode)
                     } else {
                         finalizeBlock(lastMatched)
@@ -334,6 +368,22 @@ class BlockParser(
                     }
                 }
             }
+            is DefinitionList -> true // 定义列表始终继续
+            is DefinitionDescription -> {
+                // 如果行有缩进则继续（类似列表项）
+                if (cursor.restIsBlank()) {
+                    true
+                } else {
+                    val snap = cursor.snapshot()
+                    val indent = cursor.advanceSpaces()
+                    if (indent >= 2) {
+                        true
+                    } else {
+                        cursor.restore(snap)
+                        false
+                    }
+                }
+            }
             // 单行块，永远不继续
             is Heading -> false
             is SetextHeading -> false
@@ -354,6 +404,7 @@ class BlockParser(
             is IndentedCodeBlock -> false // 不能中断段落
             is Table -> true // 表格的 header 来自段落内容，属于段落转换而非打断
             is MathBlock -> true
+            is DefinitionDescription -> true // 定义描述可以将段落转换为定义术语
             else -> true
         }
     }
@@ -410,6 +461,10 @@ class BlockParser(
 
         // 脚注定义
         tryStartFootnoteDefinition(cursor, lineIdx)?.let { return it }
+        cursor.restore(snap)
+
+        // 定义列表
+        tryStartDefinitionDescription(cursor, lineIdx, tip)?.let { return it }
         cursor.restore(snap)
 
         // 缩进代码块（必须在列表项检查之后）
@@ -908,6 +963,31 @@ class BlockParser(
         return ob
     }
 
+    private fun tryStartDefinitionDescription(cursor: LineCursor, lineIdx: Int, tip: OpenBlock): OpenBlock? {
+        // 定义描述行必须紧跟段落（作为术语）或已存在的定义列表
+        if (tip.paragraphContent == null && tip.node !is DefinitionList) return null
+
+        val snap = cursor.snapshot()
+        val indent = cursor.advanceSpaces(3)
+        if (cursor.isAtEnd || cursor.peek() != ':') {
+            cursor.restore(snap)
+            return null
+        }
+        cursor.advance() // 跳过 ':'
+        // 冒号后必须跟空格或 tab
+        if (cursor.isAtEnd || (cursor.peek() != ' ' && cursor.peek() != '\t')) {
+            cursor.restore(snap)
+            return null
+        }
+        cursor.advance() // 跳过空格
+
+        val desc = DefinitionDescription()
+        desc.lineRange = LineRange(lineIdx, lineIdx + 1)
+
+        val ob = OpenBlock(desc, contentStartLine = lineIdx, lastLineIndex = lineIdx)
+        return ob
+    }
+
     private fun tryStartFrontMatter(cursor: LineCursor, lineIdx: Int): OpenBlock? {
         val rest = cursor.rest().trim()
         val format = when {
@@ -1000,7 +1080,8 @@ class BlockParser(
                 body.lineRange = LineRange(body.lineRange.startLine, lineIdx + 1)
                 node.lineRange = LineRange(node.lineRange.startLine, lineIdx + 1)
             }
-            is ListBlock, is ListItem, is BlockQuote, is Document -> {
+            is ListBlock, is ListItem, is BlockQuote, is Document,
+            is DefinitionList, is DefinitionDescription -> {
                 // 容器块：创建新段落或处理懒延续
                 handleContainerLine(tip, cursor, lineIdx)
             }
@@ -1077,6 +1158,16 @@ class BlockParser(
             }
             is ListBlock -> {
                 // 标记空行用于松散列表检测
+            }
+            is DefinitionDescription -> {
+                // 空行结束定义描述
+                finalizeBlock(tip)
+                openBlocks.removeAt(openBlocks.size - 1)
+            }
+            is DefinitionList -> {
+                // 空行结束定义列表
+                finalizeBlock(tip)
+                openBlocks.removeAt(openBlocks.size - 1)
             }
             else -> {
                 // 其他块：空行
@@ -1195,9 +1286,50 @@ class BlockParser(
     private fun checkAdmonition(blockQuote: BlockQuote) {
         val firstChild = blockQuote.children.firstOrNull()
         if (firstChild !is Paragraph) return
-        // 查找该段落对应的 OpenBlock 获取其内容
-        // 检查原始文本内容是否匹配 [!TYPE] 模式
-        // 这将在行内解析阶段处理
+
+        // 从源文本重建段落首行内容
+        val lr = firstChild.lineRange
+        if (lr.lineCount <= 0) return
+        val firstLine = source.lineContent(lr.startLine).trimStart()
+        // 去除 > 前缀
+        val content = firstLine.let {
+            var s = it
+            if (s.startsWith('>')) {
+                s = s.drop(1)
+                if (s.startsWith(' ')) s = s.drop(1)
+            }
+            s.trimStart()
+        }
+
+        // 匹配 [!TYPE] 或 [!TYPE] 后跟标题文本
+        val match = ADMONITION_REGEX.find(content) ?: return
+        val type = match.groupValues[1]
+        val title = match.groupValues[2].trim()
+
+        // 创建 Admonition 节点，替换 BlockQuote
+        val admonition = Admonition(type = type, title = title)
+        admonition.lineRange = blockQuote.lineRange
+        admonition.sourceRange = blockQuote.sourceRange
+
+        // 检查首段是否仅含 [!TYPE] 行
+        val remainingContent = if (lr.lineCount > 1) {
+            // 首段有多行，将第一行之后的内容保留为新段落
+            val newPara = Paragraph()
+            newPara.lineRange = LineRange(lr.startLine + 1, lr.endLine)
+            admonition.appendChild(newPara)
+        } else {
+            // 首段只有 [!TYPE] 一行，移除它
+        }
+
+        // 将 blockQuote 的其余子节点（跳过首段）移到 admonition
+        val remainingChildren = blockQuote.children.drop(1)
+        for (child in remainingChildren) {
+            admonition.appendChild(child)
+        }
+
+        // 在父节点中用 Admonition 替换 BlockQuote
+        val parent = blockQuote.parent as? ContainerNode ?: return
+        parent.replaceChild(blockQuote, admonition)
     }
 
     private fun isListTight(list: ListBlock): Boolean {
@@ -1286,7 +1418,6 @@ class BlockParser(
     private fun parseInlineContentRecursive(node: Node, inlineParser: InlineParserInterface) {
         when (node) {
             is Paragraph -> {
-                // Find the OpenBlock content or reconstruct from source lines
                 val content = reconstructContent(node)
                 node.clearChildren()
                 inlineParser.parseInlines(content, node)
@@ -1306,12 +1437,17 @@ class BlockParser(
                 node.clearChildren()
                 inlineParser.parseInlines(content, node)
             }
+            is DefinitionTerm -> {
+                val content = reconstructContent(node)
+                node.clearChildren()
+                inlineParser.parseInlines(content, node)
+            }
             is ContainerNode -> {
                 for (child in node.children.toList()) {
                     parseInlineContentRecursive(child, inlineParser)
                 }
             }
-            else -> {} // 叶子节点不需要行内解析
+            else -> {}
         }
     }
 
@@ -1359,6 +1495,10 @@ class BlockParser(
             is TableCell -> {
                 // 使用解析时存储的单元格内容，而非从源文本行读取
                 node.rawContent
+            }
+            is DefinitionTerm -> {
+                val lines = (lr.startLine until lr.endLine).map { source.lineContent(it).trimStart() }
+                lines.joinToString("\n")
             }
             else -> {
                 val lines = (lr.startLine until lr.endLine).map { source.lineContent(it) }
@@ -1633,6 +1773,9 @@ class BlockParser(
 
         /** 表格分隔行单元格校验 */
         private val TABLE_DELIM_CELL_REGEX = Regex(":?-+:?")
+
+        /** Admonition 类型匹配：[!TYPE] 或 [!TYPE] title */
+        private val ADMONITION_REGEX = Regex("^\\[!([A-Z]+)\\]\\s*(.*)")
 
         /** HTML 块类型检测（类型 1-7） */
         private val HTML_TYPE1_REGEX = Regex("^<(script|pre|style|textarea)(\\s|>|$)", RegexOption.IGNORE_CASE)

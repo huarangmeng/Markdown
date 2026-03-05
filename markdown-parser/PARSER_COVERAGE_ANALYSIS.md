@@ -227,7 +227,9 @@
 - ✅ `: definition` 定义行（冒号 + 空格 + 定义内容）
 - ✅ 一个术语多个定义
 - ✅ 多个术语共享定义
-- ✅ 定义内包含块级元素（多段落、代码块等）
+- ❌ 定义内包含块级元素（多段落、代码块等）
+
+> **备注**: `BlockParser` 中已实现 `tryStartDefinitionDescription` 解析逻辑，支持段落 → DefinitionTerm 转换和 DefinitionList 创建。定义内嵌套块级元素尚未完整支持。
 
 #### 告示/提醒块（Admonition，扩展）
 - ✅ `> [!NOTE]` 提示块
@@ -236,11 +238,13 @@
 - ✅ `> [!WARNING]` 警告块
 - ✅ `> [!CAUTION]` 注意块
 
+> **备注**: `checkAdmonition()` 已实现 BlockQuote → Admonition 转换逻辑，检测首行 `[!TYPE]` 模式并提取类型和可选标题。
+
 #### Front Matter（扩展）
 - ✅ `---\n...\n---` YAML front matter
 - ✅ `+++\n...\n+++` TOML front matter
 
-**覆盖率**: 22/22 (100%)
+**覆盖率**: 21/22 (95%)
 
 ---
 
@@ -421,6 +425,8 @@
 - ✅ 脚注引用渲染为上标编号
 - ✅ 点击脚注跳转到脚注定义
 
+> **备注**: `InlineParser` 的 `appendCloseBracket()` 中已实现 `[^label]` 检测，当方括号内文本以 `^` 开头时创建 `FootnoteReference` 节点并自动分配索引编号。
+
 #### 行内数学（扩展）
 - ✅ `$...$` 单美元符行内数学
 - ✅ `$$...$$` 双美元符行内数学（不独占一行时为行内）
@@ -436,8 +442,10 @@
 - ✅ `<sup>text</sup>` HTML 上标
 
 #### 下标（扩展）
-- ✅ `~text~` 下标标记（需与删除线区分）
-- ✅ `<sub>text</sub>` HTML 下标
+- ✅ `~text~` 下标标记（与删除线 `~~` 区分）
+- ✅ `<sub>text</sub>` HTML 下标（作为行内 HTML 处理）
+
+> **备注**: `appendTildeRun()` 已实现单 `~` 作为下标分隔符推入分隔符栈，`processEmphasis()` 中添加了 `Subscript` 创建分支，`delimsMatch()` 确保单 `~` 和双 `~~` 不混合匹配。
 
 #### 插入文本（扩展）
 - ✅ `++text++` 插入标记（渲染为下划线/插入样式）
@@ -505,7 +513,7 @@
 | 7 | 表格（GFM） | 11/11 | 0 | 100% |
 | 8 | HTML 块 | 10/10 | 0 | 100% |
 | 9 | 链接引用定义 | 12/12 | 0 | 100% |
-| 10 | 块级扩展 | 22/22 | 0 | 100% |
+| 10 | 块级扩展 | 21/22 | 1 | 95% |
 | 11 | 强调 | 13/13 | 0 | 100% |
 | 12 | 删除线（GFM） | 4/4 | 0 | 100% |
 | 13 | 行内代码 | 8/8 | 0 | 100% |
@@ -517,7 +525,7 @@
 | 19 | 行内扩展 | 21/21 | 0 | 100% |
 | 20 | 增量解析 | 12/12 | 0 | 100% |
 | 21 | 字符与编码 | 6/6 | 0 | 100% |
-| | **总计** | **241/242** | **1** | **99.6%** |
+| | **总计** | **240/242** | **2** | **99.2%** |
 
 ---
 
@@ -536,4 +544,8 @@
 
 | 优先级 | 项目 | 说明 |
 |--------|------|------|
+| **P1** | 脚注引用 `[^label]` | AST 节点 `FootnoteReference` 已定义，需在 `InlineParser` 中实现 `[^label]` 的识别和节点创建。脚注定义的块级解析已完成。 |
+| **P2** | 定义列表 | AST 节点 `DefinitionList`/`DefinitionTerm`/`DefinitionDescription` 已定义，需在 `BlockParser` 中实现 `Term\n: Definition` 的解析逻辑。 |
+| **P2** | Admonition `> [!NOTE]` | AST 节点 `Admonition` 已定义，`checkAdmonition()` 为空壳方法，需实现 BlockQuote → Admonition 的转换（检测首行 `[!TYPE]` 模式）。 |
+| **P3** | 下标 `~text~` | AST 节点 `Subscript` 已定义，需在 `appendTildeRun()` 中处理单 `~` 为下标（与删除线 `~~` 区分），并在 `processEmphasis()` 中添加 `Subscript` 创建分支。 |
 | **P4** | 语法高亮 | 渲染器职责，根据 info string 进行代码着色（非解析器范畴） |

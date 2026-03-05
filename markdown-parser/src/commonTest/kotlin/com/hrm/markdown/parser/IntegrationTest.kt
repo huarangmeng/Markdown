@@ -196,8 +196,8 @@ class IntegrationTest {
     @Test
     fun should_parse_admonition_like_syntax() {
         val doc = parser.parse("> [!NOTE]\n> This is a note.")
-        val bq = doc.children.first()
-        assertIs<BlockQuote>(bq)
+        val admonition = doc.children.first()
+        assertIs<Admonition>(admonition)
     }
 
     @Test

@@ -1103,19 +1103,45 @@ class DefinitionListTest {
     @Test
     fun should_parse_definition_list() {
         val doc = parser.parse("Term\n: Definition")
-        assertTrue(doc.children.isNotEmpty())
+        val defList = doc.children.first()
+        assertIs<DefinitionList>(defList)
+        // 应包含术语和描述
+        assertTrue(defList.children.any { it is DefinitionTerm })
+        assertTrue(defList.children.any { it is DefinitionDescription })
     }
 
     @Test
     fun should_parse_multiple_definitions() {
         val doc = parser.parse("Term\n: Definition 1\n: Definition 2")
-        assertTrue(doc.children.isNotEmpty())
+        val defList = doc.children.first()
+        assertIs<DefinitionList>(defList)
+        val descriptions = defList.children.filterIsInstance<DefinitionDescription>()
+        assertTrue(descriptions.size >= 2)
     }
 
     @Test
     fun should_parse_multiple_terms_and_definitions() {
         val doc = parser.parse("Term 1\n: Def 1\n\nTerm 2\n: Def 2")
         assertTrue(doc.children.isNotEmpty())
+        // 空行分隔后每组 term+def 各自成为独立的定义列表
+        assertTrue(doc.children.any { it is DefinitionList })
+    }
+
+    @Test
+    fun should_parse_definition_term_with_inline_content() {
+        val doc = parser.parse("**Bold** Term\n: Definition")
+        val defList = doc.children.first()
+        assertIs<DefinitionList>(defList)
+        val term = defList.children.filterIsInstance<DefinitionTerm>().first()
+        assertTrue(term.children.any { it is StrongEmphasis })
+    }
+
+    @Test
+    fun should_not_parse_colon_without_space_as_definition() {
+        val doc = parser.parse("Term\n:NoSpace")
+        val first = doc.children.first()
+        // 没有空格不应该解析为定义列表
+        assertTrue(first !is DefinitionList)
     }
 }
 
@@ -1128,20 +1154,39 @@ class AdmonitionTest {
     @Test
     fun should_parse_note_admonition() {
         val doc = parser.parse("> [!NOTE]\n> This is a note.")
-        val bq = doc.children.first()
-        assertIs<BlockQuote>(bq)
+        val admonition = doc.children.first()
+        assertIs<Admonition>(admonition)
+        assertEquals("NOTE", admonition.type)
     }
 
     @Test
     fun should_parse_warning_admonition() {
         val doc = parser.parse("> [!WARNING]\n> Be careful!")
-        val bq = doc.children.first()
-        assertIs<BlockQuote>(bq)
+        val admonition = doc.children.first()
+        assertIs<Admonition>(admonition)
+        assertEquals("WARNING", admonition.type)
     }
 
     @Test
     fun should_parse_tip_admonition() {
         val doc = parser.parse("> [!TIP]\n> A useful tip.")
+        val admonition = doc.children.first()
+        assertIs<Admonition>(admonition)
+        assertEquals("TIP", admonition.type)
+    }
+
+    @Test
+    fun should_parse_admonition_with_title() {
+        val doc = parser.parse("> [!NOTE] Custom Title\n> Content here.")
+        val admonition = doc.children.first()
+        assertIs<Admonition>(admonition)
+        assertEquals("NOTE", admonition.type)
+        assertEquals("Custom Title", admonition.title)
+    }
+
+    @Test
+    fun should_not_convert_regular_blockquote() {
+        val doc = parser.parse("> Normal blockquote")
         val bq = doc.children.first()
         assertIs<BlockQuote>(bq)
     }
