@@ -540,8 +540,28 @@ class IncrementalEngine(
                 sb.append("![")
                 for (child in node.children) appendNodeText(child, sb)
                 sb.append("](").append(node.destination)
+                // 重建 =WxH 尺寸后缀
+                if (node.imageWidth != null || node.imageHeight != null) {
+                    sb.append(" =")
+                    sb.append(node.imageWidth?.toString() ?: "")
+                    sb.append("x")
+                    sb.append(node.imageHeight?.toString() ?: "")
+                }
                 if (node.title != null) sb.append(" \"").append(node.title).append("\"")
                 sb.append(")")
+                // 重建属性块
+                if (node.attributes.isNotEmpty()) {
+                    sb.append("{")
+                    for ((key, value) in node.attributes) {
+                        when (key) {
+                            "class" -> value.split(" ").filter { it.isNotEmpty() }.forEach { sb.append(".").append(it).append(" ") }
+                            "id" -> sb.append("#").append(value).append(" ")
+                            else -> if (value.isNotEmpty()) sb.append(key).append("=").append(value).append(" ") else sb.append(key).append(" ")
+                        }
+                    }
+                    sb.trimEnd()
+                    sb.append("}")
+                }
             }
             is EscapedChar -> sb.append("\\").append(node.literal)
             is SoftLineBreak -> sb.append("\n")

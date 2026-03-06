@@ -71,11 +71,31 @@ class Link(
 
 /**
  * 图片：`![alt](url "title")`。
+ *
+ * 支持扩展语法：
+ * - `![alt](url =200x300)` 指定宽高（像素）
+ * - `![alt](url =200x)` 仅指定宽度
+ * - `![alt](url =x300)` 仅指定高度
+ * - `![alt](url){.rounded #img1 loading=lazy align=right}` 自定义属性
  */
 class Image(
     var destination: String = "",
-    var title: String? = null
+    var title: String? = null,
+    /** 图片宽度（像素），null 表示未指定 */
+    var imageWidth: Int? = null,
+    /** 图片高度（像素），null 表示未指定 */
+    var imageHeight: Int? = null,
+    /** 自定义属性映射，如 class, id, loading, align 等 */
+    var attributes: Map<String, String> = emptyMap(),
 ) : ContainerNode() {
+    /** CSS class 列表（从 attributes 或 `.class` 语法提取） */
+    val cssClasses: List<String>
+        get() = attributes["class"]?.split(" ")?.filter { it.isNotEmpty() } ?: emptyList()
+
+    /** CSS ID（从 attributes 或 `#id` 语法提取） */
+    val cssId: String?
+        get() = attributes["id"]
+
     override fun <R> accept(visitor: NodeVisitor<R>): R = visitor.visitImage(this)
 }
 

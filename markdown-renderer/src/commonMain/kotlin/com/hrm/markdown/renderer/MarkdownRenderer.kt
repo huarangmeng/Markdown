@@ -31,6 +31,7 @@ import kotlinx.coroutines.delay
  * @param modifier Compose Modifier
  * @param theme 可选的自定义主题
  * @param scrollState 滚动状态，外部可控制滚动位置
+ * @param imageContent 自定义图片渲染组件，null 则使用默认占位渲染
  * @param onLinkClick 链接点击回调
  */
 @Composable
@@ -39,6 +40,7 @@ fun Markdown(
     modifier: Modifier = Modifier,
     theme: MarkdownTheme = MarkdownTheme(),
     scrollState: ScrollState = rememberScrollState(),
+    imageContent: MarkdownImageRenderer? = null,
     onLinkClick: ((String) -> Unit)? = null,
 ) {
     val document = remember(markdown) {
@@ -49,6 +51,7 @@ fun Markdown(
         modifier = modifier,
         theme = theme,
         scrollState = scrollState,
+        imageContent = imageContent,
         onLinkClick = onLinkClick,
     )
 }
@@ -74,6 +77,7 @@ fun Markdown(
  * @param isStreaming 是否处于流式生成中。为 true 时跳过 [SelectionContainer] 包裹，
  *   避免 SelectionContainer 在高频内容变化时对内部布局做额外的 intrinsic 测量导致抖动；
  *   流式结束后设为 false，自动恢复文本选择能力。
+ * @param imageContent 自定义图片渲染组件，null 则使用默认占位渲染
  */
 @Composable
 fun Markdown(
@@ -82,6 +86,7 @@ fun Markdown(
     theme: MarkdownTheme = MarkdownTheme(),
     scrollState: ScrollState = rememberScrollState(),
     isStreaming: Boolean = false,
+    imageContent: MarkdownImageRenderer? = null,
     onLinkClick: ((String) -> Unit)? = null,
 ) {
     InnerMarkdown(
@@ -90,6 +95,7 @@ fun Markdown(
         theme = theme,
         scrollState = scrollState,
         isStreaming = isStreaming,
+        imageContent = imageContent,
         onLinkClick = onLinkClick,
     )
 }
@@ -101,6 +107,7 @@ internal fun InnerMarkdown(
     theme: MarkdownTheme = MarkdownTheme(),
     scrollState: ScrollState = rememberScrollState(),
     isStreaming: Boolean = false,
+    imageContent: MarkdownImageRenderer? = null,
     onLinkClick: ((String) -> Unit)? = null,
 ) {
     // ═══ 流式节流：200ms 采样一次，减少高频重组 ═══
@@ -144,6 +151,7 @@ internal fun InnerMarkdown(
         ProvideRendererContext(
             document = renderDocument,
             onLinkClick = onLinkClick,
+            imageContent = imageContent,
         ) {
             // 流式生成期间跳过 SelectionContainer：
             // SelectionContainer 在内容高频变化时会对内部布局做额外的 intrinsic 测量

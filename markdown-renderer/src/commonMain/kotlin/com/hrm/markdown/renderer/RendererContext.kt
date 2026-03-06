@@ -30,6 +30,7 @@ internal val LocalRendererDocument = compositionLocalOf { Document() }
 internal fun ProvideRendererContext(
     document: Document,
     onLinkClick: ((String) -> Unit)?,
+    imageContent: MarkdownImageRenderer? = null,
     content: @Composable () -> Unit,
 ) {
     // 用 rememberUpdatedState 包装 onLinkClick：
@@ -48,6 +49,7 @@ internal fun ProvideRendererContext(
     CompositionLocalProvider(
         LocalOnLinkClick provides stableOnLinkClick,
         LocalRendererDocument provides document,
+        LocalImageRenderer provides imageContent,
     ) {
         content()
     }

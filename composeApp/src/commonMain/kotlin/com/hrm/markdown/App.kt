@@ -1782,7 +1782,21 @@ private val normalDemoMarkdown = """
 
 ## 链接与图片
 
-这是一个 [链接](https://example.com "示例")。自动链接：<https://example.com>
+这是一个 [链接](https://kotlinlang.org "Kotlin 官网")。自动链接：<https://kotlinlang.org>
+
+### 图片高级特性
+
+基本图片：![Google Logo](https://www.google.com/images/branding/googlelogo/2x/googlelogo_color_272x92dp.png)
+
+指定尺寸：![风景](https://images.unsplash.com/photo-1472214103451-9374bd1c798e?w=200&h=100&fit=crop =200x100)
+
+仅指定宽度：![山脉](https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=300&h=200&fit=crop =300x)
+
+带标题和尺寸：![城市夜景](https://images.unsplash.com/photo-1444723121867-7a241cacace9?w=150&h=150&fit=crop =150x150 "城市夜景")
+
+带属性：![自然风光](https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=400&h=250&fit=crop){.rounded .shadow loading=lazy}
+
+尺寸 + 属性：![海滨日落](https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=400&h=200&fit=crop =400x200){.hero-image #main-banner align=center}
 
 ## 引用
 

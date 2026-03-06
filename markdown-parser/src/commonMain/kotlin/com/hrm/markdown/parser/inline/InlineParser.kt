@@ -348,15 +348,26 @@ private class InlineParserInstance(
         }
 
         // 尝试行内链接：[text](url "title")
-        val linkResult = tryParseLinkTail()
+        val linkResult = tryParseLinkTail(bracket.isImage)
         if (linkResult != null) {
             // 处理方括号内容中的强调
             processEmphasis(bracket.prevDelim)
 
             val node: ContainerNode = if (bracket.isImage) {
-                Image(destination = linkResult.first, title = linkResult.second)
+                val img = Image(
+                    destination = linkResult.destination,
+                    title = linkResult.title,
+                    imageWidth = linkResult.width,
+                    imageHeight = linkResult.height,
+                )
+                // 解析图片后的属性块 {.class #id key=value}
+                val attrs = tryParseAttributes()
+                if (attrs != null) {
+                    img.attributes = attrs
+                }
+                img
             } else {
-                Link(destination = linkResult.first, title = linkResult.second)
+                Link(destination = linkResult.destination, title = linkResult.title)
             }
 
             // 收集方括号开始符和当前位置之间的节点
@@ -390,7 +401,13 @@ private class InlineParserInstance(
             processEmphasis(bracket.prevDelim)
 
             val node: ContainerNode = if (bracket.isImage) {
-                Image(destination = refResult.first, title = refResult.second)
+                val img = Image(destination = refResult.first, title = refResult.second)
+                // 引用链接后也支持属性块
+                val attrs = tryParseAttributes()
+                if (attrs != null) {
+                    img.attributes = attrs
+                }
+                img
             } else {
                 Link(destination = refResult.first, title = refResult.second)
             }
@@ -806,7 +823,21 @@ private class InlineParserInstance(
 
     // ────── 链接解析 ──────
 
-    private fun tryParseLinkTail(): Pair<String, String?>? {
+    /**
+     * 链接尾部解析结果。
+     */
+    private data class LinkTailResult(
+        val destination: String,
+        val title: String?,
+        val width: Int? = null,
+        val height: Int? = null,
+    )
+
+    /**
+     * 解析链接尾部 `(url "title")` 或 `(url =WxH "title")`。
+     * 当 [isImage] 为 true 时，还会尝试解析 `=WxH` 尺寸后缀。
+     */
+    private fun tryParseLinkTail(isImage: Boolean = false): LinkTailResult? {
         val pos = scanner.pos
         if (pos >= input.length || input[pos] != '(') return null
 
@@ -818,13 +849,26 @@ private class InlineParserInstance(
         // 空链接 ()
         if (input[i] == ')') {
             scanner.pos = i + 1
-            return Pair("", null)
+            return LinkTailResult("", null)
         }
 
         val (dest, nextPos, isAngleBracket) = parseLinkDestination(i) ?: return null
         i = nextPos
 
         while (i < input.length && (input[i] == ' ' || input[i] == '\t' || input[i] == '\n')) i++
+
+        // 对图片尝试解析 =WxH 尺寸后缀
+        var imgWidth: Int? = null
+        var imgHeight: Int? = null
+        if (isImage && i < input.length && input[i] == '=') {
+            val sizeResult = parseImageSize(i)
+            if (sizeResult != null) {
+                imgWidth = sizeResult.width
+                imgHeight = sizeResult.height
+                i = sizeResult.nextPos
+                while (i < input.length && (input[i] == ' ' || input[i] == '\t' || input[i] == '\n')) i++
+            }
+        }
 
         var title: String? = null
         if (i < input.length && (input[i] == '"' || input[i] == '\'' || input[i] == '(')) {
@@ -838,7 +882,130 @@ private class InlineParserInstance(
         scanner.pos = i + 1
         // 仅对非尖括号包裹的 URL 进行百分号编码
         val finalDest = if (!isAngleBracket) CharacterUtils.percentEncodeUrl(dest) else dest
-        return Pair(finalDest, title)
+        return LinkTailResult(finalDest, title, imgWidth, imgHeight)
+    }
+
+    /**
+     * 解析图片尺寸后缀 `=WxH`、`=Wx`、`=xH`。
+     * 例如 `=200x300`、`=200x`、`=x300`。
+     */
+    private data class ImageSizeResult(val width: Int?, val height: Int?, val nextPos: Int)
+
+    private fun parseImageSize(start: Int): ImageSizeResult? {
+        var i = start
+        if (i >= input.length || input[i] != '=') return null
+        i++ // 跳过 '='
+
+        // 解析宽度（可选）
+        val widthStart = i
+        while (i < input.length && input[i].isDigit()) i++
+        val widthStr = input.substring(widthStart, i)
+
+        // 期望 'x' 或 'X' 分隔符
+        if (i >= input.length || (input[i] != 'x' && input[i] != 'X')) {
+            // 没有 x 分隔符，仅有数字也可以作为纯宽度
+            if (widthStr.isNotEmpty()) {
+                return ImageSizeResult(widthStr.toIntOrNull(), null, i)
+            }
+            return null
+        }
+        i++ // 跳过 'x'
+
+        // 解析高度（可选）
+        val heightStart = i
+        while (i < input.length && input[i].isDigit()) i++
+        val heightStr = input.substring(heightStart, i)
+
+        val width = widthStr.takeIf { it.isNotEmpty() }?.toIntOrNull()
+        val height = heightStr.takeIf { it.isNotEmpty() }?.toIntOrNull()
+
+        // 至少需要指定宽度或高度之一
+        if (width == null && height == null) return null
+
+        return ImageSizeResult(width, height, i)
+    }
+
+    /**
+     * 尝试解析属性块 `{.class #id key=value ...}`。
+     * 返回属性映射，如果没有属性块则返回 null。
+     */
+    private fun tryParseAttributes(): Map<String, String>? {
+        val pos = scanner.pos
+        if (pos >= input.length || input[pos] != '{') return null
+
+        var i = pos + 1
+        val attrs = mutableMapOf<String, String>()
+        val classes = mutableListOf<String>()
+
+        while (i < input.length && input[i] != '}') {
+            // 跳过空白
+            while (i < input.length && (input[i] == ' ' || input[i] == '\t')) i++
+            if (i >= input.length || input[i] == '}') break
+
+            when (input[i]) {
+                '.' -> {
+                    // CSS class: .classname
+                    i++ // 跳过 '.'
+                    val nameStart = i
+                    while (i < input.length && input[i] != ' ' && input[i] != '\t' &&
+                        input[i] != '}' && input[i] != '.' && input[i] != '#'
+                    ) i++
+                    val className = input.substring(nameStart, i)
+                    if (className.isNotEmpty()) classes.add(className)
+                }
+                '#' -> {
+                    // CSS ID: #idname
+                    i++ // 跳过 '#'
+                    val nameStart = i
+                    while (i < input.length && input[i] != ' ' && input[i] != '\t' &&
+                        input[i] != '}' && input[i] != '.' && input[i] != '#'
+                    ) i++
+                    val idName = input.substring(nameStart, i)
+                    if (idName.isNotEmpty()) attrs["id"] = idName
+                }
+                else -> {
+                    // key=value 或 key="value" 或 key='value'
+                    val keyStart = i
+                    while (i < input.length && input[i] != '=' && input[i] != ' ' &&
+                        input[i] != '\t' && input[i] != '}'
+                    ) i++
+                    val key = input.substring(keyStart, i)
+                    if (i < input.length && input[i] == '=') {
+                        i++ // 跳过 '='
+                        val value: String
+                        if (i < input.length && (input[i] == '"' || input[i] == '\'')) {
+                            val quote = input[i]
+                            i++ // 跳过引号
+                            val valStart = i
+                            while (i < input.length && input[i] != quote) i++
+                            value = input.substring(valStart, i)
+                            if (i < input.length) i++ // 跳过闭合引号
+                        } else {
+                            val valStart = i
+                            while (i < input.length && input[i] != ' ' && input[i] != '\t' &&
+                                input[i] != '}'
+                            ) i++
+                            value = input.substring(valStart, i)
+                        }
+                        if (key.isNotEmpty()) attrs[key] = value
+                    } else {
+                        // 没有 = 的布尔属性
+                        if (key.isNotEmpty()) attrs[key] = ""
+                    }
+                }
+            }
+        }
+
+        // 必须以 } 关闭
+        if (i >= input.length || input[i] != '}') return null
+        i++ // 跳过 '}'
+
+        if (classes.isNotEmpty()) {
+            attrs["class"] = classes.joinToString(" ")
+        }
+
+        scanner.pos = i
+        return attrs
     }
 
     private data class LinkDestResult(val dest: String, val nextPos: Int, val isAngleBracket: Boolean)

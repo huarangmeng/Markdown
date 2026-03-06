@@ -129,18 +129,36 @@ private fun AnnotatedString.Builder.renderInlineNode(
 
         is Image -> {
             val id = "img_${node.hashCode()}"
-            appendInlineContent(id, node.title ?: node.destination)
+            val altText = node.children.filterIsInstance<Text>().joinToString("") { it.literal }
+
+            // 计算占位符尺寸
+            val placeholderWidth = (node.imageWidth?.toFloat() ?: 200f)
+            val placeholderHeight = (node.imageHeight?.toFloat() ?: 150f)
+
+            appendInlineContent(id, node.title ?: altText.ifEmpty { node.destination })
             inlineContents[id] = InlineTextContent(
                 placeholder = Placeholder(
-                    width = 200.sp,
-                    height = 150.sp,
+                    width = placeholderWidth.sp,
+                    height = placeholderHeight.sp,
                     placeholderVerticalAlign = PlaceholderVerticalAlign.AboveBaseline,
                 ),
             ) {
-                androidx.compose.material3.Text(
-                    text = node.children.filterIsInstance<Text>().joinToString("") { it.literal },
-                    style = theme.bodyStyle.copy(fontStyle = FontStyle.Italic),
+                val imageData = com.hrm.markdown.renderer.MarkdownImageData(
+                    url = node.destination,
+                    altText = altText,
+                    title = node.title,
+                    width = node.imageWidth,
+                    height = node.imageHeight,
+                    attributes = node.attributes,
                 )
+                val customRenderer = com.hrm.markdown.renderer.LocalImageRenderer.current
+                if (customRenderer != null) {
+                    customRenderer(imageData, androidx.compose.ui.Modifier)
+                } else {
+                    com.hrm.markdown.renderer.DefaultMarkdownImage(
+                        data = imageData,
+                    )
+                }
             }
         }
 

@@ -47,9 +47,30 @@ kotlin {
             implementation(libs.compose.components.resources)
 
             implementation(libs.bundles.latex)
+
+            // 图片加载：Coil3 + Ktor3 网络引擎
+            implementation(libs.coil.compose)
+            implementation(libs.coil.network.ktor3)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
+        }
+        androidMain.dependencies {
+            implementation(libs.ktor.client.android)
+        }
+        iosMain.dependencies {
+            implementation(libs.ktor.client.darwin)
+        }
+        jvmMain.dependencies {
+            implementation(libs.ktor.client.java)
+        }
+        jsMain.dependencies {
+            implementation(libs.ktor.client.js)
+        }
+        val wasmJsMain by getting {
+            dependencies {
+                implementation(libs.ktor.client.js)
+            }
         }
     }
 }
