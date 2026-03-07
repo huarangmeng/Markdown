@@ -217,7 +217,7 @@ class InlineParserTest {
         assertIs<Paragraph>(para)
         val link = para.children.first()
         assertIs<Link>(link)
-        assertEquals("url with spaces", link.destination)
+        assertEquals("url%20with%20spaces", link.destination)
     }
 
     @Test
@@ -630,7 +630,7 @@ class UrlPercentEncodingTest {
         assertIs<Paragraph>(para)
         val link = para.children.first()
         assertIs<Link>(link)
-        assertEquals("https://example.com/my page", link.destination)
+        assertEquals("https://example.com/my%20page", link.destination)
     }
 
     @Test

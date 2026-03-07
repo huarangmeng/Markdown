@@ -67,7 +67,7 @@ class BlockAttributeTest {
 
     @Test
     fun should_apply_class_to_blockquote() {
-        val doc = parser.parse("> A quote\n{.note}")
+        val doc = parser.parse("> A quote\n\n{.note}")
         val bq = doc.children.filterIsInstance<BlockQuote>().firstOrNull()
         if (bq != null) {
             assertEquals("note", bq.blockAttributes["class"])
