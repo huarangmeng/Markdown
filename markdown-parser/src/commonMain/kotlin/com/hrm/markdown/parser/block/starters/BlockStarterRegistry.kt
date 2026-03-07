@@ -68,13 +68,14 @@ class BlockStarterRegistry {
      * 检查指定的块开启器是否能中断段落。
      */
     fun canInterruptParagraph(block: OpenBlock): Boolean {
-        // 通过 starter tag 匹配
         val tag = block.starterTag
         if (tag != null) {
             val starter = starters.find { it::class.simpleName == tag }
+            if (starter is HtmlBlockStarter) {
+                return starter.canInterruptParagraphForType(block.htmlType)
+            }
             if (starter != null) return starter.canInterruptParagraph
         }
-        // 默认允许
         return true
     }
 
