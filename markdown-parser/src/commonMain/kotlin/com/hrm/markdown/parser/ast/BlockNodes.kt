@@ -1,5 +1,7 @@
 package com.hrm.markdown.parser.ast
 
+import com.hrm.markdown.parser.core.Attributes
+
 /**
  * 文档的根节点。
  */
@@ -79,7 +81,8 @@ class FencedCodeBlock(
     var fenceChar: Char = '`',
     var fenceLength: Int = 3,
     var fenceIndent: Int = 0,
-    override var literal: String = ""
+    override var literal: String = "",
+    var attributes: Attributes = Attributes(),
 ) : LeafNode() {
     override fun <R> accept(visitor: NodeVisitor<R>): R = visitor.visitFencedCodeBlock(this)
 }

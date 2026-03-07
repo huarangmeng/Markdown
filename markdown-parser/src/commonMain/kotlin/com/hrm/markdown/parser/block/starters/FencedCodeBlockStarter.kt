@@ -3,6 +3,7 @@ package com.hrm.markdown.parser.block.starters
 import com.hrm.markdown.parser.LineRange
 import com.hrm.markdown.parser.ast.FencedCodeBlock
 import com.hrm.markdown.parser.block.OpenBlock
+import com.hrm.markdown.parser.core.AttributeParser
 import com.hrm.markdown.parser.core.LineCursor
 
 /**
@@ -31,14 +32,17 @@ internal class FencedCodeBlockStarter : BlockStarter {
 
         cursor.advance(cursor.remaining)
 
-        val language = info.split(INFO_LANG_SPLIT_REGEX).firstOrNull()?.trim() ?: ""
+        // parse {.class #id key=value} from info-string, leave the rest for language extraction
+        val (attributes, infoWithoutAttrs) = AttributeParser.parse(info)
+        val language = infoWithoutAttrs.split(INFO_LANG_SPLIT_REGEX).firstOrNull()?.trim() ?: ""
 
         val block = FencedCodeBlock(
             info = info,
             language = language,
             fenceChar = c,
             fenceLength = fenceLength,
-            fenceIndent = indent
+            fenceIndent = indent,
+            attributes = attributes,
         )
         block.lineRange = LineRange(lineIdx, lineIdx + 1)
 
