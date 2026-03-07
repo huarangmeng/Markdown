@@ -398,7 +398,7 @@ class BlockParser(
                         false
                     } else {
                         val snap = cursor.snapshot()
-                        val indent = cursor.advanceSpaces()
+                        val indent = cursor.advanceSpaces(node.contentIndent)
                         if (indent >= node.contentIndent) {
                             if (ob.blankLineCount > 0) node.containsBlankLine = true
                             true
@@ -624,8 +624,7 @@ class BlockParser(
                 tip.contentLines.add(lineContent)
             }
             is HtmlBlock -> {
-                tip.contentLines.add(cursor.rest())
-                // 检查结束条件
+                tip.contentLines.add(source.lineContent(lineIdx))
                 if (checkHtmlBlockEnd(source.lineContent(lineIdx), tip.htmlType)) {
                     finalizeBlock(tip)
                     openBlocks.removeAt(openBlocks.size - 1)
