@@ -52,4 +52,6 @@ interface MarkdownFlavour {
      * @see com.hrm.markdown.parser.block.postprocessors.PostProcessor
      */
     val postProcessors: List<PostProcessor>
+
+    val enableGfmAutolinks: Boolean get() = true
 }

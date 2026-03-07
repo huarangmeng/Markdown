@@ -184,7 +184,7 @@ class IncrementalEngine(
             registry = buildRegistry(newSource),
             inlineParserFactory = { doc ->
                 doc.linkDefinitions.putAll(_document.linkDefinitions)
-                InlineParser(doc, customEmojiMap, enableAsciiEmoticons)
+                InlineParser(doc, customEmojiMap, enableAsciiEmoticons, flavour.enableGfmAutolinks)
             }
         )
 
@@ -250,7 +250,7 @@ class IncrementalEngine(
         val parser = BlockParser(
             source = _sourceText,
             registry = buildRegistry(_sourceText),
-            inlineParserFactory = { doc -> InlineParser(doc, customEmojiMap, enableAsciiEmoticons) }
+            inlineParserFactory = { doc -> InlineParser(doc, customEmojiMap, enableAsciiEmoticons, flavour.enableGfmAutolinks) }
         )
         _document = parser.parse()
 
@@ -293,7 +293,7 @@ class IncrementalEngine(
             registry = buildRegistry(newSource),
             inlineParserFactory = { doc ->
                 doc.linkDefinitions.putAll(_document.linkDefinitions)
-                InlineParser(doc, customEmojiMap, enableAsciiEmoticons)
+                InlineParser(doc, customEmojiMap, enableAsciiEmoticons, flavour.enableGfmAutolinks)
             }
         )
 
@@ -518,7 +518,7 @@ class IncrementalEngine(
         val repairedContent = inlineText + repairSuffix
         val tempDoc = Document()
         tempDoc.linkDefinitions.putAll(_document.linkDefinitions)
-        val inlineParser = InlineParser(tempDoc, customEmojiMap, enableAsciiEmoticons)
+        val inlineParser = InlineParser(tempDoc, customEmojiMap, enableAsciiEmoticons, flavour.enableGfmAutolinks)
         node.clearChildren()
         inlineParser.parseInlines(repairedContent, node)
     }

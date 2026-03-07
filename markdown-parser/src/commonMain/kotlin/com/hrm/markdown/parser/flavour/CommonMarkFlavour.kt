@@ -75,4 +75,5 @@ object CommonMarkFlavour : MarkdownFlavour {
      */
     override val postProcessors: List<PostProcessor> = emptyList()
 
+    override val enableGfmAutolinks: Boolean = false
 }

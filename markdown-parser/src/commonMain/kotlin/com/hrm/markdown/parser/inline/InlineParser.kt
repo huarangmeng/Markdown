@@ -17,11 +17,12 @@ class InlineParser(
     private val customEmojiMap: Map<String, String> = emptyMap(),
     /** 是否启用 ASCII 表情自动转换 */
     private val enableAsciiEmoticons: Boolean = false,
+    private val enableGfmAutolinks: Boolean = true,
 ) : BlockParser.InlineParserInterface {
 
     override fun parseInlines(content: String, parent: ContainerNode) {
         if (content.isEmpty()) return
-        val parser = InlineParserInstance(content, document, customEmojiMap, enableAsciiEmoticons)
+        val parser = InlineParserInstance(content, document, customEmojiMap, enableAsciiEmoticons, enableGfmAutolinks)
         val nodes = parser.parse()
         for (node in nodes) {
             parent.appendChild(node)
@@ -154,6 +155,7 @@ private class InlineParserInstance(
     private val document: Document,
     private val customEmojiMap: Map<String, String> = emptyMap(),
     private val enableAsciiEmoticons: Boolean = false,
+    private val enableGfmAutolinks: Boolean = true,
 ) {
     // 链表包装 AST 节点
     private class LLNode(var astNode: Node) {
@@ -846,8 +848,8 @@ private class InlineParserInstance(
                 if (matched) return
             }
 
-            // GFM 自动链接检测（在任意位置触发，不仅仅是文本开头）
-            if (c == 'h' || c == 'H' || c == 'w' || c == 'W') {
+            // GFM bare URL autolink detection
+            if (enableGfmAutolinks && (c == 'h' || c == 'H' || c == 'w' || c == 'W')) {
                 val remaining = input.substring(scanner.pos)
                 val urlMatch = InlineParser.GFM_URL_REGEX.find(remaining)
                 if (urlMatch != null && urlMatch.range.first == 0) {
