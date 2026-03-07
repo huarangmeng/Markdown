@@ -744,6 +744,7 @@ class BlockParser(
                 node.lineRange = LineRange(ob.contentStartLine, ob.lastLineIndex + 1)
             }
             is Heading -> {
+                node.rawContent = ob.contentLines.joinToString("\n")
                 node.lineRange = LineRange(ob.contentStartLine, ob.lastLineIndex + 1)
             }
             is SetextHeading -> {
@@ -1077,7 +1078,9 @@ class BlockParser(
         if (lr.lineCount <= 0) return ""
         return when (node) {
             is Heading -> {
-                // 对于 ATX 标题，内容已在解析时捕获
+                if (node.rawContent != null) {
+                    return node.rawContent!!
+                }
                 val line = source.lineContent(lr.startLine)
                 val stripped = line.trimStart()
                 val hashes = stripped.takeWhile { it == '#' }

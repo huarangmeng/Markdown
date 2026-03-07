@@ -29,6 +29,9 @@ class Heading(
     /** 来自 `{#id}` 语法的可选自定义 ID。 */
     var customId: String? = null
 
+    /** 解析阶段捕获的原始内容（已去除块级标记如块引用前缀），供行内解析使用。 */
+    var rawContent: String? = null
+
     /** 自动生成的标题 ID（基于标题文本的 slug）。若有 customId 则优先使用。 */
     var autoId: String? = null
 
