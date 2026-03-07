@@ -774,11 +774,14 @@ class BlockParser(
                 node.lineRange = LineRange(ob.contentStartLine, ob.lastLineIndex + 1)
             }
             is FencedCodeBlock -> {
-                node.literal = ob.contentLines.joinToString("\n")
-                if (node.literal.endsWith('\n')) {
-                    // 尾部换行符没问题
-                } else if (ob.contentLines.isNotEmpty()) {
-                    node.literal += "\n"
+                val lines = ob.contentLines
+                if (lines.size == 1 && lines[0].isEmpty()) {
+                    node.literal = ""
+                } else {
+                    node.literal = lines.joinToString("\n")
+                    if (!node.literal.endsWith('\n') && lines.isNotEmpty()) {
+                        node.literal += "\n"
+                    }
                 }
                 node.lineRange = LineRange(ob.contentStartLine, ob.lastLineIndex + 1)
             }
