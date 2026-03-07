@@ -201,21 +201,34 @@ class BlockParser(
 
             // 按优先级顺序尝试各种块开启
             // 优先使用注册制（如果有），否则使用旧的 BlockStarters
+            val preStartSnap = cursor.snapshot()
             val newBlock = if (registry != null) {
                 registry.tryStart(cursor, lineIdx, lastMatched)
             } else {
                 starters.tryStartBlock(cursor, lineIdx, lastMatched)
             }
             if (newBlock != null) {
-                // 如果当前是段落且新块不能中断段落
                 val canInterrupt = if (registry != null) {
                     registry.canInterruptParagraph(newBlock)
                 } else {
                     starters.canInterruptParagraph(newBlock.node, cursor)
                 }
                 if (lastMatched.paragraphContent != null && !canInterrupt) {
-                    // 不开启新块，添加到段落
+                    cursor.restore(preStartSnap)
                     break
+                }
+                if (lastMatched.paragraphContent != null && newBlock.node is ListItem) {
+                    val meta = newBlock.listItemMeta
+                    if (meta != null) {
+                        if (cursor.isAtEnd || cursor.restIsBlank()) {
+                            cursor.restore(preStartSnap)
+                            break
+                        }
+                        if (meta.ordered && meta.startNumber != 1) {
+                            cursor.restore(preStartSnap)
+                            break
+                        }
+                    }
                 }
 
                 // 如果当前是 ListBlock 且新块不是 ListItem，
