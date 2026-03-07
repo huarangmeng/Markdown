@@ -633,14 +633,22 @@ internal fun MermaidFlowchartDiagram(
     code: String,
     modifier: Modifier = Modifier,
 ) {
-    val textMeasurer = rememberTextMeasurer()
-    val density = LocalDensity.current
     val data = remember(code) { parseMermaidFlowchart(code) }
-
     if (data == null || data.nodes.isEmpty()) {
         DiagramFallback(code, "Mermaid", modifier)
         return
     }
+    FlowchartDiagramRenderer(data, modifier)
+}
+
+// shared renderer used by both mermaid flowchart and graphviz
+@Composable
+internal fun FlowchartDiagramRenderer(
+    data: FlowchartData,
+    modifier: Modifier = Modifier,
+) {
+    val textMeasurer = rememberTextMeasurer()
+    val density = LocalDensity.current
 
     val (layouts, canvasSize) = remember(data) {
         layoutFlowchart(data) { text ->
@@ -652,7 +660,6 @@ internal fun MermaidFlowchartDiagram(
         }
     }
 
-    // textMeasurer returns pixel values, convert to dp for Modifier sizing
     val canvasWidthDp = with(density) { canvasSize.width.toDp() }
     val canvasHeightDp = with(density) { canvasSize.height.toDp() }
 

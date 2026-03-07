@@ -12,7 +12,9 @@ import androidx.compose.ui.graphics.Color
 import com.hrm.markdown.parser.ast.DiagramBlock
 import com.hrm.markdown.renderer.LocalMarkdownTheme
 import com.hrm.markdown.renderer.diagram.DiagramFallback
+import com.hrm.markdown.renderer.diagram.GraphvizDiagram
 import com.hrm.markdown.renderer.diagram.MermaidFlowchartDiagram
+import com.hrm.markdown.renderer.diagram.MermaidSequenceDiagram
 import com.hrm.markdown.renderer.diagram.PlantUMLSequenceDiagram
 
 /**
@@ -48,8 +50,7 @@ internal fun DiagramBlockRenderer(
                         MermaidFlowchartDiagram(code)
                     }
                     firstLine.startsWith("sequencediagram") || firstLine.startsWith("sequence") -> {
-                        // Mermaid sequence → 复用 PlantUML 风格（后续可独立实现）
-                        MermaidFlowchartDiagram(code)
+                        MermaidSequenceDiagram(code)
                     }
                     else -> {
                         // 尝试解析为 flowchart，失败则 fallback
@@ -61,7 +62,7 @@ internal fun DiagramBlockRenderer(
                 PlantUMLSequenceDiagram(code)
             }
             diagramType in setOf("dot", "graphviz") -> {
-                DiagramFallback(code, "Graphviz")
+                GraphvizDiagram(code)
             }
             else -> {
                 val typeName = node.diagramType.replaceFirstChar {

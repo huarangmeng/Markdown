@@ -3,9 +3,12 @@ package com.hrm.markdown.renderer.block
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
@@ -14,48 +17,36 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.hrm.markdown.parser.ast.FencedCodeBlock
 import com.hrm.markdown.parser.ast.IndentedCodeBlock
+import com.hrm.markdown.parser.core.Attributes
 import com.hrm.markdown.renderer.LocalMarkdownTheme
+import com.hrm.markdown.renderer.MarkdownTheme
 import com.hrm.markdown.renderer.highlight.SyntaxColorScheme
 import com.hrm.markdown.renderer.highlight.SyntaxHighlighter
 
 /**
  * 围栏代码块渲染器 (``` 或 ~~~)
  *
- * ## Text + AnnotatedString 方案
- *
- * 使用 [BasicText] + [AnnotatedString] 渲染代码文本，
- * 与项目中其他渲染器（ParagraphRenderer、HeadingRenderer）保持一致的风格。
- * 根据 [FencedCodeBlock.language] 进行语法高亮着色。
- *
- * ### 架构
- *
- * ```
- * ┌─ Box (fillMaxWidth, 圆角背景, clipToBounds) ───────────┐
- * │  ┌─ BasicText (softWrap=false, horizontalScroll) ─────┐ │
- * │  │  AnnotatedString 渲染代码文本（语法高亮着色）       │ │
- * │  │  不自动换行，超出内容通过水平滚动查看               │ │
- * │  │  heightIn(min = stableMinHeight) 保证高度只增不减   │ │
- * │  └────────────────────────────────────────────────────┘ │
- * └─────────────────────────────────────────────────────────┘
- * ```
- *
- * ### 特性
- *
- * - **语法高亮**：根据代码块的 language（info string）自动对代码着色。
- * - **外层宽度固定**：Box 始终 fillMaxWidth，不受代码行宽度变化影响。
- * - **水平滚动**：长代码行通过 horizontalScroll 左右滚动查看。
- * - **高度只增不减**：流式追加内容时高度只会增加不会缩小，避免高度抖动。
- * - **原生选中复制**：BasicText 天然支持 SelectionContainer 的文本选择。
+ * 支持通过 info-string 的 `{...}` 属性语法控制：
+ * - **title**: 标题栏，如 `{title="main.kt"}`
+ * - **linenos / lineNumbers**: 行号显示
+ * - **highlight / hl_lines**: 高亮指定行，如 `{highlight="2,5-7"}`
  */
 @Composable
 internal fun FencedCodeBlockRenderer(
@@ -65,6 +56,7 @@ internal fun FencedCodeBlockRenderer(
     CodeBlockText(
         text = node.literal.ifEmpty { " " },
         language = node.language,
+        attributes = node.attributes,
         modifier = modifier,
     )
 }
@@ -80,27 +72,48 @@ internal fun IndentedCodeBlockRenderer(
     CodeBlockText(
         text = node.literal.ifEmpty { " " },
         language = "",
+        attributes = Attributes(),
         modifier = modifier,
     )
 }
 
-/**
- * 代码块的 Text + AnnotatedString 渲染实现。
- *
- * @param text 代码文本内容（来自 AST 节点的 literal）
- * @param language 语言标识，用于语法高亮
- */
+// parses "2,5-7,10" into a set of line numbers (1-based)
+private fun parseHighlightLines(spec: String): Set<Int> {
+    if (spec.isBlank()) return emptySet()
+    val result = mutableSetOf<Int>()
+    for (part in spec.split(",")) {
+        val trimmed = part.trim()
+        if ('-' in trimmed) {
+            val (a, b) = trimmed.split("-", limit = 2)
+            val from = a.trim().toIntOrNull() ?: continue
+            val to = b.trim().toIntOrNull() ?: continue
+            result.addAll(from..to)
+        } else {
+            trimmed.toIntOrNull()?.let { result.add(it) }
+        }
+    }
+    return result
+}
+
 @Composable
 private fun CodeBlockText(
     text: String,
     language: String,
+    attributes: Attributes,
     modifier: Modifier = Modifier,
 ) {
     val theme = LocalMarkdownTheme.current
     val density = LocalDensity.current
     val colorScheme = theme.syntaxColorScheme
 
-    // 构建 AnnotatedString（带语法高亮）
+    val title = attributes.pairs["title"]
+    val showLineNumbers = attributes.pairs["linenos"]?.toBooleanStrictOrNull() == true
+            || attributes.pairs["lineNumbers"]?.toBooleanStrictOrNull() == true
+            || attributes.classes.contains("line-numbers")
+    val highlightLines = parseHighlightLines(
+        attributes.pairs["highlight"] ?: attributes.pairs["hl_lines"] ?: ""
+    )
+
     val annotatedString = remember(text, language, colorScheme) {
         if (language.isNotEmpty()) {
             SyntaxHighlighter.highlight(text, language, colorScheme)
@@ -109,38 +122,130 @@ private fun CodeBlockText(
         }
     }
 
-    // 高度只增不减：记录历史最小高度（dp），避免流式场景下因末尾换行导致的高度波动
     var stableMinHeight by remember { mutableStateOf(0.dp) }
-
-    // 水平滚动状态
     val horizontalScrollState = rememberScrollState()
 
-    Box(
+    Column(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(theme.codeBlockCornerRadius))
             .clipToBounds()
             .background(theme.codeBlockBackground)
-            // 高度只增不减：设置最小高度为历史最大值
             .heightIn(min = stableMinHeight),
     ) {
+        // title bar
+        if (title != null) {
+            CodeBlockTitleBar(title, language, theme)
+        }
+
+        // code area
+        val lines = remember(text) { text.lines() }
+        val lineCount = lines.size
+        val highlightColor = theme.codeBlockHighlightLineColor
+
+        if (showLineNumbers || highlightLines.isNotEmpty()) {
+            // line numbers + code side by side
+            Row(modifier = Modifier.fillMaxWidth()) {
+                if (showLineNumbers) {
+                    LineNumberGutter(lineCount, theme)
+                }
+
+                Box(modifier = Modifier.weight(1f)) {
+                    BasicText(
+                        text = annotatedString,
+                        style = theme.codeBlockStyle,
+                        softWrap = false,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(horizontalScrollState)
+                            .drawBehind {
+                                if (highlightLines.isNotEmpty()) {
+                                    val lineH = theme.codeBlockStyle.lineHeight.toPx()
+                                    val padTop = theme.codeBlockPadding.toPx()
+                                    for (lineNum in highlightLines) {
+                                        if (lineNum in 1..lineCount) {
+                                            drawRect(
+                                                color = highlightColor,
+                                                topLeft = Offset(0f, padTop + (lineNum - 1) * lineH),
+                                                size = Size(size.width, lineH),
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                            .padding(theme.codeBlockPadding)
+                            .onSizeChanged { size ->
+                                val currentHeightDp: Dp = with(density) {
+                                    (size.height + theme.codeBlockPadding.roundToPx() * 2).toDp()
+                                }
+                                if (currentHeightDp > stableMinHeight) {
+                                    stableMinHeight = currentHeightDp
+                                }
+                            },
+                    )
+                }
+            }
+        } else {
+            // plain code (no line numbers, no highlight)
+            BasicText(
+                text = annotatedString,
+                style = theme.codeBlockStyle,
+                softWrap = false,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(horizontalScrollState)
+                    .padding(theme.codeBlockPadding)
+                    .onSizeChanged { size ->
+                        val currentHeightDp: Dp = with(density) {
+                            (size.height + theme.codeBlockPadding.roundToPx() * 2).toDp()
+                        }
+                        if (currentHeightDp > stableMinHeight) {
+                            stableMinHeight = currentHeightDp
+                        }
+                    },
+            )
+        }
+    }
+}
+
+@Composable
+private fun CodeBlockTitleBar(title: String, language: String, theme: MarkdownTheme) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(theme.codeBlockTitleBackground)
+            .padding(horizontal = theme.codeBlockPadding, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         BasicText(
-            text = annotatedString,
-            style = theme.codeBlockStyle,
-            softWrap = false, // 不自动换行，通过水平滚动查看长行
-            modifier = Modifier
-                .fillMaxWidth()
-                .horizontalScroll(horizontalScrollState)
-                .padding(theme.codeBlockPadding)
-                .onSizeChanged { size ->
-                    // 将实际渲染高度（含 padding）转换为 dp，更新最小高度
-                    val currentHeightDp: Dp = with(density) {
-                        (size.height + theme.codeBlockPadding.roundToPx() * 2).toDp()
-                    }
-                    if (currentHeightDp > stableMinHeight) {
-                        stableMinHeight = currentHeightDp
-                    }
-                },
+            text = title,
+            style = theme.codeBlockTitleStyle,
         )
     }
+}
+
+@Composable
+private fun LineNumberGutter(lineCount: Int, theme: MarkdownTheme) {
+    val lineNumbers = remember(lineCount) {
+        buildAnnotatedString {
+            val style = theme.codeBlockStyle.toSpanStyle().copy(
+                color = theme.codeBlockLineNumberColor,
+            )
+            val maxWidth = lineCount.toString().length
+            for (i in 1..lineCount) {
+                withStyle(style) {
+                    append(i.toString().padStart(maxWidth))
+                }
+                if (i < lineCount) append("\n")
+            }
+        }
+    }
+    BasicText(
+        text = lineNumbers,
+        style = theme.codeBlockStyle,
+        softWrap = false,
+        modifier = Modifier
+            .padding(start = theme.codeBlockPadding, top = theme.codeBlockPadding, bottom = theme.codeBlockPadding)
+            .padding(end = 8.dp),
+    )
 }
