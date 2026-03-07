@@ -1110,9 +1110,9 @@ private class InlineParserInstance(
 
         if (i >= input.length || input[i] != ')') return null
         scanner.pos = i + 1
-        val resolvedDest = HtmlEntities.replaceAll(resolveBackslashEscapes(dest))
+        val resolvedDest = HtmlEntities.replaceAll(dest)
         val finalDest = CharacterUtils.percentEncodeUrl(resolvedDest)
-        val resolvedTitle = title?.let { HtmlEntities.replaceAll(resolveBackslashEscapes(it)) }
+        val resolvedTitle = title?.let { HtmlEntities.replaceAll(it) }
         return LinkTailResult(finalDest, resolvedTitle, imgWidth, imgHeight)
     }
 
@@ -1260,8 +1260,8 @@ private class InlineParserInstance(
             i++
             val sb = StringBuilder()
             while (i < input.length && input[i] != '>') {
-                if (input[i] == '<') return null
-                if (input[i] == '\\' && i + 1 < input.length) {
+                if (input[i] == '<' || input[i] == '\n') return null
+                if (input[i] == '\\' && i + 1 < input.length && CharacterUtils.isAsciiPunctuation(input[i + 1])) {
                     i++
                     sb.append(input[i])
                 } else {
@@ -1283,7 +1283,10 @@ private class InlineParserInstance(
                 c == ')' && parenDepth == 0 -> break
                 c == '(' -> { parenDepth++; sb.append(c) }
                 c == ')' -> { parenDepth--; sb.append(c) }
-                c == '\\' && i + 1 < input.length -> { i++; sb.append(input[i]) }
+                c == '\\' && i + 1 < input.length && CharacterUtils.isAsciiPunctuation(input[i + 1]) -> {
+                    i++; sb.append(input[i])
+                }
+                c == '\\' -> sb.append(c)
                 c.code < 0x20 -> break
                 else -> sb.append(c)
             }
@@ -1302,7 +1305,7 @@ private class InlineParserInstance(
         i++
         val sb = StringBuilder()
         while (i < input.length && input[i] != closeChar) {
-            if (input[i] == '\\' && i + 1 < input.length) {
+            if (input[i] == '\\' && i + 1 < input.length && CharacterUtils.isAsciiPunctuation(input[i + 1])) {
                 i++
                 sb.append(input[i])
             } else {
