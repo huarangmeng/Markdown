@@ -1,6 +1,8 @@
 package com.hrm.markdown.parser.html
 
 import com.hrm.markdown.parser.ast.*
+import com.hrm.markdown.parser.flavour.ExtendedFlavour
+import com.hrm.markdown.parser.flavour.MarkdownFlavour
 
 /**
  * 将 Markdown AST 节点树输出为标准 HTML 的渲染器。
@@ -152,13 +154,12 @@ class HtmlRenderer(
     }
 
     override fun visitParagraph(node: Paragraph) {
-        // 如果段落在紧凑列表中，不输出 <p> 标签
+        // tight list items: render content without <p> tags and without trailing newline
         val parent = node.parent
         if (parent is ListItem) {
             val grandParent = parent.parent
             if (grandParent is ListBlock && grandParent.tight) {
                 visitChildren(node)
-                sb.append('\n')
                 return
             }
         }
@@ -237,18 +238,21 @@ class HtmlRenderer(
     }
 
     override fun visitListItem(node: ListItem) {
+        val parentList = node.parent as? ListBlock
+        val isLoose = parentList != null && !parentList.tight
         if (node.taskListItem) {
             tag("li")
+            if (isLoose) sb.append('\n')
             val checked = if (node.checked) " checked=\"\"" else ""
             val disabled = " disabled=\"\""
             sb.append("<input type=\"checkbox\"$checked$disabled")
             if (xhtml) sb.append(" /")
             sb.append("> ")
-            // 紧凑列表中 ListItem 直接包含行内内容（不再有 Paragraph 包裹）
             visitChildren(node)
             closeTag("li")
         } else {
             tag("li")
+            if (isLoose) sb.append('\n')
             visitChildren(node)
             closeTag("li")
         }
@@ -658,8 +662,9 @@ class HtmlRenderer(
             markdown: String,
             softBreak: String = "\n",
             escapeHtml: Boolean = false,
+            flavour: MarkdownFlavour = ExtendedFlavour,
         ): String {
-            val parser = com.hrm.markdown.parser.MarkdownParser()
+            val parser = com.hrm.markdown.parser.MarkdownParser(flavour)
             val document = parser.parse(markdown)
             return HtmlRenderer(softBreak = softBreak, escapeHtml = escapeHtml).render(document)
         }
