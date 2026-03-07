@@ -141,13 +141,30 @@ class BlockParser(
             }
         }
 
-        // 第二阶段：关闭未匹配的块（从最深层到 matchedDepth）
+        // lazy continuation for block quotes: if the deepest open block has a paragraph
+        // and the first unmatched block is a block quote, treat as continuation
+        if (!closedByFenceOrMath && matchedDepth < openBlocks.size && !cursor.restIsBlank()) {
+            val deepest = openBlocks.last()
+            if (deepest.paragraphContent != null) {
+                var onlyBlockQuotes = true
+                for (i in matchedDepth until openBlocks.size - 1) {
+                    val n = openBlocks[i].node
+                    if (n !is BlockQuote) { onlyBlockQuotes = false; break }
+                }
+                if (onlyBlockQuotes) {
+                    deepest.paragraphContent!!.append('\n').append(cursor.rest())
+                    deepest.lastLineIndex = lineIdx
+                    return
+                }
+            }
+        }
+
+        // close unmatched blocks
         while (openBlocks.size > matchedDepth) {
             val closed = openBlocks.removeAt(openBlocks.size - 1)
             finalizeBlock(closed)
         }
 
-        // 如果围栏块被其关闭定界符关闭，则整行已被消耗
         if (closedByFenceOrMath) return
 
         // 第三阶段：尝试开启新块
