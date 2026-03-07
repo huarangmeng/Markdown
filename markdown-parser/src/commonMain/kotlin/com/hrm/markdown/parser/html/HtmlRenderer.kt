@@ -244,9 +244,14 @@ class HtmlRenderer(
     override fun visitListItem(node: ListItem) {
         val parentList = node.parent as? ListBlock
         val isLoose = parentList != null && !parentList.tight
+        val fc = node.children.firstOrNull()
+        // add newline after <li> if loose (with children) or tight with non-paragraph first child
+        // empty items never get newline after <li>
+        val hasChildren = fc != null
+        val nlAfterLi = (isLoose && hasChildren) || (parentList != null && parentList.tight && fc != null && fc !is Paragraph)
         if (node.taskListItem) {
             tag("li")
-            if (isLoose) sb.append('\n')
+            if (nlAfterLi) sb.append('\n')
             val checked = if (node.checked) " checked=\"\"" else ""
             val disabled = " disabled=\"\""
             sb.append("<input type=\"checkbox\"$checked$disabled")
@@ -256,7 +261,7 @@ class HtmlRenderer(
             closeTag("li")
         } else {
             tag("li")
-            if (isLoose) sb.append('\n')
+            if (nlAfterLi) sb.append('\n')
             visitChildren(node)
             closeTag("li")
         }

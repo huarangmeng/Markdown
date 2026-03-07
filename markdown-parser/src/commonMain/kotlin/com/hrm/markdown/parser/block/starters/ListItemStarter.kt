@@ -51,11 +51,27 @@ internal class ListItemStarter : BlockStarter {
 
         if (!cursor.isAtEnd && cursor.peek() != ' ' && cursor.peek() != '\t') return null
 
-        val contentIndent = indent + markerWidth + if (!cursor.isAtEnd) {
-            val postMarker = cursor.advanceSpaces(4)
-            if (postMarker == 0) 1 else postMarker
+        val contentIndent: Int
+        if (cursor.isAtEnd) {
+            contentIndent = indent + markerWidth + 1
         } else {
-            1
+            val preSpaceSnap = cursor.snapshot()
+            val postMarker = cursor.advanceSpaces(4)
+            if (cursor.isAtEnd || cursor.restIsBlank()) {
+                // blank line after marker: use minimum indent
+                cursor.restore(preSpaceSnap)
+                if (!cursor.isAtEnd && (cursor.peek() == ' ' || cursor.peek() == '\t')) {
+                    cursor.advance()
+                }
+                contentIndent = indent + markerWidth + 1
+            } else if (postMarker == 4 && !cursor.isAtEnd && (cursor.peek() == ' ' || cursor.peek() == '\t')) {
+                // more than 4 spaces after marker -> indented code block; use minimum indent
+                cursor.restore(preSpaceSnap)
+                cursor.advance()
+                contentIndent = indent + markerWidth + 1
+            } else {
+                contentIndent = indent + markerWidth + if (postMarker == 0) 1 else postMarker
+            }
         }
 
         var isTask = false

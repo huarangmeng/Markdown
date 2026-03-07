@@ -53,6 +53,9 @@ class SetextHeading(
     /** 自动生成的标题 ID（基于标题文本的 slug）。 */
     var autoId: String? = null
 
+    /** parsed heading content (stripped of block-level markers like list prefixes) */
+    var rawContent: String? = null
+
     /** 获取最终使用的标题 ID。 */
     val id: String? get() = autoId
 
@@ -145,6 +148,8 @@ class ListItem(
     /** 用于任务列表。 */
     var taskListItem: Boolean = false
     var checked: Boolean = false
+    /** tracks whether a blank line was seen between block children within this item */
+    var containsBlankLine: Boolean = false
 
     override fun <R> accept(visitor: NodeVisitor<R>): R = visitor.visitListItem(this)
 }

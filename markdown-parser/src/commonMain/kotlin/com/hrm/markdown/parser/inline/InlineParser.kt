@@ -183,7 +183,8 @@ private class InlineParserInstance(
         val isImage: Boolean,
         var active: Boolean,
         val prevDelim: DelimEntry?, // delimiter stack bottom
-        var prev: BracketEntry?
+        var prev: BracketEntry?,
+        val contentStartPos: Int = 0 // position in input right after the opening [
     )
 
     // 链表头/尾
@@ -421,6 +422,7 @@ private class InlineParserInstance(
 
     private fun appendOpenBracket(isImage: Boolean) {
         scanner.advance() // skip '['
+        val contentStart = scanner.pos // position right after [
         val text = if (isImage) "![" else "["
         val ll = appendLL(Text(text))
         bracketTop = BracketEntry(
@@ -428,7 +430,8 @@ private class InlineParserInstance(
             isImage = isImage,
             active = true,
             prevDelim = delimTail,
-            prev = bracketTop
+            prev = bracketTop,
+            contentStartPos = contentStart
         )
     }
 
@@ -1327,33 +1330,85 @@ private class InlineParserInstance(
     private fun tryParseRefLink(bracket: BracketEntry): Pair<String, String?>? {
         val pos = scanner.pos
 
-        // [text][label]
+        // [text][label] - full reference link
         if (pos < input.length && input[pos] == '[') {
-            val closeIdx = input.indexOf(']', pos + 1)
+            val closeIdx = findCloseBracket(pos + 1)
             if (closeIdx >= 0) {
                 val label = input.substring(pos + 1, closeIdx)
-                val normalized = CharacterUtils.normalizeLinkLabel(label)
+                // reject labels that contain unescaped [
+                if (isValidLinkLabel(label)) {
+                    val normalized = CharacterUtils.normalizeLinkLabel(label)
+                    val def = document.linkDefinitions[normalized]
+                    if (def != null) {
+                        scanner.pos = closeIdx + 1
+                        return Pair(def.destination, def.title)
+                    }
+                }
+            }
+        }
+
+        // use raw text from input for label matching (preserves backslash escapes)
+        val closeBracketPos = scanner.pos - 1 // position of the ] we just consumed
+        val rawLabel = input.substring(bracket.contentStartPos, closeBracketPos)
+
+        // collapsed [label][]
+        if (pos + 1 < input.length && input[pos] == '[' && input[pos + 1] == ']') {
+            if (isValidLinkLabel(rawLabel)) {
+                val normalized = CharacterUtils.normalizeLinkLabel(rawLabel)
                 val def = document.linkDefinitions[normalized]
                 if (def != null) {
-                    scanner.pos = closeIdx + 1
+                    scanner.pos = pos + 2
                     return Pair(def.destination, def.title)
                 }
             }
         }
 
-        // 折叠 [label][] 或简写 [label]
-        val textContent = extractBracketText(bracket)
-        val normalized = CharacterUtils.normalizeLinkLabel(textContent)
-        val def = document.linkDefinitions[normalized]
-        if (def != null) {
-            // 检查 []
-            if (pos + 1 < input.length && input[pos] == '[' && input[pos + 1] == ']') {
-                scanner.pos = pos + 2
+        // shortcut [label] - only if next char is NOT [
+        // (per spec, full ref takes precedence, so [foo][bar] should not
+        // let [foo] match as shortcut when [bar][...] might match later)
+        if (pos >= input.length || input[pos] != '[') {
+            if (isValidLinkLabel(rawLabel)) {
+                val normalized = CharacterUtils.normalizeLinkLabel(rawLabel)
+                val def = document.linkDefinitions[normalized]
+                if (def != null) {
+                    return Pair(def.destination, def.title)
+                }
             }
-            return Pair(def.destination, def.title)
         }
 
         return null
+    }
+
+    /**
+     * find the next unescaped ] starting from position start.
+     * returns the index of ], or -1 if not found.
+     */
+    private fun findCloseBracket(start: Int): Int {
+        var i = start
+        while (i < input.length) {
+            when (input[i]) {
+                '\\' -> i += 2 // skip escaped char
+                ']' -> return i
+                else -> i++
+            }
+        }
+        return -1
+    }
+
+    /**
+     * check that a link label does not contain unescaped [ characters.
+     * per commonmark spec, link labels cannot contain unescaped brackets.
+     */
+    private fun isValidLinkLabel(label: String): Boolean {
+        var i = 0
+        while (i < label.length) {
+            when (label[i]) {
+                '\\' -> i += 2 // skip escaped char
+                '[' -> return false
+                else -> i++
+            }
+        }
+        return true
     }
 
     private fun tryParseFootnoteReference(bracket: BracketEntry): FootnoteReference? {

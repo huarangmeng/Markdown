@@ -162,9 +162,36 @@ class BlockParser(
         }
 
         // close unmatched blocks
+        // track whether a list item with blank lines was closed
+        var closedListItemHadBlank = false
         while (openBlocks.size > matchedDepth) {
             val closed = openBlocks.removeAt(openBlocks.size - 1)
+            if (closed.node is ListItem && closed.blankLineCount > 0) {
+                closedListItemHadBlank = true
+            }
             finalizeBlock(closed)
+        }
+
+        // if a list item with blank lines was just closed and the remaining tip is
+        // a list block, close the list too if the current line can't start a new
+        // matching list item (per commonmark spec, insufficient indent after blank
+        // line ends the list)
+        if (closedListItemHadBlank && !closedByFenceOrMath && !cursor.restIsBlank()) {
+            val tip = openBlocks.lastOrNull()
+            if (tip != null && tip.node is ListBlock) {
+                val snap = cursor.snapshot()
+                val newBlock = if (registry != null) {
+                    registry.tryStart(cursor, lineIdx, tip)
+                } else {
+                    starters.tryStartBlock(cursor, lineIdx, tip)
+                }
+                cursor.restore(snap)
+                val startsNewItem = newBlock != null && newBlock.node is ListItem
+                if (!startsNewItem) {
+                    val closed = openBlocks.removeAt(openBlocks.size - 1)
+                    finalizeBlock(closed)
+                }
+            }
         }
 
         if (closedByFenceOrMath) return
@@ -362,13 +389,23 @@ class BlockParser(
                     ob.blankLineCount++
                     true
                 } else {
-                    val snap = cursor.snapshot()
-                    val indent = cursor.advanceSpaces()
-                    if (indent >= node.contentIndent) {
-                        true
-                    } else {
-                        cursor.restore(snap)
+                    // per commonmark spec, an empty list item (no content on marker line)
+                    // followed by a blank line (actual blank source line, not just marker
+                    // line with whitespace) cannot contain further blocks.
+                    // blankLineCount > 1 means there was at least one actual blank source
+                    // line beyond the initial marker line's blank content area.
+                    if (ob.blankLineCount > 1 && node.children.isEmpty() && ob.paragraphContent == null) {
                         false
+                    } else {
+                        val snap = cursor.snapshot()
+                        val indent = cursor.advanceSpaces()
+                        if (indent >= node.contentIndent) {
+                            if (ob.blankLineCount > 0) node.containsBlankLine = true
+                            true
+                        } else {
+                            cursor.restore(snap)
+                            false
+                        }
                     }
                 }
             }
@@ -777,6 +814,11 @@ class BlockParser(
                 node.lineRange = LineRange(ob.contentStartLine, ob.lastLineIndex + 1)
             }
             is SetextHeading -> {
+                // store the parsed content (from paragraph), trimming leading/trailing whitespace
+                // per line just like paragraph finalization does
+                if (ob.contentLines.isNotEmpty()) {
+                    node.rawContent = ob.contentLines.joinToString("\n") { it.trimStart().trimEnd() }
+                }
                 node.lineRange = LineRange(ob.contentStartLine, ob.lastLineIndex + 1)
             }
             is FencedCodeBlock -> {
@@ -925,23 +967,38 @@ class BlockParser(
     }
 
     private fun isListTight(list: ListBlock): Boolean {
-        for (item in list.children) {
-            if (item !is ListItem) continue
-            // 如果任何列表项的子节点之间有空行则为松散列表
+        val items = list.children.filterIsInstance<ListItem>()
+        // the last line of source may be blank due to trailing newline - ignore it
+        val lastContentLine = source.lineCount - 1
+        fun isBlankContentLine(line: Int): Boolean {
+            if (line < 0 || line >= source.lineCount) return false
+            if (line == lastContentLine && source.lineContent(line).isEmpty()) return false
+            return source.lineContent(line).isBlank()
+        }
+        for (item in items) {
+            // check if blank lines appear between block children within this item
+            if (item.containsBlankLine) return false
+            // check for trailing blank lines within this item's range
             val children = item.children
-            for (i in 0 until children.size - 1) {
-                val thisEnd = children[i].lineRange.endLine
-                val nextStart = children[i + 1].lineRange.startLine
-                if (nextStart > thisEnd) return false
+            if (children.isNotEmpty()) {
+                val lastChildEnd = children.last().lineRange.endLine
+                val itemEnd = item.lineRange.endLine
+                for (line in lastChildEnd until itemEnd) {
+                    if (isBlankContentLine(line)) return false
+                }
+            } else {
+                // empty item: check for blank lines within its range
+                for (line in item.lineRange.startLine + 1 until item.lineRange.endLine) {
+                    if (isBlankContentLine(line)) return false
+                }
             }
         }
-        // 同时检查列表项之间
-        val items = list.children
+        // check for blank lines between consecutive list items
         for (i in 0 until items.size - 1) {
-            if (items[i] is ListItem && items[i + 1] is ListItem) {
-                val thisEnd = items[i].lineRange.endLine
-                val nextStart = items[i + 1].lineRange.startLine
-                if (nextStart > thisEnd) return false
+            val gapStart = items[i].lineRange.endLine
+            val gapEnd = items[i + 1].lineRange.startLine
+            for (line in gapStart until gapEnd) {
+                if (isBlankContentLine(line)) return false
             }
         }
         return true
@@ -979,7 +1036,10 @@ class BlockParser(
             }
             val title = rawTitle?.let { HtmlEntities.replaceAll(resolveBackslashEscapes(it)) }
 
-            if (label.isNotEmpty() && !document.linkDefinitions.containsKey(label)) {
+            // blank labels are not valid link reference definitions
+            if (label.isEmpty()) break
+
+            if (!document.linkDefinitions.containsKey(label)) {
                 val def = LinkReferenceDefinition(
                     label = label,
                     destination = destination,
@@ -1138,6 +1198,10 @@ class BlockParser(
                 }
             }
             is SetextHeading -> {
+                // use parsed content if available (strips block-level markers like list prefixes)
+                if (node.rawContent != null) {
+                    return node.rawContent!!
+                }
                 val lines = (lr.startLine until lr.endLine - 1).map {
                     source.lineContent(it).trimStart().trimEnd()
                 }
@@ -1238,14 +1302,17 @@ class BlockParser(
     }
 
     companion object {
+        // link label: no unescaped [ or ], but allow backslash escapes like \] \[ \\
+        private val LINK_LABEL_PATTERN = "((?:[^\\[\\]\\\\]|\\\\.)+)"
+
         private val LINK_REF_DEF_REGEX = Regex(
-            "^\\s{0,3}\\[([^\\]]+)\\]:\\s+(?:<([^>]*)>|(\\S+))(?:\\s+(?:\"([^\"]*)\"|'([^']*)'|\\(([^)]*)\\)))?\\s*$",
+            "^\\s{0,3}\\[${LINK_LABEL_PATTERN}\\]:\\s+(?:<([^>]*)>|(\\S+))(?:\\s+(?:\"([^\"]*)\"|'([^']*)'|\\(([^)]*)\\)))?\\s*$",
             RegexOption.MULTILINE
         )
 
         /** 支持标题跨行的链接引用定义（标题可在下一行） */
         private val LINK_REF_DEF_MULTILINE_TITLE_REGEX = Regex(
-            "^\\s{0,3}\\[([^\\]]+)\\]:\\s+(?:<([^>]*)>|(\\S+))\\s*\\n\\s+(?:\"([^\"]*)\"|'([^']*)'|\\(([^)]*)\\))\\s*$",
+            "^\\s{0,3}\\[${LINK_LABEL_PATTERN}\\]:\\s+(?:<([^>]*)>|(\\S+))\\s*\\n\\s+(?:\"([^\"]*)\"|'([^']*)'|\\(([^)]*)\\))\\s*$",
             RegexOption.MULTILINE
         )
 

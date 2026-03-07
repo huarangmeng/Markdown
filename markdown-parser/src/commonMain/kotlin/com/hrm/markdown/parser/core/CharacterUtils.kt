@@ -91,10 +91,28 @@ object CharacterUtils {
     }
 
     /**
-     * 规范化链接标签：去除首尾空格，折叠内部空白，转为小写。
+     * 规范化链接标签：去除首尾空格，折叠内部空白，应用 unicode case folding。
+     * uses case folding rather than simple lowercase to handle cases like
+     * ẞ (U+1E9E) -> "ss" and ß (U+00DF) -> "ss".
      */
     fun normalizeLinkLabel(label: String): String {
-        return label.trim().replace(Regex("\\s+"), " ").lowercase()
+        return unicodeCaseFold(label.trim().replace(Regex("\\s+"), " "))
+    }
+
+    /**
+     * simple unicode case folding: lowercase + special cases where
+     * lowercase() does not match full case folding (e.g. ẞ -> ss, ß -> ss).
+     */
+    private fun unicodeCaseFold(s: String): String {
+        val sb = StringBuilder(s.length)
+        for (ch in s) {
+            when (ch) {
+                '\u1E9E' -> sb.append("ss") // latin capital letter sharp s
+                '\u00DF' -> sb.append("ss") // latin small letter sharp s
+                else -> sb.append(ch.lowercaseChar())
+            }
+        }
+        return sb.toString()
     }
 
     /**
@@ -115,7 +133,7 @@ object CharacterUtils {
                 }
                 // URL 合法字符不编码（仅 ASCII 范围）
                 c in 'a'..'z' || c in 'A'..'Z' || c in '0'..'9' ||
-                        c in "-._~:/?#[]@!$&'()*+,;=" -> {
+                        c in "-._~:/?#@!$&'()*+,;=" -> {
                     sb.append(c)
                     i++
                 }
