@@ -566,7 +566,9 @@ class HtmlRenderer(
     }
 
     override fun visitHtmlEntity(node: HtmlEntity) {
-        sb.append(node.literal)
+        // output the resolved unicode, falling back to the original entity
+        val text = node.resolved.ifEmpty { node.literal }
+        sb.append(escape(text))
     }
 
     override fun visitEscapedChar(node: EscapedChar) {
