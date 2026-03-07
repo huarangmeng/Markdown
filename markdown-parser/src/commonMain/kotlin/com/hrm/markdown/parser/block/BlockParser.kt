@@ -651,8 +651,11 @@ class BlockParser(
                 tip.contentLines.add(lineContent)
             }
             is HtmlBlock -> {
-                tip.contentLines.add(source.lineContent(lineIdx))
-                if (checkHtmlBlockEnd(source.lineContent(lineIdx), tip.htmlType)) {
+                // first line content is already added by HtmlBlockStarter; use cursor.rest() for subsequent lines
+                if (lineIdx > tip.contentStartLine) {
+                    tip.contentLines.add(cursor.rest())
+                }
+                if (checkHtmlBlockEnd(cursor.rest(), tip.htmlType)) {
                     finalizeBlock(tip)
                     openBlocks.removeAt(openBlocks.size - 1)
                 }

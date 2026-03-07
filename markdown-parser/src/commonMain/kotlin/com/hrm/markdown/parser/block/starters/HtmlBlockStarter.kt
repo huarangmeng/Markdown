@@ -16,6 +16,7 @@ internal class HtmlBlockStarter : BlockStarter {
     fun canInterruptParagraphForType(htmlType: Int): Boolean = htmlType in 1..6
 
     override fun tryStart(cursor: LineCursor, lineIdx: Int, tip: OpenBlock): OpenBlock? {
+        val fullRest = cursor.rest()
         val indent = cursor.advanceSpaces(3)
         if (cursor.isAtEnd || cursor.peek() != '<') return null
 
@@ -28,6 +29,7 @@ internal class HtmlBlockStarter : BlockStarter {
         val ob = OpenBlock(block, contentStartLine = lineIdx, lastLineIndex = lineIdx)
         ob.htmlType = htmlType
         ob.starterTag = this::class.simpleName
+        ob.contentLines.add(fullRest)
         return ob
     }
 
