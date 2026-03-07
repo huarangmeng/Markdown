@@ -118,9 +118,10 @@ class Image(
  */
 class Autolink(
     var destination: String = "",
-    var isEmail: Boolean = false
+    var isEmail: Boolean = false,
+    var rawText: String = ""
 ) : LeafNode() {
-    override val literal: String get() = destination
+    override val literal: String get() = rawText.ifEmpty { destination }
     override fun <R> accept(visitor: NodeVisitor<R>): R = visitor.visitAutolink(this)
 }
 

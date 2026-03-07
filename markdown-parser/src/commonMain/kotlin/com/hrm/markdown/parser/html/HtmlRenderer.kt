@@ -557,7 +557,8 @@ class HtmlRenderer(
         } else {
             tag("a", mapOf("href" to node.destination))
         }
-        sb.append(escape(node.destination))
+        val display = node.rawText.ifEmpty { node.destination }
+        sb.append(escape(display))
         closeTag("a")
     }
 

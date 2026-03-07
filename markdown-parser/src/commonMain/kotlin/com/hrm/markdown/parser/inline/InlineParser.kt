@@ -361,7 +361,8 @@ private class InlineParserInstance(
                 val autolinkMatch = InlineParser.AUTOLINK_REGEX.find(input, pos)
                 if (autolinkMatch != null && autolinkMatch.range.first == pos) {
                     scanner.pos = autolinkMatch.range.last + 1
-                    appendLL(Autolink(destination = CharacterUtils.percentEncodeUrl(autolinkMatch.groupValues[1]), isEmail = false))
+                    val raw = autolinkMatch.groupValues[1]
+                    appendLL(Autolink(destination = CharacterUtils.percentEncodeUrl(raw), isEmail = false, rawText = raw))
                     return
                 }
 
