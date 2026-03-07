@@ -320,9 +320,17 @@ private fun AnnotatedString.Builder.renderInlineNode(
         }
 
         is Abbreviation -> {
-            // 渲染缩写：带标注的文本，hover 时显示全称
-            withStyle(theme.abbreviationStyle) {
-                append(node.abbreviation)
+            // embed fullText as annotation so consumers can show tooltip on hover/click
+            if (node.fullText.isNotEmpty()) {
+                pushStringAnnotation(tag = "abbreviation", annotation = node.fullText)
+                withStyle(theme.abbreviationStyle) {
+                    append(node.abbreviation)
+                }
+                pop()
+            } else {
+                withStyle(theme.abbreviationStyle) {
+                    append(node.abbreviation)
+                }
             }
         }
 

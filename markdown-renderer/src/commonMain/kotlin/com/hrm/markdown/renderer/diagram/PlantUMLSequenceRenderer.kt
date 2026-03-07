@@ -445,14 +445,22 @@ internal fun PlantUMLSequenceDiagram(
     code: String,
     modifier: Modifier = Modifier,
 ) {
-    val textMeasurer = rememberTextMeasurer()
-    val density = LocalDensity.current
     val data = remember(code) { parsePlantUMLSequence(code) }
-
     if (data == null || data.participants.isEmpty()) {
         DiagramFallback(code, "PlantUML", modifier)
         return
     }
+    SequenceDiagramRenderer(data, modifier)
+}
+
+// shared renderer used by both plantuml and mermaid sequence diagrams
+@Composable
+internal fun SequenceDiagramRenderer(
+    data: SequenceDiagramData,
+    modifier: Modifier = Modifier,
+) {
+    val textMeasurer = rememberTextMeasurer()
+    val density = LocalDensity.current
 
     val canvasSize = remember(data) {
         calculateSequenceDiagramSize(data) { text ->
@@ -461,7 +469,6 @@ internal fun PlantUMLSequenceDiagram(
         }
     }
 
-    // textMeasurer returns pixel values, convert to dp for Modifier sizing
     val canvasWidthDp = with(density) { canvasSize.width.toDp() }
     val canvasHeightDp = with(density) { canvasSize.height.toDp() }
 
