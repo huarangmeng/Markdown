@@ -4,6 +4,8 @@ import com.hrm.markdown.parser.LineRange
 import com.hrm.markdown.parser.ast.FencedCodeBlock
 import com.hrm.markdown.parser.block.OpenBlock
 import com.hrm.markdown.parser.core.AttributeParser
+import com.hrm.markdown.parser.core.CharacterUtils
+import com.hrm.markdown.parser.core.HtmlEntities
 import com.hrm.markdown.parser.core.LineCursor
 
 /**
@@ -34,7 +36,8 @@ internal class FencedCodeBlockStarter : BlockStarter {
 
         // parse {.class #id key=value} from info-string, leave the rest for language extraction
         val (attributes, infoWithoutAttrs) = AttributeParser.parse(info)
-        val language = infoWithoutAttrs.split(INFO_LANG_SPLIT_REGEX).firstOrNull()?.trim() ?: ""
+        val rawLang = infoWithoutAttrs.split(INFO_LANG_SPLIT_REGEX).firstOrNull()?.trim() ?: ""
+        val language = HtmlEntities.replaceAll(resolveBackslashEscapes(rawLang))
 
         val block = FencedCodeBlock(
             info = info,
@@ -53,6 +56,21 @@ internal class FencedCodeBlockStarter : BlockStarter {
         ob.fenceIndent = indent
         ob.starterTag = this::class.simpleName
         return ob
+    }
+
+    private fun resolveBackslashEscapes(s: String): String {
+        val sb = StringBuilder(s.length)
+        var i = 0
+        while (i < s.length) {
+            if (s[i] == '\\' && i + 1 < s.length && CharacterUtils.isAsciiPunctuation(s[i + 1])) {
+                sb.append(s[i + 1])
+                i += 2
+            } else {
+                sb.append(s[i])
+                i++
+            }
+        }
+        return sb.toString()
     }
 
     companion object {
