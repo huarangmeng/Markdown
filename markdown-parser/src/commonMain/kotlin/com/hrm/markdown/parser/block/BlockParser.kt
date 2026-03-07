@@ -7,6 +7,7 @@ import com.hrm.markdown.parser.ast.*
 import com.hrm.markdown.parser.block.starters.BlockStarterRegistry
 import com.hrm.markdown.parser.block.starters.HeadingStarter
 import com.hrm.markdown.parser.core.CharacterUtils
+import com.hrm.markdown.parser.core.HtmlEntities
 import com.hrm.markdown.parser.core.LineCursor
 import com.hrm.markdown.parser.core.SourceText
 
@@ -933,16 +934,18 @@ class BlockParser(
             }
 
             val label = CharacterUtils.normalizeLinkLabel(effectiveMatch.groupValues[1])
-            // destination 可能在 group 2（尖括号包裹）或 group 3（裸 URL）
-            val destination = effectiveMatch.groupValues[2].ifEmpty { effectiveMatch.groupValues[3] }.let {
+            val rawDest = effectiveMatch.groupValues[2].ifEmpty { effectiveMatch.groupValues[3] }.let {
                 if (it.startsWith('<') && it.endsWith('>')) it.drop(1).dropLast(1) else it
             }
-            // title 可能在 group 4（双引号）、5（单引号）或 6（括号）
-            val title = effectiveMatch.groupValues[4].ifEmpty {
+            val destination = CharacterUtils.percentEncodeUrl(
+                HtmlEntities.replaceAll(resolveBackslashEscapes(rawDest))
+            )
+            val rawTitle = effectiveMatch.groupValues[4].ifEmpty {
                 effectiveMatch.groupValues[5].ifEmpty {
                     effectiveMatch.groupValues[6].ifEmpty { null }
                 }
             }
+            val title = rawTitle?.let { HtmlEntities.replaceAll(resolveBackslashEscapes(it)) }
 
             if (label.isNotEmpty() && !document.linkDefinitions.containsKey(label)) {
                 val def = LinkReferenceDefinition(
@@ -981,6 +984,21 @@ class BlockParser(
             remaining = remaining.substring(match.range.last + 1).trimStart('\n')
         }
         return remaining
+    }
+
+    private fun resolveBackslashEscapes(s: String): String {
+        val sb = StringBuilder(s.length)
+        var i = 0
+        while (i < s.length) {
+            if (s[i] == '\\' && i + 1 < s.length && CharacterUtils.isAsciiPunctuation(s[i + 1])) {
+                sb.append(s[i + 1])
+                i += 2
+            } else {
+                sb.append(s[i])
+                i++
+            }
+        }
+        return sb.toString()
     }
 
     private fun findNearestContainer(): ContainerNode {

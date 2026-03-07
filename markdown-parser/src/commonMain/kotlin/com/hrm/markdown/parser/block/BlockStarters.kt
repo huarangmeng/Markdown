@@ -2,6 +2,8 @@ package com.hrm.markdown.parser.block
 
 import com.hrm.markdown.parser.LineRange
 import com.hrm.markdown.parser.ast.*
+import com.hrm.markdown.parser.core.CharacterUtils
+import com.hrm.markdown.parser.core.HtmlEntities
 import com.hrm.markdown.parser.core.LineCursor
 import com.hrm.markdown.parser.core.SourceText
 
@@ -223,7 +225,8 @@ internal class BlockStarters(
         // 消耗掉 info string 剩余部分，避免被 addLineToTip 当作代码内容
         cursor.advance(cursor.remaining)
 
-        val language = info.split(INFO_LANG_SPLIT_REGEX).firstOrNull()?.trim() ?: ""
+        val rawLang = info.split(INFO_LANG_SPLIT_REGEX).firstOrNull()?.trim() ?: ""
+        val language = HtmlEntities.replaceAll(resolveBackslashEscapes(rawLang))
 
         val block = FencedCodeBlock(
             info = info,
@@ -627,8 +630,22 @@ internal class BlockStarters(
         return ContainerInfo(type, title, cssClasses, cssId)
     }
 
+    private fun resolveBackslashEscapes(s: String): String {
+        val sb = StringBuilder(s.length)
+        var i = 0
+        while (i < s.length) {
+            if (s[i] == '\\' && i + 1 < s.length && CharacterUtils.isAsciiPunctuation(s[i + 1])) {
+                sb.append(s[i + 1])
+                i += 2
+            } else {
+                sb.append(s[i])
+                i++
+            }
+        }
+        return sb.toString()
+    }
+
     companion object {
-        /** 自定义标题 ID：{#id} */
         internal val CUSTOM_ID_REGEX = Regex("\\{#([^\\}]+)\\}\\s*$")
         internal val CUSTOM_ID_STRIP_REGEX = Regex("\\s*\\{#[^\\}]+\\}\\s*$")
 
