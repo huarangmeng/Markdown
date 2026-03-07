@@ -158,7 +158,7 @@ class BlockParser(
 
             // handle blank lines (but fenced code blocks preserve blank lines as content)
             if (cursor.restIsBlank()) {
-                if (lastMatched.isFenced) {
+                if (lastMatched.isFenced || lastMatched.node is IndentedCodeBlock) {
                     addLineToTip(lastMatched, cursor, lineIdx)
                 } else {
                     handleBlankLine(lastMatched, lineIdx)
@@ -363,7 +363,7 @@ class BlockParser(
                     true
                 } else {
                     val snap = cursor.snapshot()
-                    val indent = cursor.advanceSpaces()
+                    val indent = cursor.advanceSpaces(4)
                     if (indent >= 4) {
                         true
                     } else {
@@ -1050,7 +1050,6 @@ class BlockParser(
                     if (content.startsWith(' ') || content.startsWith('\t')) {
                         content = content.drop(1)
                     }
-                    // 去除尾部 #
                     content = content.trimEnd()
                     val customId = HeadingStarter.extractCustomId(content)
                     if (customId != null) {
@@ -1062,14 +1061,15 @@ class BlockParser(
                             content = t.trimEnd()
                         }
                     }
-                    content
+                    content.trimStart()
                 } else {
                     line
                 }
             }
             is SetextHeading -> {
-                // 内容为除最后一行（下划线）外的所有行
-                val lines = (lr.startLine until lr.endLine - 1).map { source.lineContent(it) }
+                val lines = (lr.startLine until lr.endLine - 1).map {
+                    source.lineContent(it).trimStart().trimEnd()
+                }
                 lines.joinToString("\n")
             }
             is Paragraph -> {
