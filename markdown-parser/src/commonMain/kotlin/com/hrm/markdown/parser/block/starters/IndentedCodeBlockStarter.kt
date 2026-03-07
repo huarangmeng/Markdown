@@ -26,7 +26,7 @@ internal class IndentedCodeBlockStarter : BlockStarter {
         if (tip.node is DefinitionList || tip.node is DefinitionDescription || tip.node is FootnoteDefinition) {
             return null
         }
-        val indent = cursor.advanceSpaces()
+        val indent = cursor.advanceSpaces(4)
         if (indent < 4) return null
 
         val block = IndentedCodeBlock()

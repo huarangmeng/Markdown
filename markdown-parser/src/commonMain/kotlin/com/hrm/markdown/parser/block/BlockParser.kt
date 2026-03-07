@@ -400,6 +400,7 @@ class BlockParser(
             }
             is IndentedCodeBlock -> {
                 if (cursor.restIsBlank()) {
+                    cursor.advanceSpaces(4)
                     true
                 } else {
                     val snap = cursor.snapshot()
@@ -536,7 +537,7 @@ class BlockParser(
     }
 
     private fun isClosingFence(line: String, fenceChar: Char, openLength: Int): Boolean {
-        val trimmed = line.trim()
+        val trimmed = line.trimEnd()
         if (trimmed.isEmpty()) return false
         if (trimmed[0] != fenceChar) return false
         if (!trimmed.all { it == fenceChar }) return false
