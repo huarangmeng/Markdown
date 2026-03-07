@@ -154,9 +154,18 @@ class BlockParser(
                     if (n !is BlockQuote) { onlyBlockQuotes = false; break }
                 }
                 if (onlyBlockQuotes) {
-                    deepest.paragraphContent!!.append('\n').append(cursor.rest())
-                    deepest.lastLineIndex = lineIdx
-                    return
+                    val snap = cursor.snapshot()
+                    val couldStartBlock = if (registry != null) {
+                        registry.tryStart(cursor, lineIdx, openBlocks[matchedDepth - 1]) != null
+                    } else {
+                        starters.tryStartBlock(cursor, lineIdx, openBlocks[matchedDepth - 1]) != null
+                    }
+                    cursor.restore(snap)
+                    if (!couldStartBlock) {
+                        deepest.paragraphContent!!.append('\n').append(cursor.rest())
+                        deepest.lastLineIndex = lineIdx
+                        return
+                    }
                 }
             }
         }
@@ -1079,7 +1088,7 @@ class BlockParser(
         return when (node) {
             is Heading -> {
                 if (node.rawContent != null) {
-                    return node.rawContent!!
+                    return node.rawContent!!.trim()
                 }
                 val line = source.lineContent(lr.startLine)
                 val stripped = line.trimStart()
