@@ -1052,10 +1052,21 @@ private class InlineParserInstance(
         val height: Int? = null,
     )
 
-    /**
-     * 解析链接尾部 `(url "title")` 或 `(url =WxH "title")`。
-     * 当 [isImage] 为 true 时，还会尝试解析 `=WxH` 尺寸后缀。
-     */
+    private fun resolveBackslashEscapes(s: String): String {
+        val sb = StringBuilder(s.length)
+        var i = 0
+        while (i < s.length) {
+            if (s[i] == '\\' && i + 1 < s.length && CharacterUtils.isAsciiPunctuation(s[i + 1])) {
+                sb.append(s[i + 1])
+                i += 2
+            } else {
+                sb.append(s[i])
+                i++
+            }
+        }
+        return sb.toString()
+    }
+
     private fun tryParseLinkTail(isImage: Boolean = false): LinkTailResult? {
         val pos = scanner.pos
         if (pos >= input.length || input[pos] != '(') return null
@@ -1099,9 +1110,10 @@ private class InlineParserInstance(
 
         if (i >= input.length || input[i] != ')') return null
         scanner.pos = i + 1
-        // 仅对非尖括号包裹的 URL 进行百分号编码
-        val finalDest = if (!isAngleBracket) CharacterUtils.percentEncodeUrl(dest) else dest
-        return LinkTailResult(finalDest, title, imgWidth, imgHeight)
+        val resolvedDest = HtmlEntities.replaceAll(resolveBackslashEscapes(dest))
+        val finalDest = CharacterUtils.percentEncodeUrl(resolvedDest)
+        val resolvedTitle = title?.let { HtmlEntities.replaceAll(resolveBackslashEscapes(it)) }
+        return LinkTailResult(finalDest, resolvedTitle, imgWidth, imgHeight)
     }
 
     /**
