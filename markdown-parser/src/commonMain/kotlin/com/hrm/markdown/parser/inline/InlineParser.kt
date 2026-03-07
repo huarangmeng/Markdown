@@ -18,11 +18,12 @@ class InlineParser(
     /** 是否启用 ASCII 表情自动转换 */
     private val enableAsciiEmoticons: Boolean = false,
     private val enableGfmAutolinks: Boolean = true,
+    private val enableExtendedInline: Boolean = true,
 ) : BlockParser.InlineParserInterface {
 
     override fun parseInlines(content: String, parent: ContainerNode) {
         if (content.isEmpty()) return
-        val parser = InlineParserInstance(content, document, customEmojiMap, enableAsciiEmoticons, enableGfmAutolinks)
+        val parser = InlineParserInstance(content, document, customEmojiMap, enableAsciiEmoticons, enableGfmAutolinks, enableExtendedInline)
         val nodes = parser.parse()
         for (node in nodes) {
             parent.appendChild(node)
@@ -156,6 +157,7 @@ private class InlineParserInstance(
     private val customEmojiMap: Map<String, String> = emptyMap(),
     private val enableAsciiEmoticons: Boolean = false,
     private val enableGfmAutolinks: Boolean = true,
+    private val enableExtendedInline: Boolean = true,
 ) {
     // 链表包装 AST 节点
     private class LLNode(var astNode: Node) {
@@ -213,12 +215,12 @@ private class InlineParserInstance(
                 }
                 c == ']' -> appendCloseBracket()
                 c == '*' || c == '_' -> appendDelimiterRun(c)
-                c == '~' -> appendTildeRun()
-                c == '=' && scanner.peek(1) == '=' -> appendPairedDelim('=', 2)
-                c == '+' && scanner.peek(1) == '+' -> appendPairedDelim('+', 2)
-                c == '^' -> appendPairedDelim('^', 1)
-                c == '$' -> appendDollar()
-                c == ':' -> appendPossibleEmoji()
+                c == '~' && enableExtendedInline -> appendTildeRun()
+                c == '=' && scanner.peek(1) == '=' && enableExtendedInline -> appendPairedDelim('=', 2)
+                c == '+' && scanner.peek(1) == '+' && enableExtendedInline -> appendPairedDelim('+', 2)
+                c == '^' && enableExtendedInline -> appendPairedDelim('^', 1)
+                c == '$' && enableExtendedInline -> appendDollar()
+                c == ':' && enableExtendedInline -> appendPossibleEmoji()
                 c == '\n' -> appendLineBreak()
                 else -> appendText()
             }
@@ -818,12 +820,15 @@ private class InlineParserInstance(
         while (!scanner.isAtEnd) {
             val c = scanner.peek()
             if (c == '\\' || c == '`' || c == '<' || c == '&' || c == '[' || c == ']' ||
-                c == '*' || c == '_' || c == '~' || c == '\n' || c == '$' || c == ':' || c == '^') {
+                c == '*' || c == '_' || c == '\n') {
+                break
+            }
+            if (enableExtendedInline && (c == '~' || c == '$' || c == ':' || c == '^')) {
                 break
             }
             if (c == '!' && scanner.peek(1) == '[') break
-            if (c == '=' && scanner.peek(1) == '=') break
-            if (c == '+' && scanner.peek(1) == '+') break
+            if (enableExtendedInline && c == '=' && scanner.peek(1) == '=') break
+            if (enableExtendedInline && c == '+' && scanner.peek(1) == '+') break
 
             // ASCII 表情检测（非 : 开头的，如 ;) B) XD 等）
             if (enableAsciiEmoticons && (c == ';' || c == 'B' || c == 'X' || c == 'x' || c == '8' || c == 'O' || c == 'o')) {

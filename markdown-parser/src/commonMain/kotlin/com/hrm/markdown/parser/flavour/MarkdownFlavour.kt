@@ -54,4 +54,5 @@ interface MarkdownFlavour {
     val postProcessors: List<PostProcessor>
 
     val enableGfmAutolinks: Boolean get() = true
+    val enableExtendedInline: Boolean get() = true
 }

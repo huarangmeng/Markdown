@@ -153,19 +153,10 @@ class BlockParser(
                     val n = openBlocks[i].node
                     if (n !is BlockQuote) { onlyBlockQuotes = false; break }
                 }
-                if (onlyBlockQuotes) {
-                    val snap = cursor.snapshot()
-                    val couldStartBlock = if (registry != null) {
-                        registry.tryStart(cursor, lineIdx, openBlocks[matchedDepth - 1]) != null
-                    } else {
-                        starters.tryStartBlock(cursor, lineIdx, openBlocks[matchedDepth - 1]) != null
-                    }
-                    cursor.restore(snap)
-                    if (!couldStartBlock) {
-                        deepest.paragraphContent!!.append('\n').append(cursor.rest())
-                        deepest.lastLineIndex = lineIdx
-                        return
-                    }
+                if (onlyBlockQuotes && !wouldStartNonLazyBlock(cursor.rest())) {
+                    deepest.paragraphContent!!.append('\n').append(cursor.rest())
+                    deepest.lastLineIndex = lineIdx
+                    return
                 }
             }
         }
@@ -542,6 +533,21 @@ class BlockParser(
         if (trimmed[0] != fenceChar) return false
         if (!trimmed.all { it == fenceChar }) return false
         return trimmed.length >= openLength
+    }
+
+    private fun wouldStartNonLazyBlock(line: String): Boolean {
+        val s = line.trimStart()
+        if (s.isEmpty()) return false
+        if (s.startsWith('>')) return true
+        if (s.startsWith('#') && s.length > 1 && (s[1] == ' ' || s[1] == '\t' || s[1] == '#')) return true
+        val tbChar = s[0]
+        if ((tbChar == '-' || tbChar == '*' || tbChar == '_') && s.length >= 3) {
+            val stripped = s.replace(" ", "").replace("\t", "")
+            if (stripped.length >= 3 && stripped.all { it == tbChar }) return true
+        }
+        if (s.startsWith("```") || s.startsWith("~~~")) return true
+        if (s.startsWith('<') && s.length > 1) return true
+        return false
     }
 
     private fun checkHtmlBlockEnd(line: String, htmlType: Int): Boolean {
