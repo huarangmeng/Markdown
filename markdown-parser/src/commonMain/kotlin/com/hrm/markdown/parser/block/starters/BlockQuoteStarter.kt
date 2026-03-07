@@ -17,8 +17,9 @@ internal class BlockQuoteStarter : BlockStarter {
         if (cursor.isAtEnd || cursor.peek() != '>') return null
 
         cursor.advance()
-        if (!cursor.isAtEnd && cursor.peek() == ' ') {
-            cursor.advance()
+        // skip optional space (or one column of a tab) after '>'
+        if (!cursor.isAtEnd && (cursor.peek() == ' ' || cursor.peek() == '\t')) {
+            cursor.advanceSpaces(1)
         }
 
         val bq = BlockQuote()

@@ -61,13 +61,13 @@ internal class ListItemStarter : BlockStarter {
                 // blank line after marker: use minimum indent
                 cursor.restore(preSpaceSnap)
                 if (!cursor.isAtEnd && (cursor.peek() == ' ' || cursor.peek() == '\t')) {
-                    cursor.advance()
+                    cursor.advanceSpaces(1)
                 }
                 contentIndent = indent + markerWidth + 1
-            } else if (postMarker == 4 && !cursor.isAtEnd && (cursor.peek() == ' ' || cursor.peek() == '\t')) {
-                // more than 4 spaces after marker -> indented code block; use minimum indent
+            } else if (!cursor.isAtEnd && (cursor.peek() == ' ' || cursor.peek() == '\t')) {
+                // more than 4 columns of whitespace after marker -> indented code content; use minimum indent
                 cursor.restore(preSpaceSnap)
-                cursor.advance()
+                cursor.advanceSpaces(1)
                 contentIndent = indent + markerWidth + 1
             } else {
                 contentIndent = indent + markerWidth + if (postMarker == 0) 1 else postMarker

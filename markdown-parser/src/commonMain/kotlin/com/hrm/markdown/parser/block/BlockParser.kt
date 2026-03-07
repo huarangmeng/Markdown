@@ -143,17 +143,20 @@ class BlockParser(
             }
         }
 
-        // lazy continuation for block quotes: if the deepest open block has a paragraph
-        // and the first unmatched block is a block quote, treat as continuation
+        // lazy continuation: if the deepest open block has a paragraph
+        // and unmatched blocks are only containers (block quotes, lists, list items),
+        // treat as lazy continuation per commonmark spec
         if (!closedByFenceOrMath && matchedDepth < openBlocks.size && !cursor.restIsBlank()) {
             val deepest = openBlocks.last()
             if (deepest.paragraphContent != null) {
-                var onlyBlockQuotes = true
+                var onlyContainers = true
                 for (i in matchedDepth until openBlocks.size - 1) {
                     val n = openBlocks[i].node
-                    if (n !is BlockQuote) { onlyBlockQuotes = false; break }
+                    if (n !is BlockQuote && n !is ListBlock && n !is ListItem) {
+                        onlyContainers = false; break
+                    }
                 }
-                if (onlyBlockQuotes && !wouldStartNonLazyBlock(cursor.rest())) {
+                if (onlyContainers && !wouldStartNonLazyBlock(cursor.rest())) {
                     deepest.paragraphContent!!.append('\n').append(cursor.rest())
                     deepest.lastLineIndex = lineIdx
                     return
@@ -208,7 +211,7 @@ class BlockParser(
                     addLineToTip(lastMatched, cursor, lineIdx)
                 } else {
                     handleBlankLine(lastMatched, lineIdx)
-                    // Set blankLineAfterContent on the deepest open ListItem only
+                    // set blankLineAfterContent on the deepest open ListItem
                     for (i in openBlocks.indices.reversed()) {
                         val ob = openBlocks[i]
                         if (ob.node is ListItem) {
@@ -400,9 +403,10 @@ class BlockParser(
                 val snap = cursor.snapshot()
                 val spaces = cursor.advanceSpaces(3)
                 if (!cursor.isAtEnd && cursor.peek() == '>') {
-                    cursor.advance() // 跳过 '>'
-                    if (!cursor.isAtEnd && cursor.peek() == ' ') {
-                        cursor.advance() // 跳过可选空格
+                    cursor.advance() // skip '>'
+                    // skip optional space (or one column of a tab)
+                    if (!cursor.isAtEnd && (cursor.peek() == ' ' || cursor.peek() == '\t')) {
+                        cursor.advanceSpaces(1)
                     }
                     true
                 } else {
@@ -600,8 +604,18 @@ class BlockParser(
     }
 
     private fun wouldStartNonLazyBlock(line: String): Boolean {
-        val s = line.trimStart()
+        // count leading spaces (0-3 allowed for most block starts; 4+ is indented code
+        // which cannot interrupt a paragraph, so not a lazy-breaking block)
+        var indent = 0
+        var idx = 0
+        while (idx < line.length && (line[idx] == ' ' || line[idx] == '\t')) {
+            if (line[idx] == '\t') indent += (4 - indent % 4) else indent++
+            idx++
+        }
+        val s = if (idx < line.length) line.substring(idx) else ""
         if (s.isEmpty()) return false
+        // 4+ spaces of indent means indented code, which cannot interrupt a paragraph
+        if (indent >= 4) return false
         if (s.startsWith('>')) return true
         if (s.startsWith('#') && s.length > 1 && (s[1] == ' ' || s[1] == '\t' || s[1] == '#')) return true
         val tbChar = s[0]
@@ -611,6 +625,17 @@ class BlockParser(
         }
         if (s.startsWith("```") || s.startsWith("~~~")) return true
         if (s.startsWith('<') && s.length > 1) return true
+        // list item markers: bullet (- * +) followed by space/tab/eol
+        if ((s[0] == '-' || s[0] == '*' || s[0] == '+') &&
+            (s.length == 1 || s[1] == ' ' || s[1] == '\t')) return true
+        // ordered list markers: digits followed by . or ) then space/tab/eol
+        if (s[0] in '0'..'9') {
+            var i = 1
+            while (i < s.length && i < 10 && s[i] in '0'..'9') i++
+            if (i < s.length && (s[i] == '.' || s[i] == ')')) {
+                if (i + 1 >= s.length || s[i + 1] == ' ' || s[i + 1] == '\t') return true
+            }
+        }
         return false
     }
 
@@ -854,10 +879,17 @@ class BlockParser(
                 val lines = ob.contentLines
                 if (lines.size == 1 && lines[0].isEmpty()) {
                     node.literal = ""
-                } else {
-                    node.literal = lines.joinToString("\n")
-                    if (!node.literal.endsWith('\n') && lines.isNotEmpty()) {
-                        node.literal += "\n"
+                } else if (lines.isNotEmpty()) {
+                    if (ob.isFenced) {
+                        // unclosed fence: use joinToString which handles trailing empty line from
+                        // source text splitting naturally (no extra trailing newline)
+                        node.literal = lines.joinToString("\n")
+                        if (!node.literal.endsWith('\n') && lines.isNotEmpty()) {
+                            node.literal += "\n"
+                        }
+                    } else {
+                        // properly closed fence: each content line gets its own trailing newline
+                        node.literal = lines.joinToString("") { it + "\n" }
                     }
                 }
                 node.lineRange = LineRange(ob.contentStartLine, ob.lastLineIndex + 1)
@@ -915,12 +947,18 @@ class BlockParser(
                 node.lineRange = LineRange(ob.contentStartLine, ob.lastLineIndex + 1)
             }
             is ListBlock -> {
+                // compute endLine from children for accurate lineRange
+                val childEnd = node.children.maxOfOrNull { it.lineRange.endLine } ?: (ob.lastLineIndex + 1)
+                val endLine = maxOf(ob.lastLineIndex + 1, childEnd)
+                node.lineRange = LineRange(ob.contentStartLine, endLine)
                 // 判断紧凑 vs 松散
                 node.tight = isListTight(node)
-                node.lineRange = LineRange(ob.contentStartLine, ob.lastLineIndex + 1)
             }
             is ListItem -> {
-                node.lineRange = LineRange(ob.contentStartLine, ob.lastLineIndex + 1)
+                // compute endLine from children for accurate lineRange
+                val childEnd = node.children.maxOfOrNull { it.lineRange.endLine } ?: (ob.lastLineIndex + 1)
+                val endLine = maxOf(ob.lastLineIndex + 1, childEnd)
+                node.lineRange = LineRange(ob.contentStartLine, endLine)
             }
             is FootnoteDefinition -> {
                 document.footnoteDefinitions[node.label] = node
@@ -1006,21 +1044,31 @@ class BlockParser(
         for (item in items) {
             if (item.containsBlankLine) return false
             val children = item.children
+            if (children.size >= 2) {
+                // check for blank lines between consecutive direct children of this item
+                for (c in 0 until children.size - 1) {
+                    val gapStart = children[c].lineRange.endLine
+                    val gapEnd = children[c + 1].lineRange.startLine
+                    for (line in gapStart until gapEnd) {
+                        if (isBlankContentLine(line)) return false
+                    }
+                }
+            }
             if (children.isNotEmpty()) {
-                // Check for trailing blank lines within this item (after last child)
+                // check for trailing blank lines within this item (after last child)
                 val lastChildEnd = children.last().lineRange.endLine
                 val itemEnd = item.lineRange.endLine
                 for (line in lastChildEnd until itemEnd) {
                     if (isBlankContentLine(line)) return false
                 }
             } else {
-                // Empty item: check for blank lines within its range
+                // empty item: check for blank lines within its range
                 for (line in item.lineRange.startLine + 1 until item.lineRange.endLine) {
                     if (isBlankContentLine(line)) return false
                 }
             }
         }
-        // Check for blank lines between consecutive list items
+        // check for blank lines between consecutive list items
         for (i in 0 until items.size - 1) {
             val gapStart = items[i].lineRange.endLine
             val gapEnd = items[i + 1].lineRange.startLine
