@@ -156,9 +156,13 @@ class BlockParser(
         while (blockStarted) {
             blockStarted = false
 
-            // 处理空行
+            // handle blank lines (but fenced code blocks preserve blank lines as content)
             if (cursor.restIsBlank()) {
-                handleBlankLine(lastMatched, lineIdx)
+                if (lastMatched.isFenced) {
+                    addLineToTip(lastMatched, cursor, lineIdx)
+                } else {
+                    handleBlankLine(lastMatched, lineIdx)
+                }
                 lastMatched.lastLineIndex = lineIdx
                 return
             }
@@ -526,7 +530,10 @@ class BlockParser(
 
         when (val node = tip.node) {
             is FencedCodeBlock -> {
-                tip.contentLines.add(lineContent)
+                // skip the opening fence line itself (content starts on the next line)
+                if (lineIdx > tip.contentStartLine) {
+                    tip.contentLines.add(lineContent)
+                }
             }
             is IndentedCodeBlock -> {
                 tip.contentLines.add(lineContent)
