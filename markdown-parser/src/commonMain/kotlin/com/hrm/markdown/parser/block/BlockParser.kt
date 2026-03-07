@@ -209,11 +209,6 @@ class BlockParser(
                     break
                 }
 
-                // 处理列表项的特殊逻辑：确保 ListBlock 存在
-                if (newBlock.node is ListItem) {
-                    ensureListBlock(newBlock, lineIdx)
-                }
-
                 // 如果当前是 ListBlock 且新块不是 ListItem，
                 // 先关闭列表，使新块成为兄弟节点而非子节点
                 if (lastMatched.node is ListBlock && newBlock.node !is ListItem) {
@@ -271,10 +266,14 @@ class BlockParser(
                     openBlocks.removeAt(openBlocks.size - 1)
                 }
 
+                // ensure list block exists (after paragraph is closed)
+                if (newBlock.node is ListItem) {
+                    ensureListBlock(newBlock, lineIdx)
+                }
+
                 val parent = if (openBlocks.last().node is ContainerNode) {
                     openBlocks.last().node as ContainerNode
                 } else {
-                    // 查找最近的容器
                     var idx = openBlocks.size - 1
                     while (idx >= 0 && openBlocks[idx].node !is ContainerNode) idx--
                     if (idx >= 0) openBlocks[idx].node as ContainerNode else document
