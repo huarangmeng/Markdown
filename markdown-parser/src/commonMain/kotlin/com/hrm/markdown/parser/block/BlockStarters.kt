@@ -579,8 +579,7 @@ internal class BlockStarters(
         // 类型 6：已知块级标签
         val tagMatch = HTML_TYPE6_TAG_REGEX.find(line)
         if (tagMatch != null && tagMatch.groupValues[1].lowercase() in BLOCK_TAGS) return 6
-        // 类型 7：其他标签（开标签或闭标签）
-        if (HTML_TYPE7_REGEX.containsMatchIn(line)) return 7
+        if (HTML_TYPE7_OPEN_REGEX.containsMatchIn(line) || HTML_TYPE7_CLOSE_REGEX.containsMatchIn(line)) return 7
         return null
     }
 
@@ -649,7 +648,13 @@ internal class BlockStarters(
         private val HTML_TYPE1_REGEX = Regex("^<(script|pre|style|textarea)(\\s|>|$)", RegexOption.IGNORE_CASE)
         private val HTML_TYPE4_REGEX = Regex("^<![A-Z]")
         private val HTML_TYPE6_TAG_REGEX = Regex("^</?([a-zA-Z][a-zA-Z0-9-]*)(\\s|/?>|$)")
-        private val HTML_TYPE7_REGEX = Regex("^</?[a-zA-Z][a-zA-Z0-9-]*([\\s/]|>)")
+        // type 7: complete open tag or closing tag, followed by only optional whitespace
+        private val HTML_TYPE7_OPEN_REGEX = Regex(
+            """^<[a-zA-Z][a-zA-Z0-9-]*(?:\s+[a-zA-Z_:][a-zA-Z0-9_.:-]*(?:\s*=\s*(?:[^\s"'=<>`]+|'[^']*'|"[^"]*"))?)*\s*/?>[ \t]*$"""
+        )
+        private val HTML_TYPE7_CLOSE_REGEX = Regex(
+            """^</[a-zA-Z][a-zA-Z0-9-]*\s*>[ \t]*$"""
+        )
 
         /** HTML 块类型 6 的已知块级标签集合 */
         private val BLOCK_TAGS = setOf(
