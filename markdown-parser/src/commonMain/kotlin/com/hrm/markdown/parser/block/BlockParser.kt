@@ -134,7 +134,8 @@ class BlockParser(
             } else {
                 // 检查块是否被关闭围栏/定界符关闭
                 // （围栏代码块、数学块或前置元数据）
-                if (ob.node is FencedCodeBlock || ob.node is MathBlock || ob.node is CustomContainer) {
+                if (ob.node is FencedCodeBlock || ob.node is MathBlock || ob.node is CustomContainer
+                    || (ob.node is HtmlBlock && ob.htmlType in 1..5)) {
                     closedByFenceOrMath = true
                 }
                 break
@@ -390,13 +391,14 @@ class BlockParser(
                 }
             }
             is HtmlBlock -> {
-                // 类型 1-5：检查结束条件，匹配则关闭块
-                val isEnd = checkHtmlBlockEnd(cursor.rest(), ob.htmlType)
+                val line = cursor.rest()
+                val isEnd = checkHtmlBlockEnd(line, ob.htmlType)
                 if (isEnd && ob.htmlType in 1..5) {
+                    // add the closing line before finalizing
+                    ob.contentLines.add(line)
                     ob.lastLineIndex = currentLine
                     return false
                 }
-                // 类型 6-7：空行时由 handleBlankLine 关闭
                 true
             }
             is ListBlock -> true // 列表块始终继续
