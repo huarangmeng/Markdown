@@ -20,6 +20,7 @@ class OpenBlock(
     var fenceIndent: Int = 0
     var htmlType: Int = 0
     var blankLineCount: Int = 0
+    var blankLineAfterContent: Boolean = false
 
     /** 列表项元数据（仅 ListItem 类型使用） */
     var listItemMeta: ListItemMeta? = null

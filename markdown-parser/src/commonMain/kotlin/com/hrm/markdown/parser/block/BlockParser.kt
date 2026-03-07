@@ -208,6 +208,17 @@ class BlockParser(
                     addLineToTip(lastMatched, cursor, lineIdx)
                 } else {
                     handleBlankLine(lastMatched, lineIdx)
+                    // Set blankLineAfterContent on the deepest open ListItem only
+                    for (i in openBlocks.indices.reversed()) {
+                        val ob = openBlocks[i]
+                        if (ob.node is ListItem) {
+                            val li = ob.node as ListItem
+                            if (li.children.isNotEmpty() || ob.paragraphContent != null) {
+                                ob.blankLineAfterContent = true
+                            }
+                            break
+                        }
+                    }
                 }
                 lastMatched.lastLineIndex = lineIdx
                 return
@@ -297,8 +308,23 @@ class BlockParser(
                         lastMatched = newBlock
                         blockStarted = true
                         continue
-                    } else if (newBlock.node is SetextHeading || newBlock.node is Table) {
-                        // 对于 Setext 标题和表格，段落是被替换的，不仅仅是关闭
+                    } else if (newBlock.node is SetextHeading) {
+                        val rawContent = lastMatched.paragraphContent.toString()
+                        val afterLinkDefs = extractLinkReferenceDefs(rawContent)
+                        if (afterLinkDefs.isBlank()) {
+                            // All paragraph content was link ref defs; setext underline
+                            // is not a heading, treat it as paragraph text
+                            paragraphParent?.removeChild(paragraphNode)
+                            openBlocks.removeAt(openBlocks.size - 1)
+                            lastMatched = openBlocks.last()
+                            cursor.restore(preStartSnap)
+                            break
+                        }
+                        // Update content to only include the non-link-ref-def part
+                        newBlock.contentLines.clear()
+                        newBlock.contentLines.addAll(afterLinkDefs.split('\n'))
+                        paragraphParent?.removeChild(paragraphNode)
+                    } else if (newBlock.node is Table) {
                         paragraphParent?.removeChild(paragraphNode)
                     } else {
                         finalizeBlock(lastMatched)
@@ -400,7 +426,8 @@ class BlockParser(
                         val snap = cursor.snapshot()
                         val indent = cursor.advanceSpaces(node.contentIndent)
                         if (indent >= node.contentIndent) {
-                            if (ob.blankLineCount > 0) node.containsBlankLine = true
+                            if (ob.blankLineAfterContent) node.containsBlankLine = true
+                            ob.blankLineAfterContent = false
                             true
                         } else {
                             cursor.restore(snap)
@@ -967,7 +994,6 @@ class BlockParser(
 
     private fun isListTight(list: ListBlock): Boolean {
         val items = list.children.filterIsInstance<ListItem>()
-        // the last line of source may be blank due to trailing newline - ignore it
         val lastContentLine = source.lineCount - 1
         fun isBlankContentLine(line: Int): Boolean {
             if (line < 0 || line >= source.lineCount) return false
@@ -975,24 +1001,23 @@ class BlockParser(
             return source.lineContent(line).isBlank()
         }
         for (item in items) {
-            // check if blank lines appear between block children within this item
             if (item.containsBlankLine) return false
-            // check for trailing blank lines within this item's range
             val children = item.children
             if (children.isNotEmpty()) {
+                // Check for trailing blank lines within this item (after last child)
                 val lastChildEnd = children.last().lineRange.endLine
                 val itemEnd = item.lineRange.endLine
                 for (line in lastChildEnd until itemEnd) {
                     if (isBlankContentLine(line)) return false
                 }
             } else {
-                // empty item: check for blank lines within its range
+                // Empty item: check for blank lines within its range
                 for (line in item.lineRange.startLine + 1 until item.lineRange.endLine) {
                     if (isBlankContentLine(line)) return false
                 }
             }
         }
-        // check for blank lines between consecutive list items
+        // Check for blank lines between consecutive list items
         for (i in 0 until items.size - 1) {
             val gapStart = items[i].lineRange.endLine
             val gapEnd = items[i + 1].lineRange.startLine
@@ -1305,13 +1330,13 @@ class BlockParser(
         private val LINK_LABEL_PATTERN = "((?:[^\\[\\]\\\\]|\\\\.)+)"
 
         private val LINK_REF_DEF_REGEX = Regex(
-            "^\\s{0,3}\\[${LINK_LABEL_PATTERN}\\]:\\s+(?:<([^>]*)>|(\\S+))(?:\\s+(?:\"([^\"]*)\"|'([^']*)'|\\(([^)]*)\\)))?\\s*$",
+            "^\\s{0,3}\\[${LINK_LABEL_PATTERN}\\]:\\s*(?:<([^>]*)>|([^\\s<>][^\\s]*))(?:\\s+(?:\"((?:[^\"]|\\\\\")*)\"|'([^']*)'|\\(([^)]*)\\)))?\\s*$",
             RegexOption.MULTILINE
         )
 
         /** 支持标题跨行的链接引用定义（标题可在下一行） */
         private val LINK_REF_DEF_MULTILINE_TITLE_REGEX = Regex(
-            "^\\s{0,3}\\[${LINK_LABEL_PATTERN}\\]:\\s+(?:<([^>]*)>|(\\S+))\\s*\\n\\s+(?:\"([^\"]*)\"|'([^']*)'|\\(([^)]*)\\))\\s*$",
+            "^\\s{0,3}\\[${LINK_LABEL_PATTERN}\\]:\\s*(?:<([^>]*)>|([^\\s<>][^\\s]*))\\s*\\n\\s+(?:\"((?:[^\"]|\\\\\")*)\"|'([^']*)'|\\(([^)]*)\\))\\s*$",
             RegexOption.MULTILINE
         )
 

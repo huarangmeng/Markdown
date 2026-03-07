@@ -17,15 +17,37 @@ class CommonMarkSpecTest {
         val lines = this::class.java.getResourceAsStream("/commonmark-spec.txt")!!
             .bufferedReader().readLines().filter { it.isNotBlank() }
         return lines.map { line ->
-            val parts = line.split("|")
+            val parts = splitUnescaped(line, '|')
             check(parts.size >= 4) { "bad line: $line" }
             SpecExample(
                 example = parts[0].toInt(),
                 section = unescape(parts[1]),
                 markdown = unescape(parts[2]),
-                html = unescape(parts.drop(3).joinToString("|").let { unescape(it) }),
+                html = unescape(parts.drop(3).joinToString("|")),
             )
         }
+    }
+
+    private fun splitUnescaped(s: String, delimiter: Char): List<String> {
+        val result = mutableListOf<String>()
+        val sb = StringBuilder()
+        var i = 0
+        while (i < s.length) {
+            if (s[i] == '\\' && i + 1 < s.length) {
+                sb.append(s[i])
+                sb.append(s[i + 1])
+                i += 2
+            } else if (s[i] == delimiter) {
+                result.add(sb.toString())
+                sb.clear()
+                i++
+            } else {
+                sb.append(s[i])
+                i++
+            }
+        }
+        result.add(sb.toString())
+        return result
     }
 
     // the txt file escapes \n \t \\ \|
