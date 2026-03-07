@@ -627,7 +627,7 @@
 ### ✅ 已支持
 - ✅ AST → HTML 完整转换（支持全部 41+ AST 节点类型）
 - ✅ `HtmlRenderer.render(document)` 渲染已解析文档
-- ✅ `HtmlRenderer.renderMarkdown(markdown)` 便捷 API（解析 + 渲染一步完成）
+- ✅ `HtmlRenderer.renderMarkdown(markdown, flavour)` 便捷 API（解析 + 渲染一步完成，可选 flavour 参数）
 - ✅ `softBreak` 配置（软换行输出字符，默认 `\n`）
 - ✅ `hardBreak` 配置（硬换行标签，默认 `<br />\n`）
 - ✅ `escapeHtml` 配置（是否转义 HTML 特殊字符）
@@ -671,6 +671,52 @@
 | 21 | 字符与编码 | 6/6 | 0 | 100% |
 | 22 | HTML 生成器 | 12/12 | 0 | 100% |
 | | **总计** | **334/334** | **0** | **100%** |
+
+---
+
+## 🧪 CommonMark Spec 0.31.2 Compliance
+
+**652/652 (100%)** examples passing.
+
+Tested via `CommonMarkSpecTest` which runs all 652 examples from the
+[CommonMark Spec 0.31.2](https://spec.commonmark.org/0.31.2/) against
+`HtmlRenderer.renderMarkdown(markdown, flavour = CommonMarkFlavour)`.
+
+Run tests:
+```bash
+./gradlew :markdown-parser:jvmTest --tests "com.hrm.markdown.parser.CommonMarkSpecTest"
+```
+
+Results are written to `/tmp/commonmark-results.txt`.
+
+---
+
+## 🔀 Flavour System
+
+`MarkdownFlavour` controls which syntax features are enabled:
+
+| Property | CommonMark | GFM | Extended (default) |
+|----------|-----------|-----|---------------------|
+| `blockStarters` | core only | core + table | all |
+| `postProcessors` | none | none | heading ID, abbreviation, etc. |
+| `enableGfmAutolinks` | `false` | `true` | `true` |
+| `enableExtendedInline` | `false` | `true` | `true` |
+
+Extended inline syntax (disabled in CommonMark):
+- `~~strikethrough~~`, `==highlight==`, `++insert++`
+- `^superscript^`, `$math$`, `:emoji:`
+
+Usage:
+```kotlin
+// strict commonmark
+val doc = MarkdownParser(CommonMarkFlavour).parse(input)
+
+// default (all extensions enabled)
+val doc = MarkdownParser().parse(input)
+
+// one-shot html rendering with specific flavour
+val html = HtmlRenderer.renderMarkdown(input, flavour = CommonMarkFlavour)
+```
 
 ---
 
