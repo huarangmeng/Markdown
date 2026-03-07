@@ -299,6 +299,10 @@ private class InlineParserInstance(
         if (next == '\n') {
             scanner.advance()
             appendLL(HardLineBreak())
+            // skip leading spaces on the next line
+            while (!scanner.isAtEnd && scanner.peek() == ' ') {
+                scanner.advance()
+            }
         } else if (CharacterUtils.isAsciiPunctuation(next)) {
             scanner.advance()
             appendLL(EscapedChar(next.toString()))
@@ -790,10 +794,19 @@ private class InlineParserInstance(
     private fun appendLineBreak() {
         val pos = scanner.pos
         scanner.advance()
+        // strip trailing spaces from the preceding text node
+        val prevText = llTail?.astNode as? Text
+        if (prevText != null) {
+            prevText.literal = prevText.literal.trimEnd(' ')
+        }
         if (pos >= 2 && input[pos - 1] == ' ' && input[pos - 2] == ' ') {
             appendLL(HardLineBreak())
         } else {
             appendLL(SoftLineBreak())
+        }
+        // skip leading spaces on the next line
+        while (!scanner.isAtEnd && scanner.peek() == ' ') {
+            scanner.advance()
         }
     }
 
