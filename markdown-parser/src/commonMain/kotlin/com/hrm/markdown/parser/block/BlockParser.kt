@@ -692,7 +692,10 @@ class BlockParser(
         val node = ob.node
         when (node) {
             is Paragraph -> {
-                val content = ob.paragraphContent?.toString()?.trim() ?: ""
+                // strip leading spaces from each line per commonmark spec
+                val content = ob.paragraphContent?.toString()
+                    ?.lines()?.joinToString("\n") { it.trimStart() }
+                    ?.trim() ?: ""
                 if (content.isEmpty()) {
                     // 移除空段落
                     (node.parent as? ContainerNode)?.removeChild(node)
