@@ -160,6 +160,10 @@ class HtmlRenderer(
             val grandParent = parent.parent
             if (grandParent is ListBlock && grandParent.tight) {
                 visitChildren(node)
+                val siblings = parent.children
+                if (siblings.last() !== node) {
+                    sb.append('\n')
+                }
                 return
             }
         }
