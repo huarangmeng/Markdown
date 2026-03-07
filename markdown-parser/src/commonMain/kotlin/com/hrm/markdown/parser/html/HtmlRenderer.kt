@@ -265,7 +265,10 @@ class HtmlRenderer(
         } else {
             sb.append(node.literal)
         }
-        sb.append('\n')
+        // only add newline if literal doesn't already end with one
+        if (!node.literal.endsWith('\n')) {
+            sb.append('\n')
+        }
     }
 
     override fun visitLinkReferenceDefinition(node: LinkReferenceDefinition) {
