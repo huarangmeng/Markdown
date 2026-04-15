@@ -14,6 +14,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -123,16 +124,22 @@ internal fun FootnoteDefinitionRenderer(
                     fontSize = theme.footnoteStyle.fontSize,
                 ),
             )
-            if (canReturn && onFootnoteBackClick != null) {
-                Text(
-                    text = "↩ 返回",
-                    modifier = Modifier.clickable { onFootnoteBackClick(node.label) },
-                    style = theme.bodyStyle.copy(
-                        color = theme.linkColor,
-                        fontSize = theme.footnoteStyle.fontSize,
+            Text(
+                text = "↩",
+                modifier = Modifier
+                    .alpha(if (canReturn) 1f else 0.45f)
+                    .then(
+                        if (canReturn && onFootnoteBackClick != null) {
+                            Modifier.clickable { onFootnoteBackClick(node.label) }
+                        } else {
+                            Modifier
+                        }
                     ),
-                )
-            }
+                style = theme.bodyStyle.copy(
+                    color = theme.linkColor,
+                    fontSize = theme.footnoteStyle.fontSize,
+                ),
+            )
         }
         MarkdownBlockChildren(
             parent = node,
