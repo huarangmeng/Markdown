@@ -334,6 +334,7 @@ class HtmlRendererTest {
         val html = render(md)
         assertContains(html, "footnote-ref")
         assertContains(html, "fn-1")
+        assertContains(html, "Footnote content")
     }
 
     @Test

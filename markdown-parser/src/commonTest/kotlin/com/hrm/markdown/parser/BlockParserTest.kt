@@ -1138,6 +1138,21 @@ class FootnoteDefinitionTest {
     }
 
     @Test
+    fun should_parse_footnote_definition_children_as_blocks() {
+        val doc = parser.parse("[^note]: This is the footnote content.\n\nText with [^note].")
+
+        val footnote = doc.children.first()
+        assertIs<FootnoteDefinition>(footnote)
+
+        val paragraph = footnote.children.first()
+        assertIs<Paragraph>(paragraph)
+
+        val text = paragraph.children.first()
+        assertIs<Text>(text)
+        assertEquals("This is the footnote content.", text.literal)
+    }
+
+    @Test
     fun should_parse_multiple_footnotes() {
         val input = "[^1]: First note.\n[^2]: Second note.\n\nText [^1] and [^2]."
         val doc = parser.parse(input)

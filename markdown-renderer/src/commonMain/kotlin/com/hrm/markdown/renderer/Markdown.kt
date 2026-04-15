@@ -386,8 +386,13 @@ private fun InnerMarkdown(
     val onFootnoteBackClick = remember(footnoteNavigationState) {
         { label: String ->
             coroutineScope.launch {
-                val returnPosition = footnoteNavigationState.getReturnPosition(label) ?: return@launch
-                scrollState.animateScrollTo(returnPosition)
+                val returnPosition = footnoteNavigationState.getReturnPosition(label)
+                if (returnPosition != null) {
+                    scrollState.animateScrollTo(returnPosition)
+                    return@launch
+                }
+
+                footnoteNavigationState.bringReferenceIntoView(label)
             }
             Unit
         }
