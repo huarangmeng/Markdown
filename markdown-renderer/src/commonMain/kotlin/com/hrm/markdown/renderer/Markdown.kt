@@ -195,12 +195,8 @@ private fun rememberStreamingDocument(
             append = parser::append,
             endStream = parser::endStream,
             parse = { value ->
-                if (value.isEmpty()) {
-                    null
-                } else {
-                    withContext(Dispatchers.Default) {
-                        parser.parse(value)
-                    }
+                withContext(Dispatchers.Default) {
+                    parser.parse(value)
                 }
             }
         )
@@ -315,22 +311,31 @@ private fun InnerMarkdown(
 
     // 使用结构性比较缓存 blockNodes：
     // 每次 token 到达都产生新的 Document 对象，但大部分 children 的引用没变。
-    // 通过比较 children 列表的引用身份（size + 首尾元素引用 + stableKey 序列），
-    // 只在结构真正变化时才更新 blockNodes 状态，避免不必要的 Column 重组。
+    // 流式期间仅在块结构变化，或同一块的 renderRevision 变化时才刷新状态，
+    // 避免每个 token 都强制推整列 blockNodes。
     val blockNodesState = remember { mutableStateOf(emptyList<Node>(), neverEqualPolicy()) }
+    val blockNodeRevisionsState = remember { mutableStateOf(emptyList<Long>()) }
     val newChildren = renderDocument.children
     val newFiltered = newChildren.filter { it !is BlankLine }
     val currentList = blockNodesState.value
-    if (isStreaming || !structurallyEqual(currentList, newFiltered)) {
+    val newRevisions = newFiltered.map(::blockRenderRevision)
+    val shouldRefreshBlockNodes = !structurallyEqual(currentList, newFiltered) ||
+            !revisionsEqual(blockNodeRevisionsState.value, newRevisions)
+    if (shouldRefreshBlockNodes) {
         HLog.d(TAG_RENDER) { "blockNodes updated: ${currentList.size} -> ${newFiltered.size}" }
         blockNodesState.value = newFiltered.toList()
+        blockNodeRevisionsState.value = newRevisions
     }
 
+    val blockNodes = blockNodesState.value
+    val paginationStateKey = if (enablePagination && !isStreaming) document else Unit
     // P1: 分页加载支持 - 渐进式渲染超长文档
-    var visibleBlockCount by remember { mutableIntStateOf(initialBlockCount) }
+    var visibleBlockCount by remember(paginationStateKey, initialBlockCount) {
+        mutableIntStateOf(initialVisibleBlockCount(initialBlockCount, blockNodes.size))
+    }
+    val effectiveVisibleBlockCount = visibleBlockCount.coerceAtMost(blockNodes.size)
 
     // 监听滚动位置，接近底部时自动加载更多块
-    val blockNodes = blockNodesState.value
     LaunchedEffect(scrollState, enablePagination, blockNodes.size) {
         if (!enablePagination) return@LaunchedEffect
 
@@ -355,7 +360,7 @@ private fun InnerMarkdown(
         derivedStateOf {
             val nodes = blockNodesState.value
             if (enablePagination) {
-                nodes.take(visibleBlockCount)
+                nodes.take(effectiveVisibleBlockCount)
             } else {
                 nodes
             }
@@ -486,4 +491,16 @@ private fun structurallyEqual(a: List<Node>, b: List<Node>): Boolean {
         if (a[i] !== b[i]) return false
     }
     return true
+}
+
+private fun revisionsEqual(a: List<Long>, b: List<Long>): Boolean {
+    if (a.size != b.size) return false
+    for (i in a.indices) {
+        if (a[i] != b[i]) return false
+    }
+    return true
+}
+
+private fun initialVisibleBlockCount(initialBlockCount: Int, totalBlockCount: Int): Int {
+    return initialBlockCount.coerceAtLeast(0).coerceAtMost(totalBlockCount.coerceAtLeast(0))
 }

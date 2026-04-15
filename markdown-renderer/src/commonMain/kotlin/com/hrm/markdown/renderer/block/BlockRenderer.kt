@@ -27,7 +27,7 @@ private fun List<IntRange>.flattenLineNumbers(): Set<Int> = buildSet {
 @Composable
 internal fun BlockRenderer(
     node: Node,
-    renderRevision: String = "",
+    renderRevision: Long = 0L,
     modifier: Modifier = Modifier,
 ) {
     when (node) {
@@ -84,11 +84,65 @@ internal fun BlockRenderer(
     }
 }
 
-internal fun blockRenderRevision(node: Node): String = when (node) {
-    is FencedCodeBlock -> "${node.lineRange.endLine}:${node.literal.length}"
-    is IndentedCodeBlock -> "${node.lineRange.endLine}:${node.literal.length}"
-    else -> "${node.lineRange.endLine}"
+internal fun blockRenderRevision(node: Node): Long = when (node) {
+    is Paragraph -> revisionHash(
+        node.lineRange.endLine.toLong(),
+        node.contentHash,
+        (node.rawContent?.length ?: 0).toLong(),
+    )
+    is Heading -> revisionHash(
+        node.level.toLong(),
+        node.lineRange.endLine.toLong(),
+        node.contentHash,
+        (node.rawContent?.length ?: 0).toLong(),
+    )
+    is SetextHeading -> revisionHash(
+        node.level.toLong(),
+        node.lineRange.endLine.toLong(),
+        node.contentHash,
+        (node.rawContent?.length ?: 0).toLong(),
+    )
+    is FencedCodeBlock -> revisionHash(
+        node.lineRange.endLine.toLong(),
+        node.contentHash,
+        node.literal.length.toLong(),
+    )
+    is IndentedCodeBlock -> revisionHash(
+        node.lineRange.endLine.toLong(),
+        node.contentHash,
+        node.literal.length.toLong(),
+    )
+    is BlockQuote -> revisionHash(
+        node.lineRange.endLine.toLong(),
+        node.contentHash,
+        node.childCount().toLong(),
+    )
+    is ListBlock -> revisionHash(
+        node.lineRange.endLine.toLong(),
+        node.contentHash,
+        node.childCount().toLong(),
+    )
+    is Table -> revisionHash(
+        node.lineRange.endLine.toLong(),
+        node.contentHash,
+        node.childCount().toLong(),
+    )
+    else -> revisionHash(node.lineRange.endLine.toLong(), node.contentHash)
 }
+
+private fun revisionHash(a: Long, b: Long): Long =
+    mixRevision(mixRevision(REVISION_OFFSET_BASIS, a), b)
+
+private fun revisionHash(a: Long, b: Long, c: Long): Long =
+    mixRevision(revisionHash(a, b), c)
+
+private fun revisionHash(a: Long, b: Long, c: Long, d: Long): Long =
+    mixRevision(revisionHash(a, b, c), d)
+
+private fun mixRevision(acc: Long, value: Long): Long = (acc xor value) * REVISION_FNV_PRIME
+
+private const val REVISION_OFFSET_BASIS = -3750763034362895579L
+private const val REVISION_FNV_PRIME = 1099511628211L
 
 /**
  * TOC 占位符渲染器：渲染自动生成的目录。

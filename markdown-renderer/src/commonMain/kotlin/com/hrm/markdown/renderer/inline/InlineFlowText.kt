@@ -41,6 +41,7 @@ internal fun InlineFlowText(
             text = annotated,
             modifier = modifier,
             style = style,
+            maxLines = maxLines,
         )
         return
     }
