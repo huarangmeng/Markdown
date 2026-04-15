@@ -18,6 +18,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.neverEqualPolicy
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
@@ -36,6 +37,7 @@ import com.hrm.markdown.renderer.block.BlockRenderer
 import com.hrm.markdown.renderer.block.blockRenderRevision
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 private const val TAG_RENDER = "MarkdownRender"
@@ -360,10 +362,44 @@ private fun InnerMarkdown(
         }
     }
 
+    val footnoteNavigationState = remember { FootnoteNavigationState() }
+    val coroutineScope = rememberCoroutineScope()
+    val currentOnLinkClick = rememberUpdatedState(onLinkClick)
+    val currentBlockCount = rememberUpdatedState(blockNodes.size)
+    val onFootnoteClick = remember(footnoteNavigationState, enablePagination) {
+        { label: String ->
+            coroutineScope.launch {
+                footnoteNavigationState.rememberReturnPosition(label, scrollState.value)
+
+                if (enablePagination && !footnoteNavigationState.hasDefinition(label)) {
+                    visibleBlockCount = currentBlockCount.value
+                    withFrameNanos { }
+                }
+
+                if (!footnoteNavigationState.bringDefinitionIntoView(label)) {
+                    currentOnLinkClick.value?.invoke("#fn-$label")
+                }
+            }
+            Unit
+        }
+    }
+    val onFootnoteBackClick = remember(footnoteNavigationState) {
+        { label: String ->
+            coroutineScope.launch {
+                val returnPosition = footnoteNavigationState.getReturnPosition(label) ?: return@launch
+                scrollState.animateScrollTo(returnPosition)
+            }
+            Unit
+        }
+    }
+
     ProvideMarkdownTheme(theme) {
         ProvideRendererContext(
             document = renderDocument,
             onLinkClick = onLinkClick,
+            onFootnoteClick = onFootnoteClick,
+            onFootnoteBackClick = onFootnoteBackClick,
+            footnoteNavigationState = footnoteNavigationState,
             imageContent = imageContent,
             config = config,
             codeTheme = codeTheme,

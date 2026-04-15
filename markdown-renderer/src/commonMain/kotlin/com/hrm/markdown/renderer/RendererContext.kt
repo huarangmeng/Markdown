@@ -17,6 +17,8 @@ import com.hrm.markdown.parser.ast.Document
  * - compositionLocalOf 比较引用发现没变 → **跳过所有下游重组**
  */
 internal val LocalOnLinkClick = compositionLocalOf<((String) -> Unit)?> { null }
+internal val LocalOnFootnoteClick = compositionLocalOf<((String) -> Unit)?> { null }
+internal val LocalOnFootnoteBackClick = compositionLocalOf<((String) -> Unit)?> { null }
 
 /**
  * 文档引用，通过 [compositionLocalOf] 在组件树中传递。
@@ -31,6 +33,7 @@ internal val LocalRendererDocument = compositionLocalOf { Document() }
  * Markdown 渲染配置，通过 CompositionLocal 传递。
  */
 internal val LocalMarkdownConfig = compositionLocalOf { MarkdownConfig.Default }
+internal val LocalFootnoteNavigationState = compositionLocalOf<FootnoteNavigationState?> { null }
 
 internal val LocalCodeHighlightTheme = compositionLocalOf<CodeTheme?> { null }
 internal val LocalIsStreaming = compositionLocalOf { false }
@@ -39,6 +42,9 @@ internal val LocalIsStreaming = compositionLocalOf { false }
 internal fun ProvideRendererContext(
     document: Document,
     onLinkClick: ((String) -> Unit)?,
+    onFootnoteClick: ((String) -> Unit)? = null,
+    onFootnoteBackClick: ((String) -> Unit)? = null,
+    footnoteNavigationState: FootnoteNavigationState? = null,
     imageContent: MarkdownImageRenderer? = null,
     config: MarkdownConfig = MarkdownConfig.Default,
     codeTheme: CodeTheme? = null,
@@ -50,6 +56,8 @@ internal fun ProvideRendererContext(
     // - 内部通过 State 读取始终最新的 onLinkClick
     // - compositionLocalOf 比较引用 === 发现没变 → 跳过下游重组
     val currentOnLinkClick = rememberUpdatedState(onLinkClick)
+    val currentOnFootnoteClick = rememberUpdatedState(onFootnoteClick)
+    val currentOnFootnoteBackClick = rememberUpdatedState(onFootnoteBackClick)
     val stableOnLinkClick: ((String) -> Unit)? = remember {
         if (onLinkClick != null) {
             { url: String -> currentOnLinkClick.value?.invoke(url) }
@@ -57,12 +65,29 @@ internal fun ProvideRendererContext(
             null
         }
     }
+    val stableOnFootnoteClick: ((String) -> Unit)? = remember {
+        if (onFootnoteClick != null) {
+            { label: String -> currentOnFootnoteClick.value?.invoke(label) }
+        } else {
+            null
+        }
+    }
+    val stableOnFootnoteBackClick: ((String) -> Unit)? = remember {
+        if (onFootnoteBackClick != null) {
+            { label: String -> currentOnFootnoteBackClick.value?.invoke(label) }
+        } else {
+            null
+        }
+    }
 
     CompositionLocalProvider(
         LocalOnLinkClick provides stableOnLinkClick,
+        LocalOnFootnoteClick provides stableOnFootnoteClick,
+        LocalOnFootnoteBackClick provides stableOnFootnoteBackClick,
         LocalRendererDocument provides document,
         LocalImageRenderer provides imageContent,
         LocalMarkdownConfig provides config,
+        LocalFootnoteNavigationState provides footnoteNavigationState,
         LocalCodeHighlightTheme provides codeTheme,
         LocalIsStreaming provides isStreaming,
     ) {

@@ -549,7 +549,7 @@
 - ✅ 脚注引用渲染为上标编号
 - ✅ 点击脚注跳转到脚注定义
 
-> **备注**: `InlineParser` 的 `appendCloseBracket()` 中已实现 `[^label]` 检测，当方括号内文本以 `^` 开头时创建 `FootnoteReference` 节点并自动分配索引编号。
+> **备注**: `InlineParser` 的 `appendCloseBracket()` 中已实现 `[^label]` 检测，当方括号内文本以 `^` 开头时创建 `FootnoteReference` 节点并自动分配索引编号；`markdown-renderer` 则通过 `BringIntoViewRequester` 将上标点击映射到对应的 `FootnoteDefinition`。
 
 #### 行内数学（扩展）
 - ✅ `$...$` 单美元符行内数学

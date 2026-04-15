@@ -1,11 +1,18 @@
 package com.hrm.markdown.renderer.block
 
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -15,7 +22,9 @@ import com.hrm.markdown.parser.ast.DefinitionList
 import com.hrm.markdown.parser.ast.DefinitionTerm
 import com.hrm.markdown.parser.ast.FootnoteDefinition
 import com.hrm.markdown.parser.ast.HtmlBlock
+import com.hrm.markdown.renderer.LocalFootnoteNavigationState
 import com.hrm.markdown.renderer.LocalMarkdownTheme
+import com.hrm.markdown.renderer.LocalOnFootnoteBackClick
 import com.hrm.markdown.renderer.MarkdownBlockChildren
 import com.hrm.markdown.renderer.inline.InlineFlowText
 import com.hrm.markdown.renderer.inline.rememberInlineContent
@@ -84,15 +93,47 @@ internal fun FootnoteDefinitionRenderer(
     modifier: Modifier = Modifier,
 ) {
     val theme = LocalMarkdownTheme.current
+    val footnoteNavigationState = LocalFootnoteNavigationState.current
+    val onFootnoteBackClick = LocalOnFootnoteBackClick.current
+    val bringIntoViewRequester = remember { BringIntoViewRequester() }
+    val canReturn = footnoteNavigationState?.hasReturnPosition(node.label) == true
 
-    Column(modifier = modifier.fillMaxWidth().padding(top = 4.dp)) {
-        Text(
-            text = "[${node.index}] ${node.label}",
-            style = theme.bodyStyle.copy(
-                fontWeight = FontWeight.SemiBold,
+    DisposableEffect(footnoteNavigationState, node.label, bringIntoViewRequester) {
+        footnoteNavigationState?.registerDefinition(node.label, bringIntoViewRequester)
+        onDispose {
+            footnoteNavigationState?.unregisterDefinition(node.label, bringIntoViewRequester)
+        }
+    }
+
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .bringIntoViewRequester(bringIntoViewRequester)
+            .padding(top = 4.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = "[${node.index}] ${node.label}",
+                style = theme.bodyStyle.copy(
+                    fontWeight = FontWeight.SemiBold,
                     fontSize = theme.footnoteStyle.fontSize,
-            ),
-        )
+                ),
+            )
+            if (canReturn && onFootnoteBackClick != null) {
+                Text(
+                    text = "↩ 返回",
+                    modifier = Modifier.clickable { onFootnoteBackClick(node.label) },
+                    style = theme.bodyStyle.copy(
+                        color = theme.linkColor,
+                        fontSize = theme.footnoteStyle.fontSize,
+                    ),
+                )
+            }
+        }
         MarkdownBlockChildren(
             parent = node,
             modifier = Modifier.padding(start = 16.dp),
