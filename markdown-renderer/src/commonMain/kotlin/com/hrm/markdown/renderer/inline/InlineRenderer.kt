@@ -68,16 +68,15 @@ internal data class InlineContentEntry(
 internal fun rememberInlineContent(
     parent: ContainerNode,
     onLinkClick: ((String) -> Unit)? = null,
-    onFootnoteClick: ((String) -> Unit)? = null,
     hostTextStyle: TextStyle = LocalMarkdownTheme.current.bodyStyle,
 ): InlineContentResult {
     val theme = LocalMarkdownTheme.current
-    val resolvedOnFootnoteClick = onFootnoteClick ?: LocalOnFootnoteClick.current
+    val onFootnoteClick = LocalOnFootnoteClick.current
     val latexMeasurer = rememberLatexMeasurer()
     val density = LocalDensity.current
     val textMeasurer = rememberTextMeasurer()
     val inlineCodeTheme = LocalCodeHighlightTheme.current ?: LocalCodeTheme.current
-    return remember(parent, theme, onLinkClick, resolvedOnFootnoteClick, hostTextStyle, latexMeasurer, density, textMeasurer, inlineCodeTheme) {
+    return remember(parent, theme, onLinkClick, onFootnoteClick, hostTextStyle, latexMeasurer, density, textMeasurer, inlineCodeTheme) {
         val inlineContents = mutableMapOf<String, InlineContentEntry>()
         val annotated = buildAnnotatedString {
             renderInlineChildren(
@@ -86,7 +85,7 @@ internal fun rememberInlineContent(
                 hostTextStyle,
                 inlineContents,
                 onLinkClick,
-                resolvedOnFootnoteClick,
+                onFootnoteClick,
                 latexMeasurer,
                 density,
                 textMeasurer,
@@ -330,8 +329,8 @@ private fun AnnotatedString.Builder.renderInlineNode(
                 val itc = InlineTextContent(
                     placeholder = Placeholder(
                         width = with(density) { size.width.toSp() },
-                        height = with(density) { size.height.toSp() },
-                        placeholderVerticalAlign = PlaceholderVerticalAlign.AboveBaseline,
+                        height = hostTextStyle.lineHeight,
+                        placeholderVerticalAlign = PlaceholderVerticalAlign.TextTop,
                     ),
                 ) {
                     FootnoteReferenceContent(

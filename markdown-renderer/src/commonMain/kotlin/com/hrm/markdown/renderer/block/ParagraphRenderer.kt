@@ -59,11 +59,9 @@ private fun SimpleParagraphRenderer(
 ) {
     val theme = LocalMarkdownTheme.current
     val onLinkClick = LocalOnLinkClick.current
-    val onFootnoteClick = LocalOnFootnoteClick.current
     val inlineResult = rememberInlineContent(
         parent = node,
         onLinkClick = onLinkClick,
-        onFootnoteClick = onFootnoteClick,
         hostTextStyle = theme.bodyStyle,
     )
     InlineFlowText(
