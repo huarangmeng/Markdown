@@ -21,33 +21,33 @@ import com.hrm.markdown.parser.ast.Node
  * ```
  */
 class PostProcessorRegistry {
-    private val processors = mutableListOf<PostProcessor>()
-    private var sorted = false
+    // 使用 Copy-on-Write 模式：每次修改都创建新列表，保证遍历安全
+    // processors 列表本身是不可变的（val），但引用可以指向新的不可变列表
+    private var _processors: List<PostProcessor> = emptyList()
+    // 缓存排序后的列表，避免每次 processAll 都排序
+    private var _sortedProcessors: List<PostProcessor>? = null
 
     fun register(processor: PostProcessor) {
-        processors.add(processor)
-        sorted = false
+        _processors = _processors + processor
+        _sortedProcessors = null
     }
 
     fun registerAll(vararg processors: PostProcessor) {
-        this.processors.addAll(processors)
-        sorted = false
+        _processors = _processors + processors.toList()
+        _sortedProcessors = null
     }
 
     /**
      * 按优先级顺序执行所有后处理器。
+     *
+     * 使用 Copy-on-Write 模式保证线程安全：
+     * - `_processors` 和 `_sortedProcessors` 的读写是原子引用操作
+     * - 遍历的是不可变列表快照，不会被并发修改
      */
     fun processAll(document: Document) {
-        ensureSorted()
-        for (processor in processors) {
+        val snapshot = _sortedProcessors ?: _processors.sortedBy { it.priority }.also { _sortedProcessors = it }
+        for (processor in snapshot) {
             processor.process(document)
-        }
-    }
-
-    private fun ensureSorted() {
-        if (!sorted) {
-            processors.sortBy { it.priority }
-            sorted = true
         }
     }
 
