@@ -2,6 +2,8 @@ package com.hrm.markdown.parser.block.postprocessors
 
 import com.hrm.markdown.parser.ast.Document
 import com.hrm.markdown.parser.ast.Node
+import kotlin.concurrent.atomics.AtomicReference
+import kotlin.concurrent.atomics.ExperimentalAtomicApi
 
 /**
  * 后处理器注册表。
@@ -20,34 +22,70 @@ import com.hrm.markdown.parser.ast.Node
  * val empty = PostProcessorRegistry()
  * ```
  */
+@OptIn(ExperimentalAtomicApi::class)
 class PostProcessorRegistry {
-    // 使用 Copy-on-Write 模式：每次修改都创建新列表，保证遍历安全
-    // processors 列表本身是不可变的（val），但引用可以指向新的不可变列表
-    private var _processors: List<PostProcessor> = emptyList()
-    // 缓存排序后的列表，避免每次 processAll 都排序
-    private var _sortedProcessors: List<PostProcessor>? = null
+    private data class State(
+        val processors: List<PostProcessor>,
+        val sortedProcessors: List<PostProcessor>?,
+    )
+
+    private val state = AtomicReference(State(processors = emptyList(), sortedProcessors = null))
 
     fun register(processor: PostProcessor) {
-        _processors = _processors + processor
-        _sortedProcessors = null
+        updateState { current ->
+            current.copy(
+                processors = current.processors + processor,
+                sortedProcessors = null,
+            )
+        }
     }
 
     fun registerAll(vararg processors: PostProcessor) {
-        _processors = _processors + processors.toList()
-        _sortedProcessors = null
+        if (processors.isEmpty()) return
+        val additions = processors.toList()
+        updateState { current ->
+            current.copy(
+                processors = current.processors + additions,
+                sortedProcessors = null,
+            )
+        }
     }
 
     /**
      * 按优先级顺序执行所有后处理器。
      *
      * 使用 Copy-on-Write 模式保证线程安全：
-     * - `_processors` 和 `_sortedProcessors` 的读写是原子引用操作
+     * - `processors` 与 `sortedProcessors` 始终作为同一个原子状态更新
      * - 遍历的是不可变列表快照，不会被并发修改
+     * - 并发注册不会丢失更新，旧排序缓存也不会覆盖新状态
      */
     fun processAll(document: Document) {
-        val snapshot = _sortedProcessors ?: _processors.sortedBy { it.priority }.also { _sortedProcessors = it }
+        val snapshot = sortedSnapshot()
         for (processor in snapshot) {
             processor.process(document)
+        }
+    }
+
+    private fun sortedSnapshot(): List<PostProcessor> {
+        while (true) {
+            val current = state.load()
+            current.sortedProcessors?.let { return it }
+
+            val sorted = current.processors.sortedBy { it.priority }
+            val updated = current.copy(sortedProcessors = sorted)
+            if (state.compareAndSet(current, updated)) {
+                return sorted
+            }
+        }
+    }
+
+    private inline fun updateState(transform: (State) -> State) {
+        while (true) {
+            val current = state.load()
+            val updated = transform(current)
+            if (state.compareAndSet(current, updated)) {
+                return
+            }
         }
     }
 
