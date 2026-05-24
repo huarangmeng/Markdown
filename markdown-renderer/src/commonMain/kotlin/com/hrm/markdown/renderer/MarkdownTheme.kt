@@ -1,11 +1,14 @@
 package com.hrm.markdown.renderer
 
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.ColorScheme
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -23,6 +26,7 @@ import androidx.compose.ui.unit.sp
  * - `MarkdownTheme.light()` — 亮色主题
  * - `MarkdownTheme.dark()` — 暗色主题
  * - `MarkdownTheme.auto()` — 跟随系统日夜间模式（@Composable）
+ * - `MarkdownTheme.material3()` — 跟随当前 Material 3 调色板（@Composable）
  */
 @Immutable
 data class MarkdownTheme(
@@ -175,6 +179,58 @@ data class MarkdownTheme(
         fun auto(isDarkTheme: Boolean = isSystemInDarkTheme()): MarkdownTheme {
             return if (isDarkTheme) dark() else light()
         }
+
+        /**
+         * 从 Material 3 [ColorScheme] 生成 Markdown 主题。
+         *
+         * 适合需要让 Markdown 内容跟随应用调色板、自定义 seed color 或 Android 动态取色的场景。
+         * 不同于 [auto] 只在内置亮色/暗色主题之间切换，这里会把正文、标题、链接、
+         * blockquote、代码块、表格、任务列表、脚注、键盘按键、剧透和 admonition 等颜色
+         * 都映射到传入的 Material 3 调色板。
+         */
+        fun material3(colorScheme: ColorScheme): MarkdownTheme {
+            val baseTheme = if (colorScheme.surface.luminance() < 0.5f) dark() else light()
+            val contentColor = colorScheme.onSurface
+            val subduedContentColor = colorScheme.onSurfaceVariant
+            val codeContainerColor = colorScheme.surfaceVariant
+            val codeTitleContainerColor = colorScheme.surfaceContainerHighest
+
+            return baseTheme.copy(
+                headingStyles = baseTheme.headingStyles.map { it.copy(color = contentColor) },
+                bodyStyle = baseTheme.bodyStyle.copy(color = contentColor),
+                inlineCodeStyle = baseTheme.inlineCodeStyle.copy(color = subduedContentColor),
+                inlineCodeBackground = codeContainerColor,
+                codeBlockStyle = baseTheme.codeBlockStyle.copy(color = subduedContentColor),
+                codeBlockBackground = codeContainerColor,
+                blockQuoteBorderColor = colorScheme.outline,
+                blockQuoteTextColor = subduedContentColor,
+                dividerColor = colorScheme.outlineVariant,
+                linkColor = colorScheme.primary,
+                listBulletColor = contentColor,
+                tableBorderColor = colorScheme.outlineVariant,
+                tableHeaderBackground = codeTitleContainerColor,
+                highlightColor = colorScheme.tertiaryContainer,
+                taskCheckedColor = colorScheme.primary,
+                taskUncheckedColor = colorScheme.outline,
+                mathBlockBackground = codeContainerColor,
+                mathColor = contentColor,
+                admonitionStyles = material3AdmonitionStyles(colorScheme),
+                footnoteStyle = baseTheme.footnoteStyle.copy(color = subduedContentColor),
+                kbdBackground = codeContainerColor,
+                codeBlockTitleBackground = codeTitleContainerColor,
+                codeBlockTitleStyle = baseTheme.codeBlockTitleStyle.copy(color = subduedContentColor),
+                spoilerColor = subduedContentColor,
+            )
+        }
+
+        /**
+         * 使用当前 Compose Material 3 [MaterialTheme.colorScheme] 生成 Markdown 主题。
+         *
+         * 这会让 Markdown 的链接、blockquote、代码块等样式跟随当前 Material 3 主题，
+         * 而不是使用 [auto] 选择出的默认 GitHub 风格亮色/暗色配色。
+         */
+        @Composable
+        fun material3(): MarkdownTheme = material3(MaterialTheme.colorScheme)
     }
 }
 
@@ -270,6 +326,39 @@ internal fun darkAdmonitionStyles(): Map<String, AdmonitionStyle> = mapOf(
         backgroundColor = Color(0xFF300C0C),
         iconText = "🔴",
         titleColor = Color(0xFFF85149),
+    ),
+)
+
+internal fun material3AdmonitionStyles(colorScheme: ColorScheme): Map<String, AdmonitionStyle> = mapOf(
+    "NOTE" to AdmonitionStyle(
+        borderColor = colorScheme.primary,
+        backgroundColor = colorScheme.primaryContainer,
+        iconText = "ℹ️",
+        titleColor = colorScheme.onPrimaryContainer,
+    ),
+    "TIP" to AdmonitionStyle(
+        borderColor = colorScheme.secondary,
+        backgroundColor = colorScheme.secondaryContainer,
+        iconText = "💡",
+        titleColor = colorScheme.onSecondaryContainer,
+    ),
+    "IMPORTANT" to AdmonitionStyle(
+        borderColor = colorScheme.tertiary,
+        backgroundColor = colorScheme.tertiaryContainer,
+        iconText = "❗",
+        titleColor = colorScheme.onTertiaryContainer,
+    ),
+    "WARNING" to AdmonitionStyle(
+        borderColor = colorScheme.error,
+        backgroundColor = colorScheme.errorContainer,
+        iconText = "⚠️",
+        titleColor = colorScheme.onErrorContainer,
+    ),
+    "CAUTION" to AdmonitionStyle(
+        borderColor = colorScheme.error,
+        backgroundColor = colorScheme.errorContainer,
+        iconText = "🔴",
+        titleColor = colorScheme.onErrorContainer,
     ),
 )
 
