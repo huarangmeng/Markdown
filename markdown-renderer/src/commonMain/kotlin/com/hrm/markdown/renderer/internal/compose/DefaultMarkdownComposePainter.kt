@@ -171,7 +171,7 @@ private fun PaintBlock(block: com.hrm.markdown.renderer.internal.layout.model.In
         is LayoutColumnsBlockModel -> RenderColumnsLayoutGroupModel(
             model = block,
             modifier = Modifier.fillMaxWidth(),
-            renderChildren = ::PaintLayoutBlockChildren,
+            renderChildren = ::PaintLayoutBlockColumn,
         )
         is LayoutTableBlockModel -> RenderTableLayoutBlockModel(
             model = block,
@@ -197,7 +197,7 @@ private fun PaintBlock(block: com.hrm.markdown.renderer.internal.layout.model.In
         is LayoutTabBlockModel -> RenderTabLayoutBlockModel(
             model = block,
             modifier = Modifier.fillMaxWidth(),
-            renderChildren = ::PaintLayoutBlockChildren,
+            renderChildren = ::PaintLayoutBlockColumn,
         )
         is LayoutFootnoteBlockModel -> RenderFootnoteLayoutBlockModel(
             model = block,
@@ -245,7 +245,7 @@ private fun PaintRenderBlock(block: LayoutRenderBlockModel) {
             model = renderBlock,
             modifier = Modifier.fillMaxWidth(),
         ) {
-            PaintLayoutBlockChildren(block.children)
+            PaintLayoutBlockColumn(block.children)
         }
 
         is ListBlockModel -> RenderListBlockModel(model = renderBlock, modifier = Modifier.fillMaxWidth(), renderChildren = ::PaintRenderBlockChildren)
@@ -289,7 +289,7 @@ private fun PaintRenderBlock(block: LayoutRenderBlockModel) {
             }
         }
 
-        is ColumnsLayoutBlockModel -> RenderColumnsLayoutBlockModel(model = renderBlock, modifier = Modifier.fillMaxWidth(), renderChildren = ::PaintRenderBlockChildren)
+        is ColumnsLayoutBlockModel -> RenderColumnsLayoutBlockModel(model = renderBlock, modifier = Modifier.fillMaxWidth(), renderChildren = ::PaintRenderBlockColumn)
 
         is DefinitionListBlockModel -> RenderDefinitionListBlockModel(
             model = renderBlock,
@@ -334,7 +334,7 @@ private fun PaintRenderBlock(block: LayoutRenderBlockModel) {
                         tagName = renderBlock.tagName,
                         args = renderBlock.args,
                         content = if (block.children.isNotEmpty()) {
-                            { PaintLayoutBlockChildren(block.children) }
+                            { PaintLayoutBlockColumn(block.children) }
                         } else {
                             null
                         },
@@ -354,7 +354,7 @@ private fun PaintRenderBlock(block: LayoutRenderBlockModel) {
             }
         }
 
-        is TabBlockModel -> RenderTabBlockModel(model = renderBlock, modifier = Modifier.fillMaxWidth(), renderChildren = ::PaintRenderBlockChildren)
+        is TabBlockModel -> RenderTabBlockModel(model = renderBlock, modifier = Modifier.fillMaxWidth(), renderChildren = ::PaintRenderBlockColumn)
 
         is BibliographyDefinitionBlockModel -> RenderBibliographyBlockModel(
             model = renderBlock,
@@ -407,6 +407,18 @@ private fun PaintInlineBlock(block: LayoutInlineBlockModel) {
 }
 
 @Composable
+private fun PaintRenderBlockColumn(
+    blocks: List<InternalRenderBlockModel>,
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(LocalMarkdownTheme.current.blockSpacing),
+    ) {
+        PaintRenderBlockChildren(blocks)
+    }
+}
+
+@Composable
 private fun PaintRenderBlockChildren(
     blocks: List<InternalRenderBlockModel>,
 ) {
@@ -414,6 +426,18 @@ private fun PaintRenderBlockChildren(
         key(block.identity.stableId) {
             PaintCompiledBlock(block)
         }
+    }
+}
+
+@Composable
+private fun PaintLayoutBlockColumn(
+    blocks: List<com.hrm.markdown.renderer.internal.layout.model.InternalLayoutBlockModel>,
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(LocalMarkdownTheme.current.blockSpacing),
+    ) {
+        PaintLayoutBlockChildren(blocks)
     }
 }
 

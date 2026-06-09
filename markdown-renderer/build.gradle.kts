@@ -62,6 +62,10 @@ kotlin {
         commonTest.dependencies {
             implementation(libs.kotlin.test)
             implementation(libs.kotlinx.coroutines.core)
+            implementation("org.jetbrains.compose.ui:ui-test:${libs.versions.composeMultiplatform.get()}")
+        }
+        jvmTest.dependencies {
+            implementation(compose.desktop.currentOs)
         }
         androidMain.dependencies {
             implementation(libs.ktor.client.android)
