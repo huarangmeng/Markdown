@@ -26,6 +26,32 @@ internal val mathPreviewGroups = listOf(
                 }
             ),
             PreviewItem(
+                id = "inline_numeric_text_command",
+                title = "数字开头行内公式",
+                content = {
+                    Markdown(
+                        markdown = """
+A battery does ${'$'}144\text{ J}${'$'} of work to move a specific amount of charge through a circuit with a potential difference of ${'$'}12\text{ V}${'$'}. Calculate the quantity of charge moved.
+
+- A. ${'$'}12\text{ C}${'$'}
+- B. ${'$'}132\text{ C}${'$'}
+- C. ${'$'}156\text{ C}${'$'}
+- D. ${'$'}1728\text{ C}${'$'}
+
+Potential difference is the work done per unit charge moved.
+
+${'$'}${'$'}
+V = \frac{W}{Q}
+${'$'}${'$'}
+
+${'$'}${'$'}
+Q = \frac{144}{12} = 12\text{ C}
+${'$'}${'$'}
+                        """.trimIndent()
+                    )
+                }
+            ),
+            PreviewItem(
                 id = "inline_tall_formula",
                 title = "高行内公式行高",
                 content = {

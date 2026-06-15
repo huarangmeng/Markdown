@@ -358,6 +358,31 @@ class InlineParserTest {
     }
 
     @Test
+    fun should_parse_numeric_inline_math_with_text_command() {
+        val doc = parser.parse(
+            "A battery does \$144\\text{ J}\$ of work with a potential difference of \$12\\text{ V}\$."
+        )
+        val para = doc.children.first()
+        assertIs<Paragraph>(para)
+
+        val math = para.children.filterIsInstance<InlineMath>()
+
+        assertEquals(listOf("144\\text{ J}", "12\\text{ V}"), math.map { it.literal })
+    }
+
+    @Test
+    fun should_parse_numeric_answer_as_inline_math() {
+        val doc = parser.parse("\$12\\text{ C}\$")
+        val para = doc.children.first()
+        assertIs<Paragraph>(para)
+
+        val math = para.children.single()
+
+        assertIs<InlineMath>(math)
+        assertEquals("12\\text{ C}", math.literal)
+    }
+
+    @Test
     fun should_not_parse_dollar_after_digit() {
         val doc = parser.parse("Price is 100\$")
         val para = doc.children.first()

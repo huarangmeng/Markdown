@@ -18,6 +18,7 @@ import com.hrm.markdown.parser.ast.InlineHtml
 import com.hrm.markdown.parser.ast.InlineMath
 import com.hrm.markdown.parser.ast.InsertedText
 import com.hrm.markdown.parser.ast.KeyboardInput
+import com.hrm.markdown.parser.ast.LeafNode
 import com.hrm.markdown.parser.ast.Link
 import com.hrm.markdown.parser.ast.Node
 import com.hrm.markdown.parser.ast.RubyText
@@ -30,7 +31,10 @@ import com.hrm.markdown.parser.ast.Subscript
 import com.hrm.markdown.parser.ast.Superscript
 import com.hrm.markdown.parser.ast.Text
 import com.hrm.markdown.parser.ast.WikiLink
+import com.hrm.markdown.parser.SourceRange
 import com.hrm.markdown.renderer.internal.core.identity.RenderIdentity
+import com.hrm.markdown.renderer.internal.core.identity.renderIdentityFromText
+import com.hrm.markdown.renderer.internal.core.identity.renderIdentityFromValues
 import com.hrm.markdown.renderer.internal.core.identity.renderIdentityMix
 import com.hrm.markdown.renderer.internal.core.identity.renderIdentitySeed
 import com.hrm.markdown.renderer.internal.core.model.DirectiveInlineWidgetModel
@@ -61,6 +65,7 @@ internal fun compileInlineModel(
                 nodes = nodes,
                 activeMarks = emptyList(),
                 sink = this,
+                parentStableId = stableInlineListId(nodes),
             )
         }
     )
@@ -70,9 +75,15 @@ private fun compileInlineNodes(
     nodes: List<Node>,
     activeMarks: List<SpanMark>,
     sink: MutableList<InlineAtom>,
+    parentStableId: Long,
 ) {
-    for (node in nodes) {
-        compileInlineNode(node, activeMarks, sink)
+    nodes.forEachIndexed { index, node ->
+        compileInlineNode(
+            node = node,
+            activeMarks = activeMarks,
+            sink = sink,
+            stableId = stableInlineNodeId(node, parentStableId, index),
+        )
     }
 }
 
@@ -80,18 +91,20 @@ private fun compileInlineNode(
     node: Node,
     activeMarks: List<SpanMark>,
     sink: MutableList<InlineAtom>,
+    stableId: Long,
 ) {
+    val identity = nodeIdentity(node, stableId)
     when (node) {
-        is Text -> sink += TextAtom(nodeIdentity(node), node.literal, activeMarks)
-        is SoftLineBreak -> sink += TextAtom(nodeIdentity(node), " ", activeMarks)
-        is HardLineBreak -> sink += TextAtom(nodeIdentity(node), "\n", activeMarks)
-        is Emphasis -> compileInlineNodes(node.children, activeMarks + SpanMark("emphasis"), sink)
-        is StrongEmphasis -> compileInlineNodes(node.children, activeMarks + SpanMark("strong"), sink)
-        is Strikethrough -> compileInlineNodes(node.children, activeMarks + SpanMark("strikethrough"), sink)
-        is Highlight -> compileInlineNodes(node.children, activeMarks + SpanMark("highlight"), sink)
-        is Superscript -> compileInlineNodes(node.children, activeMarks + SpanMark("superscript"), sink)
-        is Subscript -> compileInlineNodes(node.children, activeMarks + SpanMark("subscript"), sink)
-        is InsertedText -> compileInlineNodes(node.children, activeMarks + SpanMark("inserted"), sink)
+        is Text -> sink += TextAtom(identity, node.literal, activeMarks)
+        is SoftLineBreak -> sink += TextAtom(identity, " ", activeMarks)
+        is HardLineBreak -> sink += TextAtom(identity, "\n", activeMarks)
+        is Emphasis -> compileInlineNodes(node.children, activeMarks + SpanMark("emphasis"), sink, stableId)
+        is StrongEmphasis -> compileInlineNodes(node.children, activeMarks + SpanMark("strong"), sink, stableId)
+        is Strikethrough -> compileInlineNodes(node.children, activeMarks + SpanMark("strikethrough"), sink, stableId)
+        is Highlight -> compileInlineNodes(node.children, activeMarks + SpanMark("highlight"), sink, stableId)
+        is Superscript -> compileInlineNodes(node.children, activeMarks + SpanMark("superscript"), sink, stableId)
+        is Subscript -> compileInlineNodes(node.children, activeMarks + SpanMark("subscript"), sink, stableId)
+        is InsertedText -> compileInlineNodes(node.children, activeMarks + SpanMark("inserted"), sink, stableId)
         is StyledText -> {
             compileInlineNodes(
                 node.children,
@@ -105,6 +118,7 @@ private fun compileInlineNode(
                     }
                 ),
                 sink,
+                stableId,
             )
         }
 
@@ -119,12 +133,13 @@ private fun compileInlineNode(
                     )
                 ),
                 sink,
+                stableId,
             )
         }
 
         is Autolink -> {
             sink += TextAtom(
-                identity = nodeIdentity(node),
+                identity = identity,
                 text = node.destination,
                 marks = activeMarks + SpanMark(
                     kind = "link",
@@ -138,7 +153,7 @@ private fun compileInlineNode(
 
         is WikiLink -> {
             sink += TextAtom(
-                identity = nodeIdentity(node),
+                identity = identity,
                 text = node.label ?: node.target,
                 marks = activeMarks + SpanMark(
                     kind = "link",
@@ -152,9 +167,9 @@ private fun compileInlineNode(
 
         is InlineCode -> {
             sink += WidgetAtom(
-                identity = nodeIdentity(node),
+                identity = identity,
                 widget = InlineCodeWidgetModel(
-                    identity = nodeIdentity(node),
+                    identity = identity,
                     code = node.literal,
                 )
             )
@@ -162,9 +177,9 @@ private fun compileInlineNode(
 
         is Image -> {
             sink += WidgetAtom(
-                identity = nodeIdentity(node),
+                identity = identity,
                 widget = ImageWidgetModel(
-                    identity = nodeIdentity(node),
+                    identity = identity,
                     url = node.destination,
                     altText = extractPlainText(node),
                     title = node.title,
@@ -177,9 +192,9 @@ private fun compileInlineNode(
 
         is InlineMath -> {
             sink += WidgetAtom(
-                identity = nodeIdentity(node),
+                identity = identity,
                 widget = InlineMathWidgetModel(
-                    identity = nodeIdentity(node),
+                    identity = identity,
                     latex = node.literal,
                 )
             )
@@ -187,7 +202,7 @@ private fun compileInlineNode(
 
         is FootnoteReference -> {
             sink += TextAtom(
-                identity = nodeIdentity(node),
+                identity = identity,
                 text = "[${node.index}]",
                 marks = activeMarks + SpanMark(
                     kind = "footnote",
@@ -201,7 +216,7 @@ private fun compileInlineNode(
 
         is CitationReference -> {
             sink += TextAtom(
-                identity = nodeIdentity(node),
+                identity = identity,
                 text = "[${node.key}]",
                 marks = activeMarks + SpanMark(
                     kind = "citation",
@@ -210,13 +225,13 @@ private fun compileInlineNode(
             )
         }
 
-        is InlineHtml -> sink += TextAtom(nodeIdentity(node), node.literal, activeMarks + SpanMark("inline_html"))
-        is HtmlEntity -> sink += TextAtom(nodeIdentity(node), node.resolved.ifEmpty { node.literal }, activeMarks)
-        is EscapedChar -> sink += TextAtom(nodeIdentity(node), node.literal, activeMarks)
-        is Emoji -> sink += TextAtom(nodeIdentity(node), node.unicode ?: node.literal.ifEmpty { ":${node.shortcode}:" }, activeMarks)
+        is InlineHtml -> sink += TextAtom(identity, node.literal, activeMarks + SpanMark("inline_html"))
+        is HtmlEntity -> sink += TextAtom(identity, node.resolved.ifEmpty { node.literal }, activeMarks)
+        is EscapedChar -> sink += TextAtom(identity, node.literal, activeMarks)
+        is Emoji -> sink += TextAtom(identity, node.unicode ?: node.literal.ifEmpty { ":${node.shortcode}:" }, activeMarks)
         is Abbreviation -> {
             sink += TextAtom(
-                identity = nodeIdentity(node),
+                identity = identity,
                 text = node.abbreviation,
                 marks = activeMarks + SpanMark(
                     kind = "abbreviation",
@@ -225,12 +240,12 @@ private fun compileInlineNode(
             )
         }
 
-        is KeyboardInput -> sink += TextAtom(nodeIdentity(node), node.literal, activeMarks + SpanMark("kbd"))
+        is KeyboardInput -> sink += TextAtom(identity, node.literal, activeMarks + SpanMark("kbd"))
         is Spoiler -> {
             sink += WidgetAtom(
-                identity = nodeIdentity(node),
+                identity = identity,
                 widget = SpoilerWidgetModel(
-                    identity = nodeIdentity(node),
+                    identity = identity,
                     content = compileInlineModel(node.children, node.contentHash),
                     alternateText = extractPlainText(node),
                 ),
@@ -239,9 +254,9 @@ private fun compileInlineNode(
 
         is DirectiveInline -> {
             sink += WidgetAtom(
-                identity = nodeIdentity(node),
+                identity = identity,
                 widget = DirectiveInlineWidgetModel(
-                    identity = nodeIdentity(node),
+                    identity = identity,
                     tagName = node.tagName,
                     args = node.args,
                     alternateText = buildInlineDirectiveFallbackText(node),
@@ -251,9 +266,9 @@ private fun compileInlineNode(
 
         is RubyText -> {
             sink += WidgetAtom(
-                identity = nodeIdentity(node),
+                identity = identity,
                 widget = RubyTextWidgetModel(
-                    identity = nodeIdentity(node),
+                    identity = identity,
                     base = node.base,
                     annotation = node.annotation,
                 ),
@@ -262,16 +277,20 @@ private fun compileInlineNode(
 
         else -> {
             if (node is ContainerNode) {
-                compileInlineNodes(node.children, activeMarks, sink)
+                compileInlineNodes(node.children, activeMarks, sink, stableId)
             }
         }
     }
 }
 
-private fun nodeIdentity(node: Node): RenderIdentity {
-    val revision = if (node.contentHash != 0L) node.contentHash else stableInlineNodeId(node)
+private fun nodeIdentity(node: Node, stableId: Long): RenderIdentity {
+    val revision = if (node.contentHash != 0L) {
+        node.contentHash
+    } else {
+        renderIdentityFromValues(stableId, inlineContentFingerprint(node))
+    }
     return RenderIdentity(
-        stableId = stableInlineNodeId(node),
+        stableId = stableId,
         contentRevision = revision,
         layoutRevision = revision,
         paintRevision = 0L,
@@ -281,18 +300,52 @@ private fun nodeIdentity(node: Node): RenderIdentity {
 private fun stableInlineListId(nodes: List<Node>): Long {
     if (nodes.isEmpty()) return 0L
     var acc = renderIdentitySeed()
-    for (node in nodes) {
-        acc = renderIdentityMix(acc, stableInlineNodeId(node))
+    nodes.forEachIndexed { index, node ->
+        acc = renderIdentityMix(acc, stableInlineNodeId(node, renderIdentitySeed(), index))
     }
     return acc
 }
 
-private fun stableInlineNodeId(node: Node): Long {
-    var acc = renderIdentitySeed()
-    acc = renderIdentityMix(acc, node.sourceRange.start.offset.toLong())
-    acc = renderIdentityMix(acc, node.sourceRange.end.offset.toLong())
-    acc = renderIdentityMix(acc, node.lineRange.startLine.toLong())
-    acc = renderIdentityMix(acc, node.lineRange.endLine.toLong())
+private fun stableInlineNodeId(node: Node, parentStableId: Long, siblingIndex: Int): Long {
+    val typeId = renderIdentityFromText(node::class.simpleName ?: "inline")
+    val range = node.sourceRange
+    if (range != SourceRange.EMPTY && range.length > 0) {
+        return renderIdentityFromValues(
+            typeId,
+            range.start.offset.toLong(),
+            range.end.offset.toLong(),
+            node.lineRange.startLine.toLong(),
+            node.lineRange.endLine.toLong(),
+        )
+    }
+    return renderIdentityFromValues(parentStableId, typeId, siblingIndex.toLong())
+}
+
+private fun inlineContentFingerprint(node: Node): Long {
+    var acc = renderIdentityFromText(node::class.simpleName ?: "inline")
+    when (node) {
+        is Autolink -> acc = renderIdentityFromText(node.destination, acc)
+        is WikiLink -> {
+            acc = renderIdentityFromText(node.target, acc)
+            acc = renderIdentityFromText(node.label.orEmpty(), acc)
+        }
+        is LeafNode -> acc = renderIdentityFromText(node.literal, acc)
+        is Link -> {
+            acc = renderIdentityFromText(node.destination, acc)
+            acc = renderIdentityFromText(node.title.orEmpty(), acc)
+        }
+        is Image -> {
+            acc = renderIdentityFromText(node.destination, acc)
+            acc = renderIdentityFromText(node.title.orEmpty(), acc)
+            acc = renderIdentityMix(acc, node.imageWidth?.toLong() ?: 0L)
+            acc = renderIdentityMix(acc, node.imageHeight?.toLong() ?: 0L)
+        }
+        is ContainerNode -> {
+            for (child in node.children) {
+                acc = renderIdentityMix(acc, inlineContentFingerprint(child))
+            }
+        }
+    }
     return acc
 }
 
