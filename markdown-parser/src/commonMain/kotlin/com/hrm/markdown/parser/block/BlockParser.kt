@@ -889,7 +889,7 @@ class BlockParser(
             }
             is FencedCodeBlock -> {
                 tip.contentLines.add("")
-                syncOpenFencedCodeLiteral(tip.node as FencedCodeBlock, tip)
+                syncOpenFencedCodeLiteral(tip.node, tip)
             }
             is Paragraph -> {
                 // 空行结束段落

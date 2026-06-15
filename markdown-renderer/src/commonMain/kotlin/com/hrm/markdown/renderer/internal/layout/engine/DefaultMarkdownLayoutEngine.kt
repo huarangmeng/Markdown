@@ -39,6 +39,7 @@ import com.hrm.markdown.renderer.internal.layout.inline.buildInlineLayoutBlockMo
 import com.hrm.markdown.renderer.internal.layout.inline.buildInlineLayoutLines
 import com.hrm.markdown.renderer.internal.layout.inline.computeInlineFlowLayout
 import com.hrm.markdown.renderer.internal.layout.inline.inlineWidgetByPlaceholderId
+import com.hrm.markdown.renderer.internal.layout.list.listItemContentIndentPx
 import com.hrm.markdown.renderer.internal.layout.model.BlockWidgetMeasurement
 import com.hrm.markdown.renderer.internal.layout.model.InternalLayoutBlockModel
 import com.hrm.markdown.renderer.internal.layout.model.InternalLayoutDocumentMetadata
@@ -200,9 +201,13 @@ private fun layoutBlock(
         }
 
         is ListBlockModel -> {
-            val itemIndent = 28f
             var itemCursorY = contentTop
             val itemGroups = block.items.mapIndexed { index, item ->
+                val itemIndent = environment.density.listItemContentIndentPx(
+                    theme = environment.markdownTheme,
+                    taskListItem = item.taskListItem,
+                    ordered = block.ordered,
+                )
                 val itemTop = itemCursorY
                 val (itemChildren, itemBottom) = layoutBlocks(
                     item.children,

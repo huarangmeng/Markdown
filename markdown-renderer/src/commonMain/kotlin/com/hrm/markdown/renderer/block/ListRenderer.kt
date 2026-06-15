@@ -23,6 +23,9 @@ import com.hrm.markdown.renderer.MarkdownBlockChildren
 import com.hrm.markdown.renderer.internal.core.model.InternalRenderBlockModel
 import com.hrm.markdown.renderer.internal.core.model.ListBlockModel
 import com.hrm.markdown.renderer.internal.core.model.ListItemBlockModel
+import com.hrm.markdown.renderer.internal.layout.list.OrderedListMarkerWidth
+import com.hrm.markdown.renderer.internal.layout.list.TaskListMarkerWidth
+import com.hrm.markdown.renderer.internal.layout.list.UnorderedListMarkerWidth
 import com.hrm.markdown.renderer.internal.layout.model.InternalLayoutBlockModel
 import com.hrm.markdown.renderer.internal.layout.model.LayoutListBlockModel
 import com.hrm.markdown.renderer.internal.layout.model.LayoutListItemGroup
@@ -72,7 +75,7 @@ private fun ListItemRenderer(
                 Checkbox(
                     checked = node.checked,
                     onCheckedChange = null,
-                    modifier = Modifier.size(20.dp).align(Alignment.Top),
+                    modifier = Modifier.size(TaskListMarkerWidth).align(Alignment.Top),
                     colors = CheckboxDefaults.colors(
                         checkedColor = theme.taskCheckedColor,
                         uncheckedColor = theme.taskUncheckedColor,
@@ -82,7 +85,7 @@ private fun ListItemRenderer(
             ordered -> {
                 Text(
                     text = "${index}.",
-                    modifier = Modifier.width(24.dp).align(Alignment.Top),
+                    modifier = Modifier.width(OrderedListMarkerWidth).align(Alignment.Top),
                     style = theme.bodyStyle,
                     color = theme.listBulletColor,
                 )
@@ -90,7 +93,7 @@ private fun ListItemRenderer(
             else -> {
                 Text(
                     text = "•",
-                    modifier = Modifier.width(16.dp).align(Alignment.Top),
+                    modifier = Modifier.width(UnorderedListMarkerWidth).align(Alignment.Top),
                     style = theme.bodyStyle,
                     color = theme.listBulletColor,
                 )
@@ -171,7 +174,7 @@ private fun RenderListItemBlockModel(
                 Checkbox(
                     checked = model.checked,
                     onCheckedChange = null,
-                    modifier = Modifier.size(20.dp).align(Alignment.Top),
+                    modifier = Modifier.size(TaskListMarkerWidth).align(Alignment.Top),
                     colors = CheckboxDefaults.colors(
                         checkedColor = theme.taskCheckedColor,
                         uncheckedColor = theme.taskUncheckedColor,
@@ -182,7 +185,7 @@ private fun RenderListItemBlockModel(
             ordered -> {
                 Text(
                     text = "${index}.",
-                    modifier = Modifier.width(24.dp).align(Alignment.Top),
+                    modifier = Modifier.width(OrderedListMarkerWidth).align(Alignment.Top),
                     style = theme.bodyStyle,
                     color = theme.listBulletColor,
                 )
@@ -191,7 +194,7 @@ private fun RenderListItemBlockModel(
             else -> {
                 Text(
                     text = "•",
-                    modifier = Modifier.width(16.dp).align(Alignment.Top),
+                    modifier = Modifier.width(UnorderedListMarkerWidth).align(Alignment.Top),
                     style = theme.bodyStyle,
                     color = theme.listBulletColor,
                 )
@@ -223,7 +226,7 @@ private fun RenderListItemLayoutGroup(
                 Checkbox(
                     checked = item.checked,
                     onCheckedChange = null,
-                    modifier = Modifier.size(20.dp).align(Alignment.Top),
+                    modifier = Modifier.size(TaskListMarkerWidth).align(Alignment.Top),
                     colors = CheckboxDefaults.colors(
                         checkedColor = theme.taskCheckedColor,
                         uncheckedColor = theme.taskUncheckedColor,
@@ -234,7 +237,7 @@ private fun RenderListItemLayoutGroup(
             item.markerText.endsWith(".") -> {
                 Text(
                     text = item.markerText,
-                    modifier = Modifier.width(24.dp).align(Alignment.Top),
+                    modifier = Modifier.width(OrderedListMarkerWidth).align(Alignment.Top),
                     style = theme.bodyStyle,
                     color = theme.listBulletColor,
                 )
@@ -243,7 +246,7 @@ private fun RenderListItemLayoutGroup(
             else -> {
                 Text(
                     text = item.markerText,
-                    modifier = Modifier.width(16.dp).align(Alignment.Top),
+                    modifier = Modifier.width(UnorderedListMarkerWidth).align(Alignment.Top),
                     style = theme.bodyStyle,
                     color = theme.listBulletColor,
                 )

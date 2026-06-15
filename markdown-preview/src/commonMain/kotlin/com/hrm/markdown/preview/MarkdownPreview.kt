@@ -86,6 +86,13 @@ val previewCategories: List<PreviewCategory> = listOf(
         groups = textStylePreviewGroups
     ),
     PreviewCategory(
+        id = "inline_layout",
+        title = "行内排版回归",
+        description = "窄容器内长中文、混合标点和嵌套列表的换行边界",
+        icon = "↔️",
+        groups = inlineLayoutPreviewGroups
+    ),
+    PreviewCategory(
         id = "headings",
         title = "标题",
         description = "ATX 标题（1-6 级）、目录自动编号",

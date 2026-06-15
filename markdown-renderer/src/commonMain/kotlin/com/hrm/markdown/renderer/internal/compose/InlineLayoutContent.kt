@@ -6,6 +6,7 @@ import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.Placeable
 import androidx.compose.ui.platform.LocalDensity
@@ -29,6 +30,12 @@ internal fun PaintInlineLayoutContent(
                         is LayoutTextRun -> key(run.identity.stableId) {
                             BasicText(
                                 text = run.text,
+                                modifier = Modifier
+                                    .size(
+                                        width = with(density) { run.frame.width.toDp() },
+                                        height = with(density) { run.frame.height.toDp() },
+                                    )
+                                    .clipToBounds(),
                                 style = block.style,
                                 maxLines = 1,
                                 softWrap = false,
