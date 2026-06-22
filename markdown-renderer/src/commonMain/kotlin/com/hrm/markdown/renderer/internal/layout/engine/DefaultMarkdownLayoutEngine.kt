@@ -1,7 +1,9 @@
 package com.hrm.markdown.renderer.internal.layout.engine
 
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
+import com.hrm.markdown.renderer.internal.core.identity.RenderIdentity
+import com.hrm.markdown.renderer.internal.core.identity.renderIdentityFromText
+import com.hrm.markdown.renderer.internal.core.identity.renderIdentityFromValues
 import com.hrm.markdown.renderer.internal.core.model.AdmonitionBlockModel
 import com.hrm.markdown.renderer.internal.core.model.BibliographyDefinitionBlockModel
 import com.hrm.markdown.renderer.internal.core.model.BlockQuoteBlockModel
@@ -13,14 +15,12 @@ import com.hrm.markdown.renderer.internal.core.model.DiagramBlockModel
 import com.hrm.markdown.renderer.internal.core.model.DirectiveBlockModel
 import com.hrm.markdown.renderer.internal.core.model.FallbackContainerBlockModel
 import com.hrm.markdown.renderer.internal.core.model.FigureBlockModel
-import com.hrm.markdown.renderer.internal.core.model.FallbackLeafBlockModel
 import com.hrm.markdown.renderer.internal.core.model.FootnoteDefinitionBlockModel
 import com.hrm.markdown.renderer.internal.core.model.HeadingBlockModel
 import com.hrm.markdown.renderer.internal.core.model.HtmlBlockModel
+import com.hrm.markdown.renderer.internal.core.model.InlineModel
 import com.hrm.markdown.renderer.internal.core.model.InternalRenderBlockModel
 import com.hrm.markdown.renderer.internal.core.model.InternalRenderDocumentModel
-import com.hrm.markdown.renderer.internal.core.model.InlineAtom
-import com.hrm.markdown.renderer.internal.core.model.InlineModel
 import com.hrm.markdown.renderer.internal.core.model.ListBlockModel
 import com.hrm.markdown.renderer.internal.core.model.MathBlockModel
 import com.hrm.markdown.renderer.internal.core.model.PageBreakBlockModel
@@ -30,20 +30,13 @@ import com.hrm.markdown.renderer.internal.core.model.TableBlockModel
 import com.hrm.markdown.renderer.internal.core.model.TextAtom
 import com.hrm.markdown.renderer.internal.core.model.ThematicBreakBlockModel
 import com.hrm.markdown.renderer.internal.core.model.TocBlockModel
-import com.hrm.markdown.renderer.internal.core.identity.RenderIdentity
-import com.hrm.markdown.renderer.internal.core.identity.renderIdentityFromText
-import com.hrm.markdown.renderer.internal.core.identity.renderIdentityFromValues
-import com.hrm.markdown.renderer.inline.buildInlineRenderResultFromModel
 import com.hrm.markdown.renderer.internal.layout.inline.buildInlineLayoutBlockFromModel
-import com.hrm.markdown.renderer.internal.layout.inline.buildInlineLayoutBlockModel
-import com.hrm.markdown.renderer.internal.layout.inline.buildInlineLayoutLines
-import com.hrm.markdown.renderer.internal.layout.inline.computeInlineFlowLayout
-import com.hrm.markdown.renderer.internal.layout.inline.inlineWidgetByPlaceholderId
 import com.hrm.markdown.renderer.internal.layout.list.listItemContentIndentPx
-import com.hrm.markdown.renderer.internal.layout.model.BlockWidgetMeasurement
 import com.hrm.markdown.renderer.internal.layout.model.InternalLayoutBlockModel
 import com.hrm.markdown.renderer.internal.layout.model.InternalLayoutDocumentMetadata
 import com.hrm.markdown.renderer.internal.layout.model.InternalLayoutDocumentModel
+import com.hrm.markdown.renderer.internal.layout.model.LayoutBibliographyBlockModel
+import com.hrm.markdown.renderer.internal.layout.model.LayoutBibliographyEntryGroup
 import com.hrm.markdown.renderer.internal.layout.model.LayoutColumnGroup
 import com.hrm.markdown.renderer.internal.layout.model.LayoutColumnsBlockModel
 import com.hrm.markdown.renderer.internal.layout.model.LayoutDefinitionDescriptionGroup
@@ -52,24 +45,19 @@ import com.hrm.markdown.renderer.internal.layout.model.LayoutDefinitionTermGroup
 import com.hrm.markdown.renderer.internal.layout.model.LayoutFigureBlockModel
 import com.hrm.markdown.renderer.internal.layout.model.LayoutFootnoteBlockModel
 import com.hrm.markdown.renderer.internal.layout.model.LayoutInlineBlockModel
-import com.hrm.markdown.renderer.internal.layout.model.LayoutInlineLine
 import com.hrm.markdown.renderer.internal.layout.model.LayoutInsets
-import com.hrm.markdown.renderer.internal.layout.model.LayoutBibliographyBlockModel
-import com.hrm.markdown.renderer.internal.layout.model.LayoutBibliographyEntryGroup
 import com.hrm.markdown.renderer.internal.layout.model.LayoutListBlockModel
 import com.hrm.markdown.renderer.internal.layout.model.LayoutListItemGroup
 import com.hrm.markdown.renderer.internal.layout.model.LayoutRect
 import com.hrm.markdown.renderer.internal.layout.model.LayoutRenderBlockModel
 import com.hrm.markdown.renderer.internal.layout.model.LayoutSize
+import com.hrm.markdown.renderer.internal.layout.model.LayoutTabBlockModel
+import com.hrm.markdown.renderer.internal.layout.model.LayoutTabGroup
 import com.hrm.markdown.renderer.internal.layout.model.LayoutTableBlockModel
 import com.hrm.markdown.renderer.internal.layout.model.LayoutTableCellGroup
 import com.hrm.markdown.renderer.internal.layout.model.LayoutTableRowGroup
-import com.hrm.markdown.renderer.internal.layout.model.LayoutTabBlockModel
-import com.hrm.markdown.renderer.internal.layout.model.LayoutTabGroup
-import com.hrm.markdown.renderer.internal.layout.model.LayoutTextRun
 import com.hrm.markdown.renderer.internal.layout.model.LayoutTocBlockModel
 import com.hrm.markdown.renderer.internal.layout.model.LayoutTocEntryGroup
-import com.hrm.markdown.renderer.internal.layout.model.LayoutWidgetRun
 import com.hrm.markdown.renderer.internal.layout.model.LayoutWidgetBlockModel
 import com.hrm.markdown.renderer.internal.layout.widget.measureBlockWidget
 import kotlin.math.max
@@ -96,7 +84,9 @@ internal object DefaultMarkdownLayoutEngine : MarkdownLayoutEngine {
             metadata = InternalLayoutDocumentMetadata(
                 footnoteDefinitionItemIndexes = buildMap {
                     blocks.forEachIndexed { index, block ->
-                        val label = (extractRenderBlock(block) as? FootnoteDefinitionBlockModel)?.label ?: return@forEachIndexed
+                        val label =
+                            (extractRenderBlock(block) as? FootnoteDefinitionBlockModel)?.label
+                                ?: return@forEachIndexed
                         put(label, index)
                     }
                 },
@@ -143,12 +133,57 @@ private fun layoutBlock(
     val contentTop = top + insets.top
     val contentWidth = (width - insets.left - insets.right).coerceAtLeast(0f)
     return when (block) {
-        is CodeBlockModel -> layoutWidgetBlock(block, block.widget, left, top, width, insets, environment)
-        is MathBlockModel -> layoutWidgetBlock(block, block.widget, left, top, width, insets, environment)
-        is DiagramBlockModel -> layoutWidgetBlock(block, block.widget, left, top, width, insets, environment)
+        is CodeBlockModel -> layoutWidgetBlock(
+            block,
+            block.widget,
+            left,
+            top,
+            width,
+            insets,
+            environment
+        )
 
-        is BlockQuoteBlockModel -> layoutContainerBlock(block, block.children, left, top, width, insets, environment)
-        is AdmonitionBlockModel -> layoutContainerBlock(block, block.children, left, top, width, insets, environment, headerHeight = 28f)
+        is MathBlockModel -> layoutWidgetBlock(
+            block,
+            block.widget,
+            left,
+            top,
+            width,
+            insets,
+            environment
+        )
+
+        is DiagramBlockModel -> layoutWidgetBlock(
+            block,
+            block.widget,
+            left,
+            top,
+            width,
+            insets,
+            environment
+        )
+
+        is BlockQuoteBlockModel -> layoutContainerBlock(
+            block,
+            block.children,
+            left,
+            top,
+            width,
+            insets,
+            environment
+        )
+
+        is AdmonitionBlockModel -> layoutContainerBlock(
+            block,
+            block.children,
+            left,
+            top,
+            width,
+            insets,
+            environment,
+            headerHeight = 28f
+        )
+
         is CustomContainerBlockModel -> layoutContainerBlock(
             block,
             block.children,
@@ -159,18 +194,52 @@ private fun layoutBlock(
             environment,
             headerHeight = if (block.title.isNotBlank() || block.type.isNotBlank()) 28f else 0f,
         )
-        is FootnoteDefinitionBlockModel -> layoutFootnoteBlock(block, left, top, width, insets, environment)
-        is DirectiveBlockModel -> layoutContainerBlock(block, block.children, left, top, width, insets, environment, headerHeight = 24f)
-        is FallbackContainerBlockModel -> layoutContainerBlock(block, block.children, left, top, width, insets, environment)
+
+        is FootnoteDefinitionBlockModel -> layoutFootnoteBlock(
+            block,
+            left,
+            top,
+            width,
+            insets,
+            environment
+        )
+
+        is DirectiveBlockModel -> layoutContainerBlock(
+            block,
+            block.children,
+            left,
+            top,
+            width,
+            insets,
+            environment,
+            headerHeight = 24f
+        )
+
+        is FallbackContainerBlockModel -> layoutContainerBlock(
+            block,
+            block.children,
+            left,
+            top,
+            width,
+            insets,
+            environment
+        )
 
         is ColumnsLayoutBlockModel -> {
             val columnCount = block.columns.size.coerceAtLeast(1)
             val spacing = 8f
-            val columnWidth = ((contentWidth - spacing * (columnCount - 1)) / columnCount).coerceAtLeast(0f)
+            val columnWidth =
+                ((contentWidth - spacing * (columnCount - 1)) / columnCount).coerceAtLeast(0f)
             var maxColumnBottom = contentTop
             val columnGroups = block.columns.mapIndexed { index, column ->
                 val columnLeft = contentLeft + index * (columnWidth + spacing)
-                val (columnChildren, columnBottom) = layoutBlocks(column.children, columnLeft, contentTop, columnWidth, environment)
+                val (columnChildren, columnBottom) = layoutBlocks(
+                    column.children,
+                    columnLeft,
+                    contentTop,
+                    columnWidth,
+                    environment
+                )
                 maxColumnBottom = max(maxColumnBottom, columnBottom)
                 LayoutColumnGroup(
                     identity = column.identity,
@@ -246,8 +315,18 @@ private fun layoutBlock(
             }
             LayoutListBlockModel(
                 identity = block.identity,
-                frame = LayoutRect(left, top, width, insets.top + (itemCursorY - contentTop).coerceAtLeast(0f) + insets.bottom),
-                contentFrame = LayoutRect(contentLeft, contentTop, contentWidth, (itemCursorY - contentTop).coerceAtLeast(0f)),
+                frame = LayoutRect(
+                    left,
+                    top,
+                    width,
+                    insets.top + (itemCursorY - contentTop).coerceAtLeast(0f) + insets.bottom
+                ),
+                contentFrame = LayoutRect(
+                    contentLeft,
+                    contentTop,
+                    contentWidth,
+                    (itemCursorY - contentTop).coerceAtLeast(0f)
+                ),
                 block = block,
                 items = itemGroups,
             )
@@ -292,10 +371,26 @@ private fun layoutBlock(
         }
 
         is TableBlockModel -> layoutTableBlock(block, left, top, width, insets, environment)
-        is DefinitionListBlockModel -> layoutDefinitionListBlock(block, left, top, width, insets, environment)
+        is DefinitionListBlockModel -> layoutDefinitionListBlock(
+            block,
+            left,
+            top,
+            width,
+            insets,
+            environment
+        )
+
         is FigureBlockModel -> layoutFigureBlock(block, left, top, width, insets, environment)
         is TocBlockModel -> layoutTocBlock(block, left, top, width, insets, environment)
-        is BibliographyDefinitionBlockModel -> layoutBibliographyBlock(block, left, top, width, insets, environment)
+        is BibliographyDefinitionBlockModel -> layoutBibliographyBlock(
+            block,
+            left,
+            top,
+            width,
+            insets,
+            environment
+        )
+
         is ParagraphBlockModel -> layoutInlineBlock(
             identity = block.identity,
             model = block.inline,
@@ -306,8 +401,12 @@ private fun layoutBlock(
             insets = insets,
             environment = environment,
         )
+
         is HeadingBlockModel -> {
-            val style = environment.markdownTheme.headingStyles[(block.level - 1).coerceIn(0, environment.markdownTheme.headingStyles.lastIndex)]
+            val style = environment.markdownTheme.headingStyles[(block.level - 1).coerceIn(
+                0,
+                environment.markdownTheme.headingStyles.lastIndex
+            )]
             layoutInlineBlock(
                 identity = block.identity,
                 model = block.inline.prependHeadingNumbering(block.numbering),
@@ -341,7 +440,13 @@ private fun layoutContainerBlock(
     val contentLeft = left + insets.left
     val contentTop = top + insets.top + headerHeight
     val contentWidth = (width - insets.left - insets.right).coerceAtLeast(0f)
-    val (childLayouts, bottom) = layoutBlocks(children, contentLeft, contentTop, contentWidth, environment)
+    val (childLayouts, bottom) = layoutBlocks(
+        children,
+        contentLeft,
+        contentTop,
+        contentWidth,
+        environment
+    )
     val contentHeight = (bottom - contentTop).coerceAtLeast(0f) + headerHeight
     return layoutRenderBlock(block, left, top, width, insets, contentHeight, childLayouts)
 }
@@ -357,7 +462,13 @@ private fun layoutFootnoteBlock(
     val contentLeft = left + insets.left
     val contentTop = top + insets.top
     val contentWidth = (width - insets.left - insets.right).coerceAtLeast(0f)
-    val (childLayouts, bottom) = layoutBlocks(block.children, contentLeft, contentTop, contentWidth, environment)
+    val (childLayouts, bottom) = layoutBlocks(
+        block.children,
+        contentLeft,
+        contentTop,
+        contentWidth,
+        environment
+    )
     val leadChild = childLayouts.firstOrNull()
     val trailingChildren = if (childLayouts.size > 1) childLayouts.drop(1) else emptyList()
     val contentHeight = (bottom - contentTop).coerceAtLeast(0f)
@@ -406,6 +517,8 @@ private fun layoutInlineBlock(
         density = environment.density,
         textMeasurer = environment.textMeasurer,
         codeTheme = environment.codeTheme,
+        onLinkClick = environment.onLinkClick,
+        onFootnoteClick = environment.onFootnoteClick,
         showDivider = showDivider,
     )
 }
@@ -423,8 +536,14 @@ private fun InlineModel.prependHeadingNumbering(numbering: String?): InlineModel
     return copy(
         identity = RenderIdentity(
             stableId = identity.stableId,
-            contentRevision = renderIdentityFromValues(identity.contentRevision, prefixIdentity.contentRevision),
-            layoutRevision = renderIdentityFromValues(identity.layoutRevision, prefixIdentity.layoutRevision),
+            contentRevision = renderIdentityFromValues(
+                identity.contentRevision,
+                prefixIdentity.contentRevision
+            ),
+            layoutRevision = renderIdentityFromValues(
+                identity.layoutRevision,
+                prefixIdentity.layoutRevision
+            ),
             paintRevision = identity.paintRevision,
         ),
         atoms = listOf(TextAtom(identity = prefixIdentity, text = prefix)) + atoms,
@@ -442,8 +561,11 @@ private fun layoutTableBlock(
     val contentLeft = left + insets.left
     val contentTop = top + insets.top
     val contentWidth = (width - insets.left - insets.right).coerceAtLeast(0f)
-    val columnCount = block.columnAlignments.size.coerceAtLeast(block.rows.maxOfOrNull { it.cells.size } ?: 1).coerceAtLeast(1)
-    val cellPadding = with(environment.density) { environment.markdownTheme.tableCellPadding.toPx() }
+    val columnCount =
+        block.columnAlignments.size.coerceAtLeast(block.rows.maxOfOrNull { it.cells.size } ?: 1)
+            .coerceAtLeast(1)
+    val cellPadding =
+        with(environment.density) { environment.markdownTheme.tableCellPadding.toPx() }
     val columnWidth = (contentWidth / columnCount.toFloat()).coerceAtLeast(40f)
     val columnWidths = List(columnCount) { columnWidth }
     var cursorY = contentTop
@@ -451,7 +573,8 @@ private fun layoutTableBlock(
         val cells = (0 until columnCount).map { colIndex ->
             val cell = row.cells.getOrNull(colIndex)
             val cellLeft = contentLeft + colIndex * columnWidth
-            val alignment = block.columnAlignments.getOrElse(colIndex) { com.hrm.markdown.parser.ast.Table.Alignment.NONE }
+            val alignment =
+                block.columnAlignments.getOrElse(colIndex) { com.hrm.markdown.parser.ast.Table.Alignment.NONE }
             val textAlign = when (alignment) {
                 com.hrm.markdown.parser.ast.Table.Alignment.LEFT -> androidx.compose.ui.text.style.TextAlign.Start
                 com.hrm.markdown.parser.ast.Table.Alignment.CENTER -> androidx.compose.ui.text.style.TextAlign.Center
@@ -550,12 +673,23 @@ private fun layoutDefinitionListBlock(
             }
 
             is com.hrm.markdown.renderer.internal.core.model.DefinitionDescriptionBlockModel -> {
-                val (children, bottom) = layoutBlocks(item.children, contentLeft + indent, cursorY, (contentWidth - indent).coerceAtLeast(0f), environment)
+                val (children, bottom) = layoutBlocks(
+                    item.children,
+                    contentLeft + indent,
+                    cursorY,
+                    (contentWidth - indent).coerceAtLeast(0f),
+                    environment
+                )
                 val height = (bottom - cursorY).coerceAtLeast(0f)
                 val group = LayoutDefinitionDescriptionGroup(
                     identity = item.identity,
                     frame = LayoutRect(contentLeft, cursorY, contentWidth, height),
-                    contentFrame = LayoutRect(contentLeft + indent, cursorY, (contentWidth - indent).coerceAtLeast(0f), height),
+                    contentFrame = LayoutRect(
+                        contentLeft + indent,
+                        cursorY,
+                        (contentWidth - indent).coerceAtLeast(0f),
+                        height
+                    ),
                     item = item,
                     children = children,
                 )
@@ -586,14 +720,16 @@ private fun layoutFigureBlock(
     val contentTop = top + insets.top
     val contentWidth = (width - insets.left - insets.right).coerceAtLeast(0f)
     val imageHeight = block.imageHeight?.toFloat() ?: 220f
-    val imageWidth = block.imageWidth?.toFloat()?.coerceAtMost(contentWidth) ?: contentWidth.coerceAtMost(360f)
+    val imageWidth =
+        block.imageWidth?.toFloat()?.coerceAtMost(contentWidth) ?: contentWidth.coerceAtMost(360f)
     val imageFrame = LayoutRect(
         left = contentLeft + ((contentWidth - imageWidth) / 2f).coerceAtLeast(0f),
         top = contentTop,
         width = imageWidth,
         height = imageHeight,
     )
-    val captionHeight = if (block.caption.isNotBlank()) environment.lineHeightPx(environment.markdownTheme.bodyStyle) else 0f
+    val captionHeight =
+        if (block.caption.isNotBlank()) environment.lineHeightPx(environment.markdownTheme.bodyStyle) else 0f
     val captionFrame = if (captionHeight > 0f) {
         LayoutRect(
             left = contentLeft,
@@ -602,7 +738,8 @@ private fun layoutFigureBlock(
             height = captionHeight,
         )
     } else null
-    val contentHeight = imageFrame.height + if (captionFrame != null) 4f + captionFrame.height else 0f
+    val contentHeight =
+        imageFrame.height + if (captionFrame != null) 4f + captionFrame.height else 0f
     return LayoutFigureBlockModel(
         identity = block.identity,
         frame = LayoutRect(left, top, width, insets.top + contentHeight + insets.bottom),
@@ -627,7 +764,8 @@ private fun layoutTocBlock(
     var cursorY = contentTop
     val entries = block.entries.map { entry ->
         val indent = ((entry.level - 1).coerceAtLeast(0) * 16f)
-        val height = environment.measureTocEntryHeight(entry, (contentWidth - indent).coerceAtLeast(24f))
+        val height =
+            environment.measureTocEntryHeight(entry, (contentWidth - indent).coerceAtLeast(24f))
         val group = LayoutTocEntryGroup(
             identity = com.hrm.markdown.renderer.internal.core.identity.RenderIdentity(
                 stableId = com.hrm.markdown.renderer.internal.core.identity.renderIdentityFromText("${entry.level}:${entry.text}:${entry.id.orEmpty()}"),
@@ -636,7 +774,12 @@ private fun layoutTocBlock(
                 paintRevision = 0L,
             ),
             frame = LayoutRect(contentLeft, cursorY, contentWidth, height),
-            contentFrame = LayoutRect(contentLeft + indent, cursorY, (contentWidth - indent).coerceAtLeast(0f), height),
+            contentFrame = LayoutRect(
+                contentLeft + indent,
+                cursorY,
+                (contentWidth - indent).coerceAtLeast(0f),
+                height
+            ),
             entry = entry,
         )
         cursorY += height + environment.blockSpacing / 2f
@@ -663,7 +806,8 @@ private fun layoutBibliographyBlock(
     val contentLeft = left + insets.left
     val contentTop = top + insets.top
     val contentWidth = (width - insets.left - insets.right).coerceAtLeast(0f)
-    val titleHeight = environment.lineHeightPx(environment.markdownTheme.headingStyles.getOrElse(3) { environment.markdownTheme.bodyStyle })
+    val titleHeight =
+        environment.lineHeightPx(environment.markdownTheme.headingStyles.getOrElse(3) { environment.markdownTheme.bodyStyle })
     var cursorY = contentTop + titleHeight + 8f
     val entryHeight = environment.lineHeightPx(environment.markdownTheme.bodyStyle)
     val entries = block.entries.map { entry ->
@@ -708,7 +852,11 @@ private fun layoutWidgetBlock(
     val contentFrame = LayoutRect(
         left = left + insets.left,
         top = top + insets.top,
-        width = measurement.widthPx.coerceAtMost((width - insets.left - insets.right).coerceAtLeast(0f)),
+        width = measurement.widthPx.coerceAtMost(
+            (width - insets.left - insets.right).coerceAtLeast(
+                0f
+            )
+        ),
         height = measurement.heightPx,
     )
     return LayoutWidgetBlockModel(
@@ -770,20 +918,22 @@ private fun blockInsets(block: InternalRenderBlockModel): LayoutInsets = when (b
     is FootnoteDefinitionBlockModel -> LayoutInsets(0f, 4f, 0f, 0f)
     is PageBreakBlockModel,
     is ThematicBreakBlockModel -> LayoutInsets(0f, 8f, 0f, 8f)
+
     else -> LayoutInsets()
 }
 
-private fun extractRenderBlock(block: InternalLayoutBlockModel): InternalRenderBlockModel? = when (block) {
-    is LayoutRenderBlockModel -> block.block
-    is LayoutListBlockModel -> block.block
-    is LayoutColumnsBlockModel -> block.block
-    is LayoutTableBlockModel -> block.block
-    is LayoutDefinitionListBlockModel -> block.block
-    is LayoutFigureBlockModel -> block.block
-    is LayoutTocBlockModel -> block.block
-    is LayoutBibliographyBlockModel -> block.block
-    is LayoutTabBlockModel -> block.block
-    is LayoutFootnoteBlockModel -> block.block
-    is LayoutWidgetBlockModel -> block.block
-    else -> null
-}
+private fun extractRenderBlock(block: InternalLayoutBlockModel): InternalRenderBlockModel? =
+    when (block) {
+        is LayoutRenderBlockModel -> block.block
+        is LayoutListBlockModel -> block.block
+        is LayoutColumnsBlockModel -> block.block
+        is LayoutTableBlockModel -> block.block
+        is LayoutDefinitionListBlockModel -> block.block
+        is LayoutFigureBlockModel -> block.block
+        is LayoutTocBlockModel -> block.block
+        is LayoutBibliographyBlockModel -> block.block
+        is LayoutTabBlockModel -> block.block
+        is LayoutFootnoteBlockModel -> block.block
+        is LayoutWidgetBlockModel -> block.block
+        else -> null
+    }

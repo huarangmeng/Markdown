@@ -39,16 +39,14 @@ internal fun SpoilerContent(
     var revealed by remember(model.identity.stableId) { mutableStateOf(false) }
     val currentOnLinkClick = rememberUpdatedState(onLinkClick)
     val currentOnFootnoteClick = rememberUpdatedState(onFootnoteClick)
-    val stableOnLinkClick: ((String) -> Unit)? = remember {
+    val stableOnLinkClick: (String) -> Unit = remember {
         { url: String ->
             currentOnLinkClick.value?.invoke(url)
-            Unit
         }
     }
-    val stableOnFootnoteClick: ((String) -> Unit)? = remember {
+    val stableOnFootnoteClick: (String) -> Unit = remember {
         { label: String ->
             currentOnFootnoteClick.value?.invoke(label)
-            Unit
         }
     }
     val annotated = remember(

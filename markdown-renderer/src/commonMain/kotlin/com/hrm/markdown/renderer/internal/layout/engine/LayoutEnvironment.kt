@@ -13,6 +13,8 @@ internal data class LayoutEnvironment(
     val blockSpacing: Float = 0f,
     val markdownTheme: MarkdownTheme,
     val codeTheme: CodeTheme? = null,
+    val onLinkClick: ((String) -> Unit)? = null,
+    val onFootnoteClick: ((String) -> Unit)? = null,
     val density: Density,
     val textMeasurer: TextMeasurer,
     val latexMeasurer: LatexMeasurerState,

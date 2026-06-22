@@ -7,6 +7,9 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.Modifier
@@ -92,6 +95,20 @@ internal fun MarkdownDocumentRenderer(
             val viewportWidthPx = with(density) { maxWidth.toPx() }
             val blockSpacingPx = with(density) { theme.blockSpacing.toPx() }
             val textMeasurer = rememberTextMeasurer()
+            val currentOnLinkClick = rememberUpdatedState(onLinkClick)
+            val delegatedOnLinkClick = remember {
+                { target: String ->
+                    currentOnLinkClick.value?.invoke(target)
+                    Unit
+                }
+            }
+            val delegatedOnFootnoteClickState = remember { mutableStateOf<((String) -> Unit)?>(null) }
+            val delegatedOnFootnoteClick = remember {
+                { label: String ->
+                    delegatedOnFootnoteClickState.value?.invoke(label)
+                    Unit
+                }
+            }
             val layoutDocument = remember(
                 engineHost,
                 internalRenderDocument,
@@ -108,6 +125,8 @@ internal fun MarkdownDocumentRenderer(
                     facadeState = facadeState,
                     viewportWidth = viewportWidthPx,
                     blockSpacing = blockSpacingPx,
+                    onLinkClick = delegatedOnLinkClick,
+                    onFootnoteClick = delegatedOnFootnoteClick,
                     density = density,
                     textMeasurer = textMeasurer,
                     latexMeasurer = latexMeasurer,
@@ -132,6 +151,9 @@ internal fun MarkdownDocumentRenderer(
                 expandAllBlocks = renderState.expandAllBlocks,
                 onLinkClick = onLinkClick,
             )
+            SideEffect {
+                delegatedOnFootnoteClickState.value = navigationHandlers.onFootnoteClick
+            }
             ProvideRendererContext(
                 document = renderDocument,
                 onLinkClick = onLinkClick,
