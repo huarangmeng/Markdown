@@ -1,18 +1,15 @@
 package com.hrm.markdown.renderer
 
 import androidx.compose.foundation.ScrollState
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.SideEffect
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.rememberTextMeasurer
 import com.hrm.codehigh.theme.CodeTheme
 import com.hrm.latex.renderer.measure.rememberLatexMeasurer
 import com.hrm.markdown.parser.ast.Document
@@ -95,20 +92,13 @@ internal fun MarkdownDocumentRenderer(
             val viewportWidthPx = with(density) { maxWidth.toPx() }
             val blockSpacingPx = with(density) { theme.blockSpacing.toPx() }
             val textMeasurer = rememberTextMeasurer()
-            val currentOnLinkClick = rememberUpdatedState(onLinkClick)
-            val delegatedOnLinkClick = remember {
-                { target: String ->
-                    currentOnLinkClick.value?.invoke(target)
-                    Unit
-                }
-            }
-            val delegatedOnFootnoteClickState = remember { mutableStateOf<((String) -> Unit)?>(null) }
-            val delegatedOnFootnoteClick = remember {
-                { label: String ->
-                    delegatedOnFootnoteClickState.value?.invoke(label)
-                    Unit
-                }
-            }
+            val navigationController = rememberMarkdownNavigationController(
+                renderMode = renderMode,
+                enableScroll = enableScroll,
+                scrollState = scrollState,
+                lazyListState = lazyListState,
+                onLinkClick = onLinkClick,
+            )
             val layoutDocument = remember(
                 engineHost,
                 internalRenderDocument,
@@ -125,8 +115,8 @@ internal fun MarkdownDocumentRenderer(
                     facadeState = facadeState,
                     viewportWidth = viewportWidthPx,
                     blockSpacing = blockSpacingPx,
-                    onLinkClick = delegatedOnLinkClick,
-                    onFootnoteClick = delegatedOnFootnoteClick,
+                    onLinkClick = navigationController.linkClickDelegate,
+                    onFootnoteClick = navigationController.onFootnoteClick,
                     density = density,
                     textMeasurer = textMeasurer,
                     latexMeasurer = latexMeasurer,
@@ -141,25 +131,15 @@ internal fun MarkdownDocumentRenderer(
                 scrollState = scrollState,
                 isStreaming = isStreaming,
             )
-            val navigationHandlers = rememberMarkdownNavigationHandlers(
-                renderMode = renderMode,
-                enableScroll = enableScroll,
-                scrollState = scrollState,
-                lazyListState = lazyListState,
-                effectivePagination = renderState.effectivePagination,
-                footnoteDefinitionItemIndexes = layoutDocument.metadata.footnoteDefinitionItemIndexes,
-                expandAllBlocks = renderState.expandAllBlocks,
-                onLinkClick = onLinkClick,
-            )
-            SideEffect {
-                delegatedOnFootnoteClickState.value = navigationHandlers.onFootnoteClick
-            }
+            navigationController.effectivePagination = renderState.effectivePagination
+            navigationController.footnoteDefinitionItemIndexes = layoutDocument.metadata.footnoteDefinitionItemIndexes
+            navigationController.expandAllBlocks = renderState.expandAllBlocks
             ProvideRendererContext(
                 document = renderDocument,
                 onLinkClick = onLinkClick,
-                onFootnoteClick = navigationHandlers.onFootnoteClick,
-                onFootnoteBackClick = navigationHandlers.onFootnoteBackClick,
-                footnoteNavigationState = navigationHandlers.footnoteNavigationState,
+                onFootnoteClick = navigationController.onFootnoteClick,
+                onFootnoteBackClick = navigationController.onFootnoteBackClick,
+                footnoteNavigationState = navigationController.footnoteNavigationState,
                 imageContent = imageContent,
                 config = config,
                 codeTheme = codeTheme,

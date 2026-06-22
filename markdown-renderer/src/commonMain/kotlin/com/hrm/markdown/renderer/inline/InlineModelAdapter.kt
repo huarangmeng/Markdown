@@ -30,6 +30,7 @@ import com.hrm.latex.renderer.measure.LatexMeasurerState
 import com.hrm.latex.renderer.model.LatexConfig
 import com.hrm.markdown.parser.core.CharacterUtils
 import com.hrm.markdown.renderer.DefaultMarkdownImage
+import com.hrm.markdown.renderer.LocalImageRenderer
 import com.hrm.markdown.renderer.MarkdownImageData
 import com.hrm.markdown.renderer.MarkdownTheme
 import com.hrm.markdown.renderer.internal.adapter.createDirectiveInlineRenderScope
@@ -414,16 +415,20 @@ private fun AnnotatedString.Builder.renderImageWidget(
         widthPx = widget.width?.toFloat() ?: 200f,
         heightPx = widget.height?.toFloat() ?: 150f,
     ) {
-        DefaultMarkdownImage(
-            data = MarkdownImageData(
-                url = widget.url,
-                altText = widget.altText,
-                title = widget.title,
-                width = widget.width,
-                height = widget.height,
-                attributes = widget.attributes,
-            )
+        val imageData = MarkdownImageData(
+            url = widget.url,
+            altText = widget.altText,
+            title = widget.title,
+            width = widget.width,
+            height = widget.height,
+            attributes = widget.attributes,
         )
+        val customRenderer = LocalImageRenderer.current
+        if (customRenderer != null) {
+            customRenderer(imageData, Modifier)
+        } else {
+            DefaultMarkdownImage(data = imageData)
+        }
     }
 }
 
