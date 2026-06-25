@@ -11,8 +11,10 @@ internal fun resolveMarkdownRenderMode(
     enableScroll: Boolean,
     isStreaming: Boolean,
 ): MarkdownRenderMode {
+    // Selection is now an orthogonal overlay capability and no longer forces a
+    // non-virtualized Column. enableSelection only decides whether the selection
+    // overlay is mounted, not the render mode.
     if (isStreaming) return MarkdownRenderMode.StaticColumn
-    if (enableSelection) return MarkdownRenderMode.SelectableColumn
     if (enableScroll) return MarkdownRenderMode.LazyColumn
     return MarkdownRenderMode.StaticColumn
 }
