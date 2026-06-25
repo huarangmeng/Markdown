@@ -12,7 +12,8 @@ internal const val RENDER_IDENTITY_FNV_PRIME: Long = 1099511628211L
 
 internal fun renderIdentitySeed(): Long = RENDER_IDENTITY_OFFSET_BASIS
 
-internal fun renderIdentityMix(acc: Long, value: Long): Long = (acc xor value) * RENDER_IDENTITY_FNV_PRIME
+internal fun renderIdentityMix(acc: Long, value: Long): Long =
+    (acc xor value) * RENDER_IDENTITY_FNV_PRIME
 
 internal fun renderIdentityFromValues(vararg values: Long): Long {
     var acc = renderIdentitySeed()
@@ -28,18 +29,4 @@ internal fun renderIdentityFromText(text: String, seed: Long = renderIdentitySee
         acc = renderIdentityMix(acc, char.code.toLong())
     }
     return acc
-}
-
-internal fun RenderIdentity.mixWith(
-    stableId: Long = this.stableId,
-    contentRevision: Long = this.contentRevision,
-    layoutRevision: Long = this.layoutRevision,
-    paintRevision: Long = this.paintRevision,
-): RenderIdentity {
-    return RenderIdentity(
-        stableId = stableId,
-        contentRevision = contentRevision,
-        layoutRevision = layoutRevision,
-        paintRevision = paintRevision,
-    )
 }

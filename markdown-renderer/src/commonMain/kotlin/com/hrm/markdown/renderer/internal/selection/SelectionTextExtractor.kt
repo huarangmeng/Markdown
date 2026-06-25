@@ -18,9 +18,15 @@ internal fun extractSelectedText(index: SelectionModelIndex, range: SelectionRan
 
     val parts = ArrayList<String>()
     for (entry in index.entries) {
-        if (entry.order < startOrder || entry.order > endOrder) continue
-        val from = if (entry.order == startOrder) range.start.charInBlock.coerceIn(0, entry.totalChars) else 0
-        val to = if (entry.order == endOrder) range.end.charInBlock.coerceIn(0, entry.totalChars) else entry.totalChars
+        if (entry.order !in startOrder..endOrder) continue
+        val from = if (entry.order == startOrder) range.start.charInBlock.coerceIn(
+            0,
+            entry.totalChars
+        ) else 0
+        val to = if (entry.order == endOrder) range.end.charInBlock.coerceIn(
+            0,
+            entry.totalChars
+        ) else entry.totalChars
         if (to <= from) {
             parts += ""
         } else {

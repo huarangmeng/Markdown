@@ -46,7 +46,10 @@ internal fun buildInlineLayoutLines(
                 is LineItem.TextItem -> {
                     val run = LayoutTextRun(
                         identity = RenderIdentity(
-                            stableId = renderIdentityFromText(item.text.text, identity.stableId + cursorX.toLong()),
+                            stableId = renderIdentityFromText(
+                                item.text.text,
+                                identity.stableId + cursorX.toLong()
+                            ),
                             contentRevision = identity.contentRevision,
                             layoutRevision = identity.layoutRevision,
                             paintRevision = identity.paintRevision,
@@ -64,7 +67,8 @@ internal fun buildInlineLayoutLines(
                         identity = widget?.identity ?: identity,
                         frame = LayoutRect(cursorX, lineTop, item.widthPx, item.heightPx),
                         id = item.id,
-                        widget = widget ?: throw IllegalStateException("Missing inline widget for placeholder ${item.id}"),
+                        widget = widget
+                            ?: throw IllegalStateException("Missing inline widget for placeholder ${item.id}"),
                         alternateText = item.alternateText,
                     )
                     cursorX += item.widthPx

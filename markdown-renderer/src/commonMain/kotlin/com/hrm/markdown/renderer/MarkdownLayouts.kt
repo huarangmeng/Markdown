@@ -43,36 +43,3 @@ private fun MarkdownBlockItems(blocks: List<Node>) {
         }
     }
 }
-
-@Composable
-private fun MarkdownBlockLazyColumn(
-    blocks: List<Node>,
-    lazyListState: androidx.compose.foundation.lazy.LazyListState,
-    modifier: Modifier = Modifier,
-    header: (@Composable () -> Unit)? = null,
-    footer: (@Composable () -> Unit)? = null,
-) {
-    val theme = LocalMarkdownTheme.current
-    LazyColumn(
-        state = lazyListState,
-        modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(theme.blockSpacing),
-    ) {
-        if (header != null) {
-            item(key = "markdown_header") {
-                header()
-            }
-        }
-        items(
-            items = blocks,
-            key = { it.stableKey },
-        ) { node ->
-            BlockRenderer(node = node)
-        }
-        if (footer != null) {
-            item(key = "markdown_footer") {
-                footer()
-            }
-        }
-    }
-}

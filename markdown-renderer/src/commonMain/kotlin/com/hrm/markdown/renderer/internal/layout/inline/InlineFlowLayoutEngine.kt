@@ -312,7 +312,6 @@ internal fun placeholderSizePx(
 internal fun computeMaxIntrinsicWidthPx(
     input: InlineFlowInput,
     style: TextStyle,
-    density: Density,
     textMeasurer: TextMeasurer,
 ): Int {
     val textStyle = textMeasurementStyle(style)
@@ -349,7 +348,6 @@ internal fun computeMaxIntrinsicWidthPx(
 internal fun computeMinIntrinsicWidthPx(
     input: InlineFlowInput,
     style: TextStyle,
-    density: Density,
     textMeasurer: TextMeasurer,
 ): Int {
     val textStyle = textMeasurementStyle(style)
@@ -397,7 +395,6 @@ internal fun computeIntrinsicHeightPx(
         computeMaxIntrinsicWidthPx(
             input,
             style,
-            density,
             textMeasurer
         ).coerceAtLeast(1)
     } else {

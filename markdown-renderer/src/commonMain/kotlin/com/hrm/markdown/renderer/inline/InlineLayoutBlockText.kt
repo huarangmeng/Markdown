@@ -176,7 +176,6 @@ private fun inlineLayoutBlockMeasurePolicy(
     ): Int = computeMinIntrinsicWidthPx(
         input = input,
         style = style,
-        density = density,
         textMeasurer = textMeasurer,
     )
 
@@ -186,7 +185,6 @@ private fun inlineLayoutBlockMeasurePolicy(
     ): Int = computeMaxIntrinsicWidthPx(
         input = input,
         style = style,
-        density = density,
         textMeasurer = textMeasurer,
     )
 

@@ -2,7 +2,11 @@ package com.hrm.markdown.renderer.internal.layout.model
 
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
+import com.hrm.markdown.renderer.inline.InlinePlaceholderId
+import com.hrm.markdown.renderer.inline.InlineWidgetPaintPayload
 import com.hrm.markdown.renderer.internal.core.identity.RenderIdentity
+import com.hrm.markdown.renderer.internal.core.model.BibliographyDefinitionBlockModel
+import com.hrm.markdown.renderer.internal.core.model.BibliographyEntryBlockModel
 import com.hrm.markdown.renderer.internal.core.model.BlockWidgetModel
 import com.hrm.markdown.renderer.internal.core.model.ColumnsLayoutBlockModel
 import com.hrm.markdown.renderer.internal.core.model.DefinitionDescriptionBlockModel
@@ -10,19 +14,14 @@ import com.hrm.markdown.renderer.internal.core.model.DefinitionListBlockModel
 import com.hrm.markdown.renderer.internal.core.model.DefinitionTermBlockModel
 import com.hrm.markdown.renderer.internal.core.model.FigureBlockModel
 import com.hrm.markdown.renderer.internal.core.model.FootnoteDefinitionBlockModel
-import com.hrm.markdown.renderer.internal.core.model.InternalRenderBlockModel
 import com.hrm.markdown.renderer.internal.core.model.InlineWidgetModel
+import com.hrm.markdown.renderer.internal.core.model.InternalRenderBlockModel
 import com.hrm.markdown.renderer.internal.core.model.ListBlockModel
-import com.hrm.markdown.renderer.internal.core.model.BibliographyDefinitionBlockModel
-import com.hrm.markdown.renderer.internal.core.model.BibliographyEntryBlockModel
 import com.hrm.markdown.renderer.internal.core.model.TabBlockModel
 import com.hrm.markdown.renderer.internal.core.model.TableBlockModel
 import com.hrm.markdown.renderer.internal.core.model.TableCellBlockModel
-import com.hrm.markdown.renderer.internal.core.model.TableRowBlockModel
 import com.hrm.markdown.renderer.internal.core.model.TocBlockModel
 import com.hrm.markdown.renderer.internal.core.model.TocEntryBlockModel
-import com.hrm.markdown.renderer.inline.InlinePlaceholderId
-import com.hrm.markdown.renderer.inline.InlineWidgetPaintPayload
 
 sealed interface InternalLayoutBlockModel {
     val identity: RenderIdentity
