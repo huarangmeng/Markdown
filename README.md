@@ -32,6 +32,7 @@
 | 🔍 | **Built-in Linting** | 13+ diagnostic rules including WCAG accessibility checks — catch issues at parse time |
 | 🖼️ | **Image Loading** | Coil3 + Ktor3 out-of-the-box, with size specification and custom renderer support |
 | 📄 | **Pagination** | Progressive rendering for ultra-long documents (500+ blocks) with auto load-more |
+| 🖱️ | **Cross-Block Selection** | DIY selection layer over LazyColumn — continuous selection across blocks, reuses the system copy/translate menu, no first-frame stall on huge docs |
 
 ---
 

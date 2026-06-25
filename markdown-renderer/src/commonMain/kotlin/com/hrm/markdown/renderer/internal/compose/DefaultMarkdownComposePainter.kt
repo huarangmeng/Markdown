@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import androidx.compose.ui.Modifier
@@ -89,6 +88,8 @@ import com.hrm.markdown.renderer.internal.layout.model.LayoutRenderBlockModel
 import com.hrm.markdown.renderer.internal.layout.model.LayoutWidgetBlockModel
 import com.hrm.markdown.renderer.internal.layout.model.LayoutRect
 import com.hrm.markdown.renderer.internal.layout.model.LayoutTabBlockModel
+import com.hrm.markdown.renderer.internal.selection.LocalMarkdownSelectionController
+import com.hrm.markdown.renderer.internal.selection.selectableBlock
 internal object DefaultMarkdownComposePainter : MarkdownComposePainter {
     @Composable
     override fun Paint(
@@ -118,7 +119,6 @@ internal object DefaultMarkdownComposePainter : MarkdownComposePainter {
                 }
             }
 
-            MarkdownRenderMode.SelectableColumn,
             MarkdownRenderMode.StaticColumn -> {
                 val body: @Composable () -> Unit = {
                     Column(
@@ -145,13 +145,7 @@ internal object DefaultMarkdownComposePainter : MarkdownComposePainter {
                     verticalArrangement = Arrangement.spacedBy(LocalMarkdownTheme.current.blockSpacing),
                 ) {
                     environment.header?.invoke()
-                    if (environment.renderMode == MarkdownRenderMode.SelectableColumn) {
-                        SelectionContainer {
-                            body()
-                        }
-                    } else {
-                        body()
-                    }
+                    body()
                     environment.footer?.invoke()
                 }
             }
@@ -394,7 +388,11 @@ private fun PaintRenderBlock(block: LayoutRenderBlockModel) {
 
 @Composable
 private fun PaintInlineBlock(block: LayoutInlineBlockModel) {
-    Column(modifier = Modifier.fillMaxWidth()) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .selectableBlock(block.identity.stableId, LocalMarkdownSelectionController.current)
+    ) {
         PaintInlineLayoutContent(block = block, modifier = Modifier.fillMaxWidth())
         if (block.showDivider) {
             HorizontalDivider(

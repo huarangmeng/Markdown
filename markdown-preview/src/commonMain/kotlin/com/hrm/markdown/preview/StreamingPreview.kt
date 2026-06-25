@@ -108,7 +108,7 @@ private fun StreamingMarkdownDemo() {
         emptyHint = "点击「开始流式生成」按钮，模拟 LLM 逐 token 输出 Markdown\n\n" +
                 "Markdown 组件内置流式优化：\n" +
                 "• 自动节流渲染，避免高频更新导致的布局抖动\n" +
-                "• 流式期间跳过 SelectionContainer，减少 intrinsic 测量\n" +
+                "• 流式期间不挂载选区 overlay，减少额外测量\n" +
                 "• 流式结束后自动恢复文本选择能力",
     )
 }

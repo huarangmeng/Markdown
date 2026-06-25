@@ -5,12 +5,24 @@ import kotlin.test.assertEquals
 
 class MarkdownRenderModeTest {
     @Test
-    fun should_use_selectable_column_when_selection_is_enabled() {
+    fun should_use_lazy_column_when_selection_is_enabled_and_scroll_is_enabled() {
         assertEquals(
-            MarkdownRenderMode.SelectableColumn,
+            MarkdownRenderMode.LazyColumn,
             resolveMarkdownRenderMode(
                 enableSelection = true,
                 enableScroll = true,
+                isStreaming = false,
+            )
+        )
+    }
+
+    @Test
+    fun should_use_static_column_when_selection_is_enabled_without_internal_scroll() {
+        assertEquals(
+            MarkdownRenderMode.StaticColumn,
+            resolveMarkdownRenderMode(
+                enableSelection = true,
+                enableScroll = false,
                 isStreaming = false,
             )
         )

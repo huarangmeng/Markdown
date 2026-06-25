@@ -1,7 +1,6 @@
 package com.hrm.markdown.renderer
 
 internal enum class MarkdownRenderMode {
-    SelectableColumn,
     StaticColumn,
     LazyColumn,
 }
