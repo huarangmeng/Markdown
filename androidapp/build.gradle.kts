@@ -10,7 +10,6 @@ android {
     defaultConfig {
         applicationId = "com.hrm.markdown.androiddemo"
         minSdk = libs.versions.android.minSdk.get().toInt()
-        targetSdk = libs.versions.android.targetSdk.get().toInt()
         versionCode = 1
         versionName = "1.0"
 

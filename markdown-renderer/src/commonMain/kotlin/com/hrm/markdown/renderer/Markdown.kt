@@ -47,7 +47,7 @@ import com.hrm.markdown.runtime.MarkdownDirectivePipeline
  * @param scrollState 滚动状态，外部可控制滚动位置
  * @param enablePagination 是否启用分页加载，适合超长文档（> 500 段落）
  * @param enableScroll 是否启用 Markdown 内部滚动容器
- * @param enableSelection 是否启用文本选择。关闭后会在非流式场景自动切换为 LazyColumn 渲染长文档
+ * @param enableSelection 是否启用文本选择（自研选区层 overlay，支持跨 block 连续选中并复用系统复制菜单；与渲染模式正交，长文档仍走虚拟化渲染）
  * @param initialBlockCount 分页模式下初始渲染的块数量
  * @param header Markdown 内容前方插槽，会和正文处于同一滚动容器中
  * @param footer Markdown 内容后方插槽，会和正文处于同一滚动容器中
@@ -119,7 +119,7 @@ fun Markdown(
  * @param scrollState 滚动状态，外部可控制滚动位置
  * @param enablePagination 是否启用分页加载，适合超长文档（> 500 段落）
  * @param enableScroll 是否启用 Markdown 内部滚动容器
- * @param enableSelection 是否启用文本选择。关闭后会在非流式场景自动切换为 LazyColumn 渲染长文档
+ * @param enableSelection 是否启用文本选择（自研选区层 overlay，支持跨 block 连续选中并复用系统复制菜单；与渲染模式正交，长文档仍走虚拟化渲染）
  * @param initialBlockCount 分页模式下初始渲染的块数量
  * @param header Markdown 内容前方插槽，会和正文处于同一滚动容器中
  * @param footer Markdown 内容后方插槽，会和正文处于同一滚动容器中

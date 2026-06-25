@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import androidx.compose.ui.Modifier
@@ -89,6 +88,8 @@ import com.hrm.markdown.renderer.internal.layout.model.LayoutRenderBlockModel
 import com.hrm.markdown.renderer.internal.layout.model.LayoutWidgetBlockModel
 import com.hrm.markdown.renderer.internal.layout.model.LayoutRect
 import com.hrm.markdown.renderer.internal.layout.model.LayoutTabBlockModel
+import com.hrm.markdown.renderer.internal.selection.LocalMarkdownSelectionController
+import com.hrm.markdown.renderer.internal.selection.selectableBlock
 internal object DefaultMarkdownComposePainter : MarkdownComposePainter {
     @Composable
     override fun Paint(
@@ -118,7 +119,6 @@ internal object DefaultMarkdownComposePainter : MarkdownComposePainter {
                 }
             }
 
-            MarkdownRenderMode.SelectableColumn,
             MarkdownRenderMode.StaticColumn -> {
                 val body: @Composable () -> Unit = {
                     Column(
@@ -145,13 +145,7 @@ internal object DefaultMarkdownComposePainter : MarkdownComposePainter {
                     verticalArrangement = Arrangement.spacedBy(LocalMarkdownTheme.current.blockSpacing),
                 ) {
                     environment.header?.invoke()
-                    if (environment.renderMode == MarkdownRenderMode.SelectableColumn) {
-                        SelectionContainer {
-                            body()
-                        }
-                    } else {
-                        body()
-                    }
+                    body()
                     environment.footer?.invoke()
                 }
             }
@@ -175,7 +169,9 @@ private fun PaintBlock(block: com.hrm.markdown.renderer.internal.layout.model.In
         )
         is LayoutTableBlockModel -> RenderTableLayoutBlockModel(
             model = block,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .selectableBlock(block.identity.stableId, LocalMarkdownSelectionController.current),
         )
         is LayoutDefinitionListBlockModel -> RenderDefinitionListLayoutBlockModel(
             model = block,
@@ -218,7 +214,12 @@ private fun PaintBlock(block: com.hrm.markdown.renderer.internal.layout.model.In
                 }
             },
         )
-        is LayoutWidgetBlockModel -> PaintWidgetBlock(block)
+        is LayoutWidgetBlockModel -> PaintWidgetBlock(
+            block,
+            modifier = Modifier
+                .fillMaxWidth()
+                .selectableBlock(block.identity.stableId, LocalMarkdownSelectionController.current),
+        )
         is LayoutInlineBlockModel -> PaintInlineBlock(block)
     }
 }
@@ -394,7 +395,11 @@ private fun PaintRenderBlock(block: LayoutRenderBlockModel) {
 
 @Composable
 private fun PaintInlineBlock(block: LayoutInlineBlockModel) {
-    Column(modifier = Modifier.fillMaxWidth()) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .selectableBlock(block.identity.stableId, LocalMarkdownSelectionController.current)
+    ) {
         PaintInlineLayoutContent(block = block, modifier = Modifier.fillMaxWidth())
         if (block.showDivider) {
             HorizontalDivider(
@@ -475,7 +480,10 @@ private fun PaintCompiledBlock(block: InternalRenderBlockModel) {
 }
 
 @Composable
-private fun PaintWidgetBlock(block: LayoutWidgetBlockModel) {
+private fun PaintWidgetBlock(
+    block: LayoutWidgetBlockModel,
+    modifier: Modifier = Modifier.fillMaxWidth(),
+) {
     when (val widget = block.widget) {
         is CodeBlockWidgetModel -> FencedCodeBlockRenderer(
             text = widget.code,
@@ -484,17 +492,17 @@ private fun PaintWidgetBlock(block: LayoutWidgetBlockModel) {
             showLineNumbers = (block.block as? CodeBlockModel)?.showLineNumbers ?: true,
             startLine = (block.block as? CodeBlockModel)?.startLine ?: 1,
             highlightedLines = (block.block as? CodeBlockModel)?.highlightedLines ?: emptySet(),
-            modifier = Modifier.fillMaxWidth(),
+            modifier = modifier,
         )
 
         is MathBlockWidgetModel -> MathBlockRenderer(
             latex = widget.latex,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = modifier,
         )
 
         is DiagramBlockWidgetModel -> RenderDiagramBlockWidgetModel(
             model = widget,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = modifier,
         )
     }
 }
