@@ -4,12 +4,18 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
 import com.hrm.markdown.parser.ast.Table
 import com.hrm.markdown.renderer.internal.core.identity.RenderIdentity
+import com.hrm.markdown.renderer.internal.core.model.InlineModel
 import com.hrm.markdown.renderer.internal.core.model.TableBlockModel
+import com.hrm.markdown.renderer.internal.core.model.TableCellBlockModel
+import com.hrm.markdown.renderer.internal.core.model.TableRowBlockModel
+import com.hrm.markdown.renderer.internal.core.model.TextAtom
 import com.hrm.markdown.renderer.internal.layout.model.InternalLayoutBlockModel
 import com.hrm.markdown.renderer.internal.layout.model.LayoutInlineBlockModel
 import com.hrm.markdown.renderer.internal.layout.model.LayoutInlineLine
 import com.hrm.markdown.renderer.internal.layout.model.LayoutRect
 import com.hrm.markdown.renderer.internal.layout.model.LayoutTableBlockModel
+import com.hrm.markdown.renderer.internal.layout.model.LayoutTableCellGroup
+import com.hrm.markdown.renderer.internal.layout.model.LayoutTableRowGroup
 import com.hrm.markdown.renderer.internal.layout.model.LayoutTextRun
 
 internal fun selIdentity(id: Long): RenderIdentity =
@@ -86,17 +92,68 @@ internal fun inlineMultiRunBlock(
 internal fun selDocument(vararg blocks: InternalLayoutBlockModel): List<InternalLayoutBlockModel> =
     blocks.toList()
 
-/** 一个不参与选区索引的 gap 块（表格），用于验证跨 gap 选中行为。 */
-internal fun LayoutTableBlockModelGap(id: Long): LayoutTableBlockModel =
-    LayoutTableBlockModel(
+internal fun inlineModelText(id: Long, text: String): InlineModel =
+    InlineModel(
         identity = selIdentity(id),
-        frame = selRect(),
-        contentFrame = selRect(),
+        atoms = listOf(TextAtom(identity = selIdentity(id * 1000 + 1), text = text)),
+    )
+
+/** 一个参与复制索引的表格块，用于验证跨 block 选中行为。 */
+internal fun LayoutTableBlockModelGap(id: Long): LayoutTableBlockModel =
+    tableBlock(
+        id = id,
+        rows = listOf(
+            listOf("H1", "H2"),
+            listOf("A1", "A2"),
+        ),
+    )
+
+internal fun tableBlock(
+    id: Long,
+    rows: List<List<String>>,
+): LayoutTableBlockModel {
+    val renderRows = rows.mapIndexed { rowIndex, cells ->
+        TableRowBlockModel(
+            identity = selIdentity(id * 100 + rowIndex),
+            isHeader = rowIndex == 0,
+            cells = cells.mapIndexed { cellIndex, text ->
+                TableCellBlockModel(
+                    identity = selIdentity(id * 1000 + rowIndex * 10 + cellIndex),
+                    alignment = Table.Alignment.NONE,
+                    isHeader = rowIndex == 0,
+                    inline = inlineModelText(id * 10_000 + rowIndex * 100 + cellIndex, text),
+                )
+            },
+        )
+    }
+    val layoutRows = renderRows.mapIndexed { rowIndex, row ->
+        LayoutTableRowGroup(
+            identity = row.identity,
+            frame = selRect(top = rowIndex * 20f, height = 20f),
+            contentFrame = selRect(top = rowIndex * 20f, height = 20f),
+            isHeader = row.isHeader,
+            cells = row.cells.mapIndexed { cellIndex, cell ->
+                LayoutTableCellGroup(
+                    identity = cell.identity,
+                    frame = selRect(left = cellIndex * 100f, top = rowIndex * 20f, width = 100f, height = 20f),
+                    contentFrame = selRect(left = cellIndex * 100f, top = rowIndex * 20f, width = 100f, height = 20f),
+                    cell = cell,
+                    alignmentOrdinal = cell.alignment.ordinal,
+                    isHeader = cell.isHeader,
+                )
+            },
+        )
+    }
+    return LayoutTableBlockModel(
+        identity = selIdentity(id),
+        frame = selRect(width = 200f, height = rows.size * 20f),
+        contentFrame = selRect(width = 200f, height = rows.size * 20f),
         block = TableBlockModel(
             identity = selIdentity(id),
-            columnAlignments = listOf(Table.Alignment.NONE),
-            rows = emptyList(),
+            columnAlignments = rows.firstOrNull()?.map { Table.Alignment.NONE }.orEmpty(),
+            rows = renderRows,
         ),
-        columnWidths = listOf(100f),
-        rows = emptyList(),
+        columnWidths = rows.firstOrNull()?.map { 100f }.orEmpty(),
+        rows = layoutRows,
     )
+}

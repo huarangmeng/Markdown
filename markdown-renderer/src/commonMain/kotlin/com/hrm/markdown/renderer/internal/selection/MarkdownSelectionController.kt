@@ -12,6 +12,8 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.Constraints
 import com.hrm.markdown.renderer.internal.layout.inline.textMeasurementStyle
 import com.hrm.markdown.renderer.internal.layout.model.InternalLayoutBlockModel
+import com.hrm.markdown.renderer.internal.layout.model.LayoutInlineBlockModel
+import com.hrm.markdown.renderer.internal.layout.model.LayoutTextRun
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.launch
@@ -68,10 +70,12 @@ internal class MarkdownSelectionController(
      * 坐标公式与 [PaintInlineLayoutContent] 放置一致：`left = run.frame.left - block.frame.left`。
      */
     fun highlightBoxesFor(stableId: Long): List<Rect> {
-        val slices = runSlicesFor(stableId)
-        if (slices.isEmpty()) return emptyList()
         val entry = index.entryOf(stableId) ?: return emptyList()
-        val block = entry.block
+        val slices = runSlicesFor(stableId)
+        if (slices.isEmpty()) {
+            return if (entry.runs.isEmpty()) wholeBlockHighlightBox(entry) else emptyList()
+        }
+        val block = entry.block as? LayoutInlineBlockModel ?: return wholeBlockHighlightBox(entry)
         val style = textMeasurementStyle(block.style)
 
         val boxes = ArrayList<Rect>(slices.size)
@@ -79,10 +83,10 @@ internal class MarkdownSelectionController(
             val run = slice.span.run
             val runLeft = run.frame.left - block.frame.left
             val runTop = run.frame.top - block.frame.top
-            val text = run.text
+            val text = slice.span.text
             val startX: Float
             val endX: Float
-            if (text.isEmpty()) {
+            if (run !is LayoutTextRun || text.isEmpty()) {
                 startX = 0f
                 endX = run.frame.width
             } else {
@@ -103,6 +107,19 @@ internal class MarkdownSelectionController(
             boxes += Rect(left, runTop, right, runTop + run.frame.height)
         }
         return boxes
+    }
+
+    private fun wholeBlockHighlightBox(entry: SelectionBlockEntry): List<Rect> {
+        val range = state.range ?: return emptyList()
+        val order = entry.order
+        if (order < (index.orderOf(range.start.blockStableId) ?: return emptyList())) return emptyList()
+        if (order > (index.orderOf(range.end.blockStableId) ?: return emptyList())) return emptyList()
+
+        val from = if (entry.stableId == range.start.blockStableId) range.start.charInBlock else 0
+        val to = if (entry.stableId == range.end.blockStableId) range.end.charInBlock else entry.totalChars
+        if (to <= from) return emptyList()
+
+        return listOf(Rect(0f, 0f, entry.block.frame.width, entry.block.frame.height))
     }
 
     fun beginSelectionAt(windowOffset: Offset) {
@@ -226,7 +243,11 @@ internal class MarkdownSelectionController(
         }
 
         val entry = best ?: return null
-        val hit = hitTestRunInBlock(entry.block, bestLocal.x, bestLocal.y) ?: run {
+        val inlineBlock = entry.block as? LayoutInlineBlockModel
+        if (inlineBlock == null) {
+            return SelectionAnchor(entry.stableId, textOnlyBlockOffset(entry, bestLocal))
+        }
+        val hit = hitTestRunInBlock(inlineBlock, bestLocal.x, bestLocal.y) ?: run {
             // No runs at all; snap to block boundary by horizontal side.
             return SelectionAnchor(entry.stableId, if (bestLocal.x <= 0f) 0 else entry.totalChars)
         }
@@ -235,9 +256,15 @@ internal class MarkdownSelectionController(
             it.lineIndex == hit.lineIndex && it.runIndex == hit.runIndex
         } ?: return SelectionAnchor(entry.stableId, 0)
 
-        val offsetInRun = charOffsetInRun(entry.block.style, hit)
+        val offsetInRun = charOffsetInRun(inlineBlock.style, hit)
         val charInBlock = (span.charStart + offsetInRun).coerceIn(0, entry.totalChars)
         return SelectionAnchor(entry.stableId, charInBlock)
+    }
+
+    private fun textOnlyBlockOffset(entry: SelectionBlockEntry, local: Offset): Int {
+        if (entry.totalChars == 0) return 0
+        val height = entry.block.frame.height.coerceAtLeast(1f)
+        return if (local.y < height / 2f) 0 else entry.totalChars
     }
 
     private fun charOffsetInRun(style: TextStyle, hit: RunHit): Int {

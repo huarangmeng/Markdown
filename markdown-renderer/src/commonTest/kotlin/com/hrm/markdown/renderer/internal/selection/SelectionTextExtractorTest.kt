@@ -32,13 +32,12 @@ class SelectionTextExtractorTest {
     }
 
     @Test
-    fun should_skip_gap_blocks_not_in_index() {
-        // Table sits between two inline blocks; it is excluded from the index, so
-        // selecting across it must not contribute any text for the table.
+    fun should_include_table_text_when_selection_crosses_table_block() {
+        // Table sits between two inline blocks; it participates as an atomic copyable block.
         val index = buildSelectionIndex(
             selDocument(
                 inlineTextBlock(id = 1, text = "before"),
-                LayoutTableBlockModelGap(id = 99),
+                tableBlock(id = 99, rows = listOf(listOf("H1", "H2"), listOf("A1", "A2"))),
                 inlineTextBlock(id = 2, text = "after"),
             )
         )
@@ -46,7 +45,7 @@ class SelectionTextExtractorTest {
             start = SelectionAnchor(1, 0),
             end = SelectionAnchor(2, 5),
         )
-        assertEquals("before\nafter", extractSelectedText(index, range))
+        assertEquals("before\nH1\tH2\nA1\tA2\nafter", extractSelectedText(index, range))
     }
 
     @Test

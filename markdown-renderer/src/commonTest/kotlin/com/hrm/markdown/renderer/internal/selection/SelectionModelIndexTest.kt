@@ -57,27 +57,18 @@ class SelectionModelIndexTest {
     }
 
     @Test
-    fun should_exclude_table_blocks_from_index() {
+    fun should_include_table_blocks_as_copyable_entries() {
         val index = buildSelectionIndex(
             selDocument(
                 inlineTextBlock(id = 1, text = "before"),
-                LayoutTableBlockModel(
-                    identity = selIdentity(99),
-                    frame = selRect(),
-                    contentFrame = selRect(),
-                    block = TableBlockModel(
-                        identity = selIdentity(99),
-                        columnAlignments = listOf(Table.Alignment.NONE),
-                        rows = emptyList(),
-                    ),
-                    columnWidths = listOf(100f),
-                    rows = emptyList(),
-                ),
+                tableBlock(id = 99, rows = listOf(listOf("H1", "H2"), listOf("A1", "A2"))),
                 inlineTextBlock(id = 2, text = "after"),
             )
         )
 
-        assertEquals(listOf(1L, 2L), index.entries.map { it.stableId })
+        assertEquals(listOf(1L, 99L, 2L), index.entries.map { it.stableId })
+        assertEquals("H1\tH2\nA1\tA2", index.entryOf(99)!!.text)
+        assertTrue(index.entryOf(99)!!.runs.isEmpty())
     }
 
     @Test

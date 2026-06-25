@@ -169,7 +169,9 @@ private fun PaintBlock(block: com.hrm.markdown.renderer.internal.layout.model.In
         )
         is LayoutTableBlockModel -> RenderTableLayoutBlockModel(
             model = block,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .selectableBlock(block.identity.stableId, LocalMarkdownSelectionController.current),
         )
         is LayoutDefinitionListBlockModel -> RenderDefinitionListLayoutBlockModel(
             model = block,
@@ -212,7 +214,12 @@ private fun PaintBlock(block: com.hrm.markdown.renderer.internal.layout.model.In
                 }
             },
         )
-        is LayoutWidgetBlockModel -> PaintWidgetBlock(block)
+        is LayoutWidgetBlockModel -> PaintWidgetBlock(
+            block,
+            modifier = Modifier
+                .fillMaxWidth()
+                .selectableBlock(block.identity.stableId, LocalMarkdownSelectionController.current),
+        )
         is LayoutInlineBlockModel -> PaintInlineBlock(block)
     }
 }
@@ -473,7 +480,10 @@ private fun PaintCompiledBlock(block: InternalRenderBlockModel) {
 }
 
 @Composable
-private fun PaintWidgetBlock(block: LayoutWidgetBlockModel) {
+private fun PaintWidgetBlock(
+    block: LayoutWidgetBlockModel,
+    modifier: Modifier = Modifier.fillMaxWidth(),
+) {
     when (val widget = block.widget) {
         is CodeBlockWidgetModel -> FencedCodeBlockRenderer(
             text = widget.code,
@@ -482,17 +492,17 @@ private fun PaintWidgetBlock(block: LayoutWidgetBlockModel) {
             showLineNumbers = (block.block as? CodeBlockModel)?.showLineNumbers ?: true,
             startLine = (block.block as? CodeBlockModel)?.startLine ?: 1,
             highlightedLines = (block.block as? CodeBlockModel)?.highlightedLines ?: emptySet(),
-            modifier = Modifier.fillMaxWidth(),
+            modifier = modifier,
         )
 
         is MathBlockWidgetModel -> MathBlockRenderer(
             latex = widget.latex,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = modifier,
         )
 
         is DiagramBlockWidgetModel -> RenderDiagramBlockWidgetModel(
             model = widget,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = modifier,
         )
     }
 }
