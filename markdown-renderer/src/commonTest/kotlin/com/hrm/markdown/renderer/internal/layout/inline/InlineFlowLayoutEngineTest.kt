@@ -9,6 +9,7 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.sp
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
@@ -54,7 +55,7 @@ class InlineFlowLayoutEngineTest {
     }
 
     @Test
-    fun should_keep_emergency_single_glyph_run_inside_available_width() = runComposeUiTest {
+    fun should_emit_emergency_single_glyph_run_when_no_prefix_fits() = runComposeUiTest {
         var layout: InlineFlowLayout? = null
         val maxWidthPx = 1f
 
@@ -76,6 +77,37 @@ class InlineFlowLayoutEngineTest {
         waitForIdle()
 
         val actual = assertNotNull(layout)
+        assertEquals(1, actual.lines.size)
+        assertEquals(1, actual.lines.first().items.size)
+        assertTrue(actual.lines.first().items.first().widthPx > 0f)
+    }
+
+    @Test
+    fun should_wrap_long_url_within_available_width() = runComposeUiTest {
+        var layout: InlineFlowLayout? = null
+        val maxWidthPx = 260f
+
+        setContent {
+            layout = computeInlineFlowLayout(
+                input = InlineFlowInput(
+                    listOf(
+                        InlineFlowSegment.TextRun(
+                            AnnotatedString("[1] ↩︎ An exact analytical solution of Kepler's Equation[https://link.springer.com/article/10.1007/BF01231473]")
+                        ),
+                    )
+                ),
+                style = TextStyle(fontSize = 16.sp),
+                density = LocalDensity.current,
+                textMeasurer = rememberTextMeasurer(),
+                maxWidthPx = maxWidthPx,
+                maxLines = Int.MAX_VALUE,
+            )
+        }
+
+        waitForIdle()
+
+        val actual = assertNotNull(layout)
+        assertTrue(actual.lines.size > 1, "Expected long URL text to wrap across multiple lines.")
         actual.assertNoLineOrRunExceeds(maxWidthPx)
     }
 

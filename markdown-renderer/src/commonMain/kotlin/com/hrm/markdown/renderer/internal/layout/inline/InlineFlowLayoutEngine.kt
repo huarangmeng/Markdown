@@ -154,15 +154,29 @@ internal fun computeInlineFlowLayout(
                         maxWidthPx = available,
                     )
                     if (fit.fit.isNotEmpty()) {
-                        val fitMeasured = measureText(fit.fit)
-                        appendTextItem(
+                        val adjustedFit = shrinkTextToWidth(
                             text = fit.fit,
-                            measured = fitMeasured,
-                            widthPx = fitMeasured.widthPx.coerceAtMost(available),
+                            style = textStyle,
+                            textMeasurer = textMeasurer,
+                            maxWidthPx = available,
                         )
-                        flushLine(force = true)
-                        remaining = fit.rest.trimLeadingSpaces()
-                        continue
+                        if (adjustedFit.isEmpty()) {
+                            if (currentItems.isNotEmpty()) {
+                                flushLine(force = true)
+                                continue
+                            }
+                        } else {
+                            val fitMeasured = measureText(adjustedFit)
+                            appendTextItem(
+                                text = adjustedFit,
+                                measured = fitMeasured,
+                            )
+                            flushLine(force = true)
+                            remaining = remaining
+                                .subSequence(adjustedFit.length, remaining.length)
+                                .trimLeadingSpaces()
+                            continue
+                        }
                     }
 
                     if (currentItems.isNotEmpty()) {
@@ -176,7 +190,6 @@ internal fun computeInlineFlowLayout(
                     appendTextItem(
                         text = emergencyFit,
                         measured = emergencyMeasured,
-                        widthPx = emergencyMeasured.widthPx.coerceAtMost(maxWidthPx),
                     )
                     flushLine(force = true)
                     remaining = remaining.subSequence(cut, remaining.length)
@@ -206,6 +219,50 @@ internal fun computeInlineFlowLayout(
 }
 
 private data class SplitResult(val fit: AnnotatedString, val rest: AnnotatedString)
+
+private fun shrinkTextToWidth(
+    text: AnnotatedString,
+    style: TextStyle,
+    textMeasurer: TextMeasurer,
+    maxWidthPx: Float,
+): AnnotatedString {
+    if (text.isEmpty() || maxWidthPx <= 0f) return AnnotatedString("")
+    val fullWidth = textMeasurer.measure(
+        text = text,
+        style = style,
+        constraints = Constraints(maxWidth = Int.MAX_VALUE),
+        maxLines = 1,
+        softWrap = false,
+    ).size.width.toFloat()
+    if (fullWidth <= maxWidthPx) return text
+
+    var lo = 1
+    var hi = text.length
+    var best = 0
+    while (lo <= hi) {
+        val mid = safeBreakIndex(text.text, (lo + hi) / 2)
+        if (mid <= 0) {
+            hi = -1
+            continue
+        }
+        val sub = text.subSequence(0, mid)
+        val width = textMeasurer.measure(
+            text = sub,
+            style = style,
+            constraints = Constraints(maxWidth = Int.MAX_VALUE),
+            maxLines = 1,
+            softWrap = false,
+        ).size.width.toFloat()
+        if (width <= maxWidthPx) {
+            best = mid
+            lo = mid + 1
+        } else {
+            hi = mid - 1
+        }
+    }
+    if (best <= 0) return AnnotatedString("")
+    return text.subSequence(0, safeBreakIndex(text.text, best))
+}
 
 private fun splitTextToFit(
     text: AnnotatedString,
@@ -283,6 +340,17 @@ private fun firstBreakIndex(text: String): Int {
         return 2
     }
     return 1.coerceAtMost(text.length)
+}
+
+private fun safeBreakIndex(text: String, index: Int): Int {
+    val bounded = index.coerceIn(0, text.length)
+    if (bounded in 1 until text.length &&
+        text[bounded - 1].isHighSurrogate() &&
+        text[bounded].isLowSurrogate()
+    ) {
+        return bounded - 1
+    }
+    return bounded
 }
 
 private fun AnnotatedString.trimLeadingSpaces(): AnnotatedString {
