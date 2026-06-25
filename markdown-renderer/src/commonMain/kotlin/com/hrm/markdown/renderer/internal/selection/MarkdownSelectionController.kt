@@ -36,6 +36,7 @@ internal class MarkdownSelectionController(
     private var index: SelectionModelIndex = SelectionModelIndex(emptyList())
     private var clipboard: Clipboard? = null
     private var startAnchor: SelectionAnchor? = null
+    private var skipNextTapClear: Boolean = false
 
     val hasSelection: Boolean get() = state.hasSelection
 
@@ -124,6 +125,7 @@ internal class MarkdownSelectionController(
 
     fun beginSelectionAt(windowOffset: Offset) {
         val anchor = anchorFromWindow(windowOffset) ?: return
+        skipNextTapClear = false
         startAnchor = anchor
         state.activeHandle = SelectionActiveHandle.End
         state.range = SelectionRange(anchor, anchor)
@@ -140,6 +142,7 @@ internal class MarkdownSelectionController(
         if (selectedText.isEmpty()) {
             clearSelection()
         } else {
+            skipNextTapClear = true
             state.toolbarRequestKey += 1
         }
     }
@@ -157,8 +160,17 @@ internal class MarkdownSelectionController(
     }
 
     fun clearSelection() {
+        skipNextTapClear = false
         startAnchor = null
         state.clear()
+    }
+
+    fun clearSelectionFromTap() {
+        if (skipNextTapClear) {
+            skipNextTapClear = false
+            return
+        }
+        clearSelection()
     }
 
     fun selectAll() {

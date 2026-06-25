@@ -1,29 +1,40 @@
 package com.hrm.markdown.renderer.inline
 
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.IntrinsicMeasurable
+import androidx.compose.ui.layout.IntrinsicMeasureScope
 import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.Measurable
 import androidx.compose.ui.layout.MeasurePolicy
+import androidx.compose.ui.layout.MeasureResult
+import androidx.compose.ui.layout.MeasureScope
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Density
+import com.hrm.codehigh.theme.CodeTheme
 import com.hrm.codehigh.theme.LocalCodeTheme
+import com.hrm.latex.renderer.measure.LatexMeasurerState
 import com.hrm.latex.renderer.measure.rememberLatexMeasurer
 import com.hrm.markdown.renderer.LocalCodeHighlightTheme
 import com.hrm.markdown.renderer.LocalMarkdownDirectiveRegistry
 import com.hrm.markdown.renderer.LocalMarkdownTheme
 import com.hrm.markdown.renderer.LocalOnFootnoteClick
 import com.hrm.markdown.renderer.LocalOnLinkClick
+import com.hrm.markdown.renderer.MarkdownTheme
 import com.hrm.markdown.renderer.internal.compose.PaintInlineLayoutContent
 import com.hrm.markdown.renderer.internal.core.model.InlineModel
+import com.hrm.markdown.renderer.internal.layout.inline.InlineFlowInput
 import com.hrm.markdown.renderer.internal.layout.inline.buildInlineLayoutBlockFromResult
 import com.hrm.markdown.renderer.internal.layout.inline.computeIntrinsicHeightPx
 import com.hrm.markdown.renderer.internal.layout.inline.computeMaxIntrinsicWidthPx
 import com.hrm.markdown.renderer.internal.layout.inline.computeMinIntrinsicWidthPx
+import com.hrm.markdown.runtime.MarkdownDirectiveRegistry
 
 @Composable
 internal fun InlineLayoutBlockText(
@@ -101,18 +112,18 @@ internal fun InlineLayoutBlockText(
 private fun InlineLayoutBlockMeasuredContent(
     model: InlineModel,
     style: TextStyle,
-    theme: com.hrm.markdown.renderer.MarkdownTheme,
-    directiveRegistry: com.hrm.markdown.runtime.MarkdownDirectiveRegistry,
+    theme: MarkdownTheme,
+    directiveRegistry: MarkdownDirectiveRegistry,
     onLinkClick: ((String) -> Unit)?,
     onFootnoteClick: ((String) -> Unit)?,
-    latexMeasurer: com.hrm.latex.renderer.measure.LatexMeasurerState,
+    latexMeasurer: LatexMeasurerState,
     density: Density,
     textMeasurer: TextMeasurer,
     maxLines: Int,
-    inlineCodeTheme: com.hrm.codehigh.theme.CodeTheme?,
+    inlineCodeTheme: CodeTheme?,
     inlineResult: InlineRenderResult,
 ) {
-    androidx.compose.foundation.layout.BoxWithConstraints {
+    BoxWithConstraints {
         val maxWidthPx = with(density) { maxWidth.toPx() }
         val layoutBlock = remember(
             model,
@@ -152,16 +163,16 @@ private fun InlineLayoutBlockMeasuredContent(
 }
 
 private fun inlineLayoutBlockMeasurePolicy(
-    input: com.hrm.markdown.renderer.internal.layout.inline.InlineFlowInput,
+    input: InlineFlowInput,
     style: TextStyle,
     density: Density,
     textMeasurer: TextMeasurer,
     maxLines: Int,
 ): MeasurePolicy = object : MeasurePolicy {
-    override fun androidx.compose.ui.layout.MeasureScope.measure(
-        measurables: List<androidx.compose.ui.layout.Measurable>,
+    override fun MeasureScope.measure(
+        measurables: List<Measurable>,
         constraints: Constraints,
-    ): androidx.compose.ui.layout.MeasureResult {
+    ): MeasureResult {
         val placeable = measurables.singleOrNull()?.measure(constraints)
         val width = placeable?.width ?: constraints.minWidth
         val height = placeable?.height ?: constraints.minHeight
@@ -170,8 +181,8 @@ private fun inlineLayoutBlockMeasurePolicy(
         }
     }
 
-    override fun androidx.compose.ui.layout.IntrinsicMeasureScope.minIntrinsicWidth(
-        measurables: List<androidx.compose.ui.layout.IntrinsicMeasurable>,
+    override fun IntrinsicMeasureScope.minIntrinsicWidth(
+        measurables: List<IntrinsicMeasurable>,
         height: Int,
     ): Int = computeMinIntrinsicWidthPx(
         input = input,
@@ -179,8 +190,8 @@ private fun inlineLayoutBlockMeasurePolicy(
         textMeasurer = textMeasurer,
     )
 
-    override fun androidx.compose.ui.layout.IntrinsicMeasureScope.maxIntrinsicWidth(
-        measurables: List<androidx.compose.ui.layout.IntrinsicMeasurable>,
+    override fun IntrinsicMeasureScope.maxIntrinsicWidth(
+        measurables: List<IntrinsicMeasurable>,
         height: Int,
     ): Int = computeMaxIntrinsicWidthPx(
         input = input,
@@ -188,8 +199,8 @@ private fun inlineLayoutBlockMeasurePolicy(
         textMeasurer = textMeasurer,
     )
 
-    override fun androidx.compose.ui.layout.IntrinsicMeasureScope.minIntrinsicHeight(
-        measurables: List<androidx.compose.ui.layout.IntrinsicMeasurable>,
+    override fun IntrinsicMeasureScope.minIntrinsicHeight(
+        measurables: List<IntrinsicMeasurable>,
         width: Int,
     ): Int = computeIntrinsicHeightPx(
         input = input,
@@ -200,8 +211,8 @@ private fun inlineLayoutBlockMeasurePolicy(
         widthPx = width,
     )
 
-    override fun androidx.compose.ui.layout.IntrinsicMeasureScope.maxIntrinsicHeight(
-        measurables: List<androidx.compose.ui.layout.IntrinsicMeasurable>,
+    override fun IntrinsicMeasureScope.maxIntrinsicHeight(
+        measurables: List<IntrinsicMeasurable>,
         width: Int,
     ): Int = computeIntrinsicHeightPx(
         input = input,

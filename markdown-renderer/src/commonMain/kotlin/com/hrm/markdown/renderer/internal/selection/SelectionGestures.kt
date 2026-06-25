@@ -4,9 +4,15 @@ import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalTextToolbar
+import androidx.compose.ui.platform.TextToolbarStatus
 
 /**
  * 把自研选区层的交互手势挂到根容器：
@@ -33,7 +39,7 @@ internal fun Modifier.markdownSelectionGestures(
         }
         .pointerInput(controller) {
             detectTapGestures(
-                onTap = { controller.clearSelection() },
+                onTap = { controller.clearSelectionFromTap() },
             )
         }
 
@@ -47,8 +53,10 @@ internal fun SelectionToolbarHost(controller: MarkdownSelectionController) {
     val textToolbar = LocalTextToolbar.current
     val range = controller.state.range
     val toolbarRequestKey = controller.state.toolbarRequestKey
+    var watchExternalDismiss by remember(controller) { mutableStateOf(false) }
     LaunchedEffect(range, toolbarRequestKey) {
         if (range == null) {
+            watchExternalDismiss = false
             textToolbar.hide()
         } else if (toolbarRequestKey > 0) {
             val rect = controller.selectionBoundsInWindow() ?: return@LaunchedEffect
@@ -60,6 +68,22 @@ internal fun SelectionToolbarHost(controller: MarkdownSelectionController) {
                 },
                 onSelectAllRequested = { controller.selectAll() },
             )
+            watchExternalDismiss = true
+        }
+    }
+    LaunchedEffect(textToolbar, range, watchExternalDismiss) {
+        if (range == null || !watchExternalDismiss) return@LaunchedEffect
+        var seenShown = textToolbar.status == TextToolbarStatus.Shown
+        snapshotFlow { textToolbar.status }.collect { status ->
+            when (status) {
+                TextToolbarStatus.Shown -> seenShown = true
+                TextToolbarStatus.Hidden -> {
+                    if (seenShown && controller.state.range != null) {
+                        watchExternalDismiss = false
+                        controller.clearSelection()
+                    }
+                }
+            }
         }
     }
 }
