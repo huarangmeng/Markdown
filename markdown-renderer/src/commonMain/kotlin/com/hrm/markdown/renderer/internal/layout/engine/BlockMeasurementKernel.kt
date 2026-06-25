@@ -2,9 +2,7 @@ package com.hrm.markdown.renderer.internal.layout.engine
 
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.sp
-import com.hrm.markdown.parser.ast.Table
 import com.hrm.markdown.renderer.inline.buildInlineFlowInputFromModel
 import com.hrm.markdown.renderer.internal.core.model.BibliographyDefinitionBlockModel
 import com.hrm.markdown.renderer.internal.core.model.DefinitionDescriptionBlockModel
@@ -88,30 +86,27 @@ private fun LayoutEnvironment.measureTableBlockContentHeight(
     widthPx: Float,
 ): Float {
     if (block.rows.isEmpty()) return lineHeightPx(markdownTheme.bodyStyle)
-    val columnCount =
-        block.columnAlignments.size.coerceAtLeast(block.rows.maxOfOrNull { it.cells.size } ?: 1)
-            .coerceAtLeast(1)
+    val columnCount = tableColumnCount(block)
     val horizontalPadding = with(density) { markdownTheme.tableCellPadding.toPx() } * 2f
-    val cellWidth = (widthPx / columnCount.toFloat()).coerceAtLeast(40f)
+    val columnWidths = computeTableColumnWidths(block, widthPx)
     return block.rows.sumOf { row ->
-        val rowHeight = row.cells.maxOfOrNull { cell ->
-            val align = when (cell.alignment) {
-                Table.Alignment.LEFT -> TextAlign.Start
-                Table.Alignment.CENTER -> TextAlign.Center
-                Table.Alignment.RIGHT -> TextAlign.End
-                Table.Alignment.NONE -> TextAlign.Start
+        var rowHeight = lineHeightPx(markdownTheme.bodyStyle) + horizontalPadding
+        for (colIndex in 0 until columnCount) {
+            val cell = row.cells.getOrNull(colIndex) ?: continue
+            val alignment = block.columnAlignments.getOrElse(colIndex) {
+                com.hrm.markdown.parser.ast.Table.Alignment.NONE
             }
-            val style = if (cell.isHeader) {
-                markdownTheme.bodyStyle.copy(fontWeight = FontWeight.Bold, textAlign = align)
-            } else {
-                markdownTheme.bodyStyle.copy(textAlign = align)
-            }
-            measureInlineBlock(
-                model = cell.inline,
-                style = style,
-                widthPx = (cellWidth - horizontalPadding).coerceAtLeast(16f),
-            ) + horizontalPadding
-        } ?: lineHeightPx(markdownTheme.bodyStyle)
+            val style = tableCellTextStyle(alignment, row.isHeader)
+            val cellWidth = columnWidths.getOrElse(colIndex) { 0f }
+            rowHeight = maxOf(
+                rowHeight,
+                measureInlineBlock(
+                    model = cell.inline,
+                    style = style,
+                    widthPx = (cellWidth - horizontalPadding).coerceAtLeast(16f),
+                ) + horizontalPadding,
+            )
+        }
         rowHeight.toDouble()
     }.toFloat()
 }

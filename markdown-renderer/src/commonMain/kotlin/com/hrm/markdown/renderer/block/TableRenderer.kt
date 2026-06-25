@@ -4,14 +4,16 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Constraints
@@ -28,13 +30,14 @@ import com.hrm.markdown.renderer.internal.core.model.TableBlockModel
 import com.hrm.markdown.renderer.internal.core.model.TableCellBlockModel
 import com.hrm.markdown.renderer.internal.core.model.TableRowBlockModel
 import com.hrm.markdown.renderer.internal.layout.model.LayoutTableBlockModel
-import com.hrm.markdown.renderer.internal.layout.model.LayoutTableCellGroup
+import com.hrm.markdown.renderer.internal.layout.table.computeAutoTableColumnWidths
+import kotlin.math.roundToInt
 
 /**
  * GFM 表格渲染器。
  *
- * 使用自定义 Layout 实现列宽对齐：所有行中同一列使用该列最大内容宽度。
- * 始终支持水平滚动。
+ * 使用接近 CSS auto table layout 的列宽分配：
+ * 先按单元格内容计算每列 min-content / max-content，再按视口宽度伸缩或水平滚动。
  */
 @Composable
 internal fun TableRenderer(
@@ -42,7 +45,6 @@ internal fun TableRenderer(
     modifier: Modifier = Modifier,
 ) {
     val theme = LocalMarkdownTheme.current
-    val columnCount = node.columnAlignments.size.coerceAtLeast(1)
 
     // 收集所有行（表头 + 表体）
     val allRows = mutableListOf<Pair<TableRow, Boolean>>() // (row, isHeader)
@@ -50,19 +52,44 @@ internal fun TableRenderer(
     head?.children?.filterIsInstance<TableRow>()?.forEach { allRows.add(it to true) }
     val body = node.children.filterIsInstance<TableBody>().firstOrNull()
     body?.children?.filterIsInstance<TableRow>()?.forEach { allRows.add(it to false) }
+    val columnCount = node.columnAlignments.size
+        .coerceAtLeast(allRows.maxOfOrNull { it.first.children.filterIsInstance<TableCell>().size } ?: 1)
+        .coerceAtLeast(1)
 
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .horizontalScroll(rememberScrollState()),
-    ) {
+    AutoTableViewport(modifier) { availableWidthPx ->
         // 自定义表格布局
         TableLayout(
             allRows = allRows,
             alignments = node.columnAlignments,
             columnCount = columnCount,
+            availableWidthPx = availableWidthPx,
             modifier = Modifier.border(width = 1.dp, color = theme.tableBorderColor),
         )
+    }
+}
+
+@Composable
+private fun AutoTableViewport(
+    modifier: Modifier,
+    content: @Composable (availableWidthPx: Int?) -> Unit,
+) {
+    val density = LocalDensity.current
+    BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
+        val viewportWidthPx = if (maxWidth.value.isFinite()) {
+            with(density) { maxWidth.roundToPx() }
+        } else {
+            null
+        }
+        val minWidthModifier = viewportWidthPx?.let {
+            Modifier.widthIn(min = with(density) { it.toDp() })
+        } ?: Modifier
+        Box(
+            modifier = Modifier
+                .horizontalScroll(rememberScrollState())
+                .then(minWidthModifier),
+        ) {
+            content(viewportWidthPx)
+        }
     }
 }
 
@@ -71,6 +98,7 @@ private fun TableLayout(
     allRows: List<Pair<TableRow, Boolean>>,
     alignments: List<Table.Alignment>,
     columnCount: Int,
+    availableWidthPx: Int?,
     modifier: Modifier = Modifier,
 ) {
     val theme = LocalMarkdownTheme.current
@@ -104,15 +132,17 @@ private fun TableLayout(
             return@Layout layout(0, 0) {}
         }
 
-        // 用 intrinsic width 计算每列最大宽度（不消耗 measure 次数）
-        val columnWidths = IntArray(columnCount)
+        val minContentWidths = MutableList(columnCount) { 0f }
+        val maxContentWidths = MutableList(columnCount) { 0f }
         for (index in measurables.indices) {
             val colIdx = index % columnCount
-            val intrinsicWidth = measurables[index].maxIntrinsicWidth(Constraints.Infinity)
-            columnWidths[colIdx] = maxOf(columnWidths[colIdx], intrinsicWidth)
+            val minIntrinsicWidth = measurables[index].minIntrinsicWidth(Constraints.Infinity)
+            val maxIntrinsicWidth = measurables[index].maxIntrinsicWidth(Constraints.Infinity)
+            minContentWidths[colIdx] = maxOf(minContentWidths[colIdx], minIntrinsicWidth.toFloat())
+            maxContentWidths[colIdx] = maxOf(maxContentWidths[colIdx], maxIntrinsicWidth.toFloat())
         }
+        val columnWidths = computeColumnWidthsPx(minContentWidths, maxContentWidths, availableWidthPx)
 
-        // 用确定的列宽测量每个单元格（只 measure 一次）
         val placeables = Array(measurables.size) { index ->
             val colIdx = index % columnCount
             val fixedWidth = columnWidths[colIdx]
@@ -183,7 +213,6 @@ private fun TableCellRenderer(
         InlineLayoutBlockText(
             model = inlineModel,
             style = style,
-            maxLines = 1,
         )
     }
 }
@@ -194,16 +223,15 @@ internal fun RenderTableBlockModel(
     modifier: Modifier = Modifier,
 ) {
     val theme = LocalMarkdownTheme.current
-    val columnCount = model.columnAlignments.size.coerceAtLeast(1)
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .horizontalScroll(rememberScrollState()),
-    ) {
+    val columnCount = model.columnAlignments.size
+        .coerceAtLeast(model.rows.maxOfOrNull { it.cells.size } ?: 1)
+        .coerceAtLeast(1)
+    AutoTableViewport(modifier) { availableWidthPx ->
         TableBlockModelLayout(
             rows = model.rows,
             alignments = model.columnAlignments,
             columnCount = columnCount,
+            availableWidthPx = availableWidthPx,
             modifier = Modifier.border(width = 1.dp, color = theme.tableBorderColor),
         )
     }
@@ -215,28 +243,16 @@ internal fun RenderTableLayoutBlockModel(
     modifier: Modifier = Modifier,
 ) {
     val theme = LocalMarkdownTheme.current
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .horizontalScroll(rememberScrollState()),
-    ) {
-        androidx.compose.foundation.layout.Column(
+    AutoTableViewport(modifier) { availableWidthPx ->
+        TableBlockModelLayout(
+            rows = model.block.rows,
+            alignments = model.block.columnAlignments,
+            columnCount = model.columnWidths.size
+                .coerceAtLeast(model.block.rows.maxOfOrNull { it.cells.size } ?: 1)
+                .coerceAtLeast(1),
+            availableWidthPx = availableWidthPx,
             modifier = Modifier.border(width = 1.dp, color = theme.tableBorderColor),
-        ) {
-            model.rows.forEach { row ->
-                androidx.compose.foundation.layout.Row {
-                    row.cells.forEach { cell ->
-                        TableLayoutCellRenderer(
-                            cell = cell,
-                            modifier = Modifier
-                                .let { if (row.isHeader) it.background(theme.tableHeaderBackground) else it }
-                                .border(0.5.dp, theme.tableBorderColor)
-                                .padding(theme.tableCellPadding),
-                        )
-                    }
-                }
-            }
-        }
+        )
     }
 }
 
@@ -245,6 +261,7 @@ private fun TableBlockModelLayout(
     rows: List<TableRowBlockModel>,
     alignments: List<Table.Alignment>,
     columnCount: Int,
+    availableWidthPx: Int?,
     modifier: Modifier = Modifier,
 ) {
     val theme = LocalMarkdownTheme.current
@@ -275,12 +292,16 @@ private fun TableBlockModelLayout(
             return@Layout layout(0, 0) {}
         }
 
-        val columnWidths = IntArray(columnCount)
+        val minContentWidths = MutableList(columnCount) { 0f }
+        val maxContentWidths = MutableList(columnCount) { 0f }
         for (index in measurables.indices) {
             val colIdx = index % columnCount
-            val intrinsicWidth = measurables[index].maxIntrinsicWidth(Constraints.Infinity)
-            columnWidths[colIdx] = maxOf(columnWidths[colIdx], intrinsicWidth)
+            val minIntrinsicWidth = measurables[index].minIntrinsicWidth(Constraints.Infinity)
+            val maxIntrinsicWidth = measurables[index].maxIntrinsicWidth(Constraints.Infinity)
+            minContentWidths[colIdx] = maxOf(minContentWidths[colIdx], minIntrinsicWidth.toFloat())
+            maxContentWidths[colIdx] = maxOf(maxContentWidths[colIdx], maxIntrinsicWidth.toFloat())
         }
+        val columnWidths = computeColumnWidthsPx(minContentWidths, maxContentWidths, availableWidthPx)
 
         val placeables = Array(measurables.size) { index ->
             val colIdx = index % columnCount
@@ -345,28 +366,25 @@ private fun TableBlockModelCellRenderer(
         InlineLayoutBlockText(
             model = cell.inline,
             style = style,
-            maxLines = 1,
         )
     }
 }
 
-@Composable
-private fun TableLayoutCellRenderer(
-    cell: LayoutTableCellGroup,
-    modifier: Modifier = Modifier,
-) {
-    val tableAlignment = Table.Alignment.entries.getOrElse(cell.alignmentOrdinal) { Table.Alignment.NONE }
-    Box(
-        modifier = modifier.then(
-            Modifier
-                .width(with(androidx.compose.ui.platform.LocalDensity.current) { cell.frame.width.toDp() })
-        ),
-        contentAlignment = Alignment.CenterStart,
-    ) {
-        TableBlockModelCellRenderer(
-            cell = cell.cell,
-            alignment = tableAlignment,
-            isHeader = cell.isHeader,
-        )
+private fun computeColumnWidthsPx(
+    minContentWidths: List<Float>,
+    maxContentWidths: List<Float>,
+    availableWidthPx: Int?,
+): IntArray {
+    val widths = computeAutoTableColumnWidths(
+        minContentWidths = minContentWidths,
+        maxContentWidths = maxContentWidths,
+        availableWidth = availableWidthPx?.toFloat(),
+    )
+    val rounded = IntArray(widths.size) { index -> widths[index].roundToInt().coerceAtLeast(0) }
+    val target = widths.sum().roundToInt()
+    val delta = target - rounded.sum()
+    if (delta != 0 && rounded.isNotEmpty()) {
+        rounded[rounded.lastIndex] = (rounded.last() + delta).coerceAtLeast(0)
     }
+    return rounded
 }

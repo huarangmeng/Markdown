@@ -561,34 +561,21 @@ private fun layoutTableBlock(
     val contentLeft = left + insets.left
     val contentTop = top + insets.top
     val contentWidth = (width - insets.left - insets.right).coerceAtLeast(0f)
-    val columnCount =
-        block.columnAlignments.size.coerceAtLeast(block.rows.maxOfOrNull { it.cells.size } ?: 1)
-            .coerceAtLeast(1)
+    val columnCount = tableColumnCount(block)
     val cellPadding =
         with(environment.density) { environment.markdownTheme.tableCellPadding.toPx() }
-    val columnWidth = (contentWidth / columnCount.toFloat()).coerceAtLeast(40f)
-    val columnWidths = List(columnCount) { columnWidth }
+    val columnWidths = environment.computeTableColumnWidths(block, contentWidth)
     var cursorY = contentTop
     val rows = block.rows.map { row ->
+        var cursorX = contentLeft
         val cells = (0 until columnCount).map { colIndex ->
             val cell = row.cells.getOrNull(colIndex)
-            val cellLeft = contentLeft + colIndex * columnWidth
+            val columnWidth = columnWidths.getOrElse(colIndex) { 0f }
+            val cellLeft = cursorX
+            cursorX += columnWidth
             val alignment =
                 block.columnAlignments.getOrElse(colIndex) { com.hrm.markdown.parser.ast.Table.Alignment.NONE }
-            val textAlign = when (alignment) {
-                com.hrm.markdown.parser.ast.Table.Alignment.LEFT -> androidx.compose.ui.text.style.TextAlign.Start
-                com.hrm.markdown.parser.ast.Table.Alignment.CENTER -> androidx.compose.ui.text.style.TextAlign.Center
-                com.hrm.markdown.parser.ast.Table.Alignment.RIGHT -> androidx.compose.ui.text.style.TextAlign.End
-                com.hrm.markdown.parser.ast.Table.Alignment.NONE -> androidx.compose.ui.text.style.TextAlign.Start
-            }
-            val style = if (row.isHeader) {
-                environment.markdownTheme.bodyStyle.copy(
-                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                    textAlign = textAlign,
-                )
-            } else {
-                environment.markdownTheme.bodyStyle.copy(textAlign = textAlign)
-            }
+            val style = environment.tableCellTextStyle(alignment, row.isHeader)
             val innerHeight = cell?.let {
                 environment.measureInlineBlock(
                     model = it.inline,
@@ -619,10 +606,11 @@ private fun layoutTableBlock(
         val normalizedCells = cells.map { cell ->
             cell.copy(frame = cell.frame.copy(height = rowHeight))
         }
+        val tableWidth = columnWidths.sum()
         val rowGroup = LayoutTableRowGroup(
             identity = row.identity,
-            frame = LayoutRect(contentLeft, cursorY, contentWidth, rowHeight),
-            contentFrame = LayoutRect(contentLeft, cursorY, contentWidth, rowHeight),
+            frame = LayoutRect(contentLeft, cursorY, tableWidth, rowHeight),
+            contentFrame = LayoutRect(contentLeft, cursorY, tableWidth, rowHeight),
             isHeader = row.isHeader,
             cells = normalizedCells,
         )
@@ -633,7 +621,7 @@ private fun layoutTableBlock(
     return LayoutTableBlockModel(
         identity = block.identity,
         frame = LayoutRect(left, top, width, insets.top + contentHeight + insets.bottom),
-        contentFrame = LayoutRect(contentLeft, contentTop, contentWidth, contentHeight),
+        contentFrame = LayoutRect(contentLeft, contentTop, columnWidths.sum(), contentHeight),
         block = block,
         columnWidths = columnWidths,
         rows = rows,

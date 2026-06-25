@@ -2,8 +2,8 @@ name: Test
 
 on:
   pull_request:
-    branches: [master]
-    types: [opened, synchronize, reopened, ready_for_review]
+    branches: [ master ]
+    types: [ opened, synchronize, reopened, ready_for_review ]
   workflow_dispatch:
 
 jobs:
@@ -30,3 +30,6 @@ jobs:
 
       - name: Run renderer JVM tests
         run: ./gradlew :markdown-renderer:jvmTest
+
+      - name: Run runtime JVM tests
+        run: ./gradlew :markdown-runtime:jvmTest
