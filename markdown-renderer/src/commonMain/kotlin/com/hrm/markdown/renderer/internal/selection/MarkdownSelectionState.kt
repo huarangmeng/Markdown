@@ -16,11 +16,13 @@ internal enum class SelectionActiveHandle { None, Start, End }
 internal class MarkdownSelectionState {
     var range: SelectionRange? by mutableStateOf(null)
     var activeHandle: SelectionActiveHandle by mutableStateOf(SelectionActiveHandle.None)
+    var toolbarRequestKey: Int by mutableStateOf(0)
 
     val hasSelection: Boolean get() = range != null
 
     fun clear() {
         range = null
         activeHandle = SelectionActiveHandle.None
+        toolbarRequestKey = 0
     }
 }

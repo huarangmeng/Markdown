@@ -6,14 +6,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.platform.ClipboardManager
-import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.platform.Clipboard
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.Constraints
 import com.hrm.markdown.renderer.internal.layout.inline.textMeasurementStyle
 import com.hrm.markdown.renderer.internal.layout.model.InternalLayoutBlockModel
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.launch
 
 /**
  * 自研选区控制器：聚合选区状态、坐标注册表与当前文档索引，
@@ -31,12 +32,12 @@ internal class MarkdownSelectionController(
     val registry = SelectionCoordinateRegistry()
 
     private var index: SelectionModelIndex = SelectionModelIndex(emptyList())
-    private var clipboard: ClipboardManager? = null
+    private var clipboard: Clipboard? = null
     private var startAnchor: SelectionAnchor? = null
 
     val hasSelection: Boolean get() = state.hasSelection
 
-    fun bindClipboard(clipboard: ClipboardManager) {
+    fun bindClipboard(clipboard: Clipboard) {
         this.clipboard = clipboard
     }
 
@@ -117,6 +118,15 @@ internal class MarkdownSelectionController(
         state.range = index.normalize(start, moving)
     }
 
+    fun finishSelectionGesture() {
+        state.activeHandle = SelectionActiveHandle.None
+        if (selectedText.isEmpty()) {
+            clearSelection()
+        } else {
+            state.toolbarRequestKey += 1
+        }
+    }
+
     /** 把根容器 local 坐标（来自 pointerInput）转成 window 坐标后开始选区。 */
     fun beginSelectionAtRootLocal(rootLocal: Offset) {
         val root = registry.rootCoordinates?.takeIf { it.isAttached } ?: return
@@ -148,7 +158,9 @@ internal class MarkdownSelectionController(
         val text = selectedText
         if (text.isEmpty()) return
         val target = clipboard ?: return
-        target.setText(AnnotatedString(text))
+        coroutineScope.launch(start = CoroutineStart.UNDISPATCHED) {
+            target.setClipEntry(plainTextClipEntry(text))
+        }
     }
 
     /**

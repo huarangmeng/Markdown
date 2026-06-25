@@ -12,7 +12,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.rememberTextMeasurer
@@ -108,7 +108,7 @@ internal fun MarkdownDocumentRenderer(
             } else {
                 null
             }
-            selectionController?.bindClipboard(LocalClipboardManager.current)
+            selectionController?.bindClipboard(LocalClipboard.current)
             val navigationController = rememberMarkdownNavigationController(
                 renderMode = renderMode,
                 enableScroll = enableScroll,

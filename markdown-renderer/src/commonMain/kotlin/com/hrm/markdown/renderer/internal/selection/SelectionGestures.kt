@@ -23,6 +23,8 @@ internal fun Modifier.markdownSelectionGestures(
         .pointerInput(controller) {
             detectDragGesturesAfterLongPress(
                 onDragStart = { offset -> controller.beginSelectionAtRootLocal(offset) },
+                onDragEnd = { controller.finishSelectionGesture() },
+                onDragCancel = { controller.finishSelectionGesture() },
                 onDrag = { change, _ ->
                     controller.extendSelectionToRootLocal(change.position)
                     change.consume()
@@ -44,10 +46,11 @@ internal fun Modifier.markdownSelectionGestures(
 internal fun SelectionToolbarHost(controller: MarkdownSelectionController) {
     val textToolbar = LocalTextToolbar.current
     val range = controller.state.range
-    LaunchedEffect(range) {
+    val toolbarRequestKey = controller.state.toolbarRequestKey
+    LaunchedEffect(range, toolbarRequestKey) {
         if (range == null) {
             textToolbar.hide()
-        } else {
+        } else if (toolbarRequestKey > 0) {
             val rect = controller.selectionBoundsInWindow() ?: return@LaunchedEffect
             textToolbar.showMenu(
                 rect = rect,
