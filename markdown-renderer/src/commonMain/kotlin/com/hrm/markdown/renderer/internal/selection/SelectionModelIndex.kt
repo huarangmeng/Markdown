@@ -13,6 +13,7 @@ import com.hrm.markdown.renderer.internal.core.model.RubyTextWidgetModel
 import com.hrm.markdown.renderer.internal.core.model.SpoilerWidgetModel
 import com.hrm.markdown.renderer.internal.core.model.TextAtom
 import com.hrm.markdown.renderer.internal.core.model.WidgetAtom
+import com.hrm.markdown.renderer.internal.layout.inline.runPlacements
 import com.hrm.markdown.renderer.internal.layout.model.InternalLayoutBlockModel
 import com.hrm.markdown.renderer.internal.layout.model.LayoutColumnsBlockModel
 import com.hrm.markdown.renderer.internal.layout.model.LayoutDefinitionDescriptionGroup
@@ -165,24 +166,23 @@ internal fun buildSelectionIndex(blocks: List<InternalLayoutBlockModel>): Select
 private fun buildBlockEntry(block: LayoutInlineBlockModel, order: Int): SelectionBlockEntry {
     val runs = ArrayList<SelectionRunSpan>()
     var cursor = 0
-    block.lines.forEachIndexed { lineIndex, line ->
-        line.runs.forEachIndexed { runIndex, run ->
-            val text = when (run) {
-                is LayoutTextRun -> run.text.text
-                is LayoutWidgetRun -> run.alternateText
-            }
-            if (text.isNotEmpty()) {
-                val len = text.length
-                runs += SelectionRunSpan(
-                    lineIndex = lineIndex,
-                    runIndex = runIndex,
-                    run = run,
-                    text = text,
-                    charStart = cursor,
-                    charEnd = cursor + len,
-                )
-                cursor += len
-            }
+    for (placement in block.runPlacements()) {
+        val run = placement.run
+        val text = when (run) {
+            is LayoutTextRun -> run.text.text
+            is LayoutWidgetRun -> run.alternateText
+        }
+        if (text.isNotEmpty()) {
+            val len = text.length
+            runs += SelectionRunSpan(
+                lineIndex = placement.lineIndex,
+                runIndex = placement.runIndex,
+                run = run,
+                text = text,
+                charStart = cursor,
+                charEnd = cursor + len,
+            )
+            cursor += len
         }
     }
     return SelectionBlockEntry(

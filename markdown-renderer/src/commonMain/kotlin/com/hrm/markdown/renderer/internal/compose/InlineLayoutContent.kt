@@ -10,8 +10,9 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.Placeable
 import androidx.compose.ui.unit.Constraints
+import com.hrm.markdown.renderer.internal.layout.inline.LayoutInlineRunPlacement
+import com.hrm.markdown.renderer.internal.layout.inline.runPlacements
 import com.hrm.markdown.renderer.internal.layout.model.LayoutInlineBlockModel
-import com.hrm.markdown.renderer.internal.layout.model.LayoutInlineRun
 import com.hrm.markdown.renderer.internal.layout.model.LayoutTextRun
 import com.hrm.markdown.renderer.internal.layout.model.LayoutWidgetRun
 
@@ -21,13 +22,16 @@ internal fun PaintInlineLayoutContent(
     modifier: Modifier = Modifier,
 ) {
     val placements = remember(block.lines, block.frame) {
-        buildInlineRunPlacements(block)
+        block.runPlacements()
+    }
+    val paintItems = remember(placements) {
+        placements.map(::InlineRunPaintItem)
     }
     Layout(
         modifier = modifier,
         content = {
-            for (placement in placements) {
-                when (val run = placement.run) {
+            for (item in paintItems) {
+                when (val run = item.placement.run) {
                     is LayoutTextRun -> key(run.identity.stableId) {
                         BasicText(
                             text = run.text,
@@ -49,13 +53,13 @@ internal fun PaintInlineLayoutContent(
         }
     ) { measurables, constraints ->
         val placeables = ArrayList<Placeable>(measurables.size)
-        for (index in placements.indices) {
-            val placement = placements[index]
+        for (index in paintItems.indices) {
+            val item = paintItems[index]
             placeables += measurables[index].measure(
-                if (placement.width == 0 || placement.height == 0) {
+                if (item.width == 0 || item.height == 0) {
                     Constraints.fixed(0, 0)
                 } else {
-                    Constraints.fixed(placement.width, placement.height)
+                    Constraints.fixed(item.width, item.height)
                 }
             )
         }
@@ -72,34 +76,19 @@ internal fun PaintInlineLayoutContent(
             }
 
         layout(desiredWidth, desiredHeight) {
-            for (index in placements.indices) {
-                val placement = placements[index]
-                placeables[index].placeRelative(placement.x, placement.y)
+            for (index in paintItems.indices) {
+                val item = paintItems[index]
+                placeables[index].placeRelative(item.x, item.y)
             }
         }
     }
 }
 
-private data class InlineRunPlacement(
-    val run: LayoutInlineRun,
-    val x: Int,
-    val y: Int,
-    val width: Int,
-    val height: Int,
-)
-
-private fun buildInlineRunPlacements(block: LayoutInlineBlockModel): List<InlineRunPlacement> {
-    val placements = ArrayList<InlineRunPlacement>()
-    for (line in block.lines) {
-        for (run in line.runs) {
-            placements += InlineRunPlacement(
-                run = run,
-                x = (run.frame.left - block.frame.left).toInt(),
-                y = (run.frame.top - block.frame.top).toInt(),
-                width = run.frame.width.toInt().coerceAtLeast(0),
-                height = run.frame.height.toInt().coerceAtLeast(0),
-            )
-        }
-    }
-    return placements
+private data class InlineRunPaintItem(
+    val placement: LayoutInlineRunPlacement,
+) {
+    val x: Int get() = placement.x
+    val y: Int get() = placement.y
+    val width: Int get() = placement.width
+    val height: Int get() = placement.height
 }

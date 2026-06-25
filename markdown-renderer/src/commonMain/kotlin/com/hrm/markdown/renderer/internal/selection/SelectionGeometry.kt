@@ -1,5 +1,6 @@
 package com.hrm.markdown.renderer.internal.selection
 
+import com.hrm.markdown.renderer.internal.layout.inline.runPlacements
 import com.hrm.markdown.renderer.internal.layout.model.LayoutInlineBlockModel
 import com.hrm.markdown.renderer.internal.layout.model.LayoutTextRun
 import kotlin.math.abs
@@ -39,39 +40,38 @@ internal fun hitTestRunInBlock(
     var fallback: RunHit? = null
     var fallbackDist = Float.MAX_VALUE
 
-    block.lines.forEachIndexed { lineIndex, line ->
-        line.runs.forEachIndexed { runIndex, run ->
-            if (run !is LayoutTextRun) return@forEachIndexed
-            val left = run.frame.left - block.frame.left
-            val top = run.frame.top - block.frame.top
-            val right = left + run.frame.width
-            val bottom = top + run.frame.height
+    for (placement in block.runPlacements()) {
+        val run = placement.run
+        if (run !is LayoutTextRun) continue
+        val left = placement.x.toFloat()
+        val top = placement.y.toFloat()
+        val right = left + placement.width
+        val bottom = top + placement.height
 
-            val insideY = localY in top..bottom
-            val insideX = localX in left..right
-            if (insideY && insideX) {
-                return RunHit(lineIndex, runIndex, run, localX - left, localY - top)
-            }
+        val insideY = localY in top..bottom
+        val insideX = localX in left..right
+        if (insideY && insideX) {
+            return RunHit(placement.lineIndex, placement.runIndex, run, localX - left, localY - top)
+        }
 
-            // Distance for snapping: prioritize vertical proximity, then horizontal.
-            val dyPenalty = when {
-                localY < top -> top - localY
-                localY > bottom -> localY - bottom
-                else -> 0f
-            }
-            val clampedX = localX.coerceIn(left, right)
-            val dx = abs(localX - clampedX)
-            val dist = dyPenalty * 1000f + dx
-            if (dist < fallbackDist) {
-                fallbackDist = dist
-                fallback = RunHit(
-                    lineIndex = lineIndex,
-                    runIndex = runIndex,
-                    run = run,
-                    runLocalX = clampedX - left,
-                    runLocalY = (localY - top).coerceIn(0f, run.frame.height),
-                )
-            }
+        // Distance for snapping: prioritize vertical proximity, then horizontal.
+        val dyPenalty = when {
+            localY < top -> top - localY
+            localY > bottom -> localY - bottom
+            else -> 0f
+        }
+        val clampedX = localX.coerceIn(left, right)
+        val dx = abs(localX - clampedX)
+        val dist = dyPenalty * 1000f + dx
+        if (dist < fallbackDist) {
+            fallbackDist = dist
+            fallback = RunHit(
+                lineIndex = placement.lineIndex,
+                runIndex = placement.runIndex,
+                run = run,
+                runLocalX = clampedX - left,
+                runLocalY = (localY - top).coerceIn(0f, placement.height.toFloat()),
+            )
         }
     }
     return fallback
