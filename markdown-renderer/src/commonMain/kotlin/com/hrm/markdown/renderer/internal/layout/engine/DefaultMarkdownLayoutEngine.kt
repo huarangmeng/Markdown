@@ -1,6 +1,9 @@
 package com.hrm.markdown.renderer.internal.layout.engine
 
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.dp
 import com.hrm.markdown.renderer.internal.core.identity.RenderIdentity
 import com.hrm.markdown.renderer.internal.core.identity.renderIdentityFromText
 import com.hrm.markdown.renderer.internal.core.identity.renderIdentityFromValues
@@ -462,15 +465,47 @@ private fun layoutFootnoteBlock(
     val contentLeft = left + insets.left
     val contentTop = top + insets.top
     val contentWidth = (width - insets.left - insets.right).coerceAtLeast(0f)
-    val (childLayouts, bottom) = layoutBlocks(
-        block.children,
-        contentLeft,
-        contentTop,
-        contentWidth,
-        environment
+    val horizontalSpacing = with(environment.density) { 8.dp.toPx() }
+    val labelStyle = environment.markdownTheme.bodyStyle.copy(
+        fontWeight = FontWeight.SemiBold,
+        fontSize = environment.markdownTheme.footnoteStyle.fontSize,
     )
-    val leadChild = childLayouts.firstOrNull()
-    val trailingChildren = if (childLayouts.size > 1) childLayouts.drop(1) else emptyList()
+    val arrowStyle = environment.markdownTheme.bodyStyle.copy(
+        fontSize = environment.markdownTheme.footnoteStyle.fontSize,
+    )
+    val labelWidth = environment.textMeasurer.measure(
+        text = "[${block.index}]",
+        style = labelStyle,
+        constraints = Constraints(maxWidth = Int.MAX_VALUE),
+        maxLines = 1,
+        softWrap = false,
+    ).size.width.toFloat()
+    val arrowWidth = environment.textMeasurer.measure(
+        text = "↩",
+        style = arrowStyle,
+        constraints = Constraints(maxWidth = Int.MAX_VALUE),
+        maxLines = 1,
+        softWrap = false,
+    ).size.width.toFloat()
+    val leadLeft = contentLeft + labelWidth + arrowWidth + horizontalSpacing * 2f
+    val leadWidth = (contentWidth - (leadLeft - contentLeft)).coerceAtLeast(0f)
+    val leadChild = block.children.firstOrNull()?.let { child ->
+        layoutBlock(
+            block = child,
+            left = leadLeft,
+            top = contentTop,
+            width = leadWidth,
+            environment = environment,
+        )
+    }
+    val leadBottom = leadChild?.let { it.frame.top + it.frame.height } ?: contentTop
+    val (trailingChildren, bottom) = layoutBlocks(
+        blocks = block.children.drop(1),
+        left = contentLeft,
+        top = leadBottom,
+        width = contentWidth,
+        environment = environment,
+    )
     val contentHeight = (bottom - contentTop).coerceAtLeast(0f)
     return LayoutFootnoteBlockModel(
         identity = block.identity,
