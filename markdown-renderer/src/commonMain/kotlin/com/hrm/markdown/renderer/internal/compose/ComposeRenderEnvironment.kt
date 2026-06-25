@@ -9,7 +9,6 @@ import com.hrm.markdown.renderer.MarkdownRenderMode
 internal class ComposeRenderEnvironment(
     val modifier: Modifier = Modifier,
     val renderMode: MarkdownRenderMode = MarkdownRenderMode.StaticColumn,
-    val visibleBlockCount: Int = Int.MAX_VALUE,
     val enableScroll: Boolean = true,
     val scrollState: ScrollState? = null,
     val lazyListState: LazyListState? = null,

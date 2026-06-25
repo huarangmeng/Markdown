@@ -170,13 +170,6 @@ val previewCategories: List<PreviewCategory> = listOf(
         groups = diagramPreviewGroups
     ),
     PreviewCategory(
-        id = "pagination",
-        title = "分页加载",
-        description = "超长文档的懒加载分页渲染",
-        icon = "📄",
-        groups = paginationPreviewGroups
-    ),
-    PreviewCategory(
         id = "linting",
         title = "语法验证/Linting",
         description = "解析时检测无效语法并返回诊断信息：标题层级跳跃、重复标题 ID、无效脚注引用等",

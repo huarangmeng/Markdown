@@ -96,7 +96,7 @@ internal object DefaultMarkdownComposePainter : MarkdownComposePainter {
         document: InternalLayoutDocumentModel,
         environment: ComposeRenderEnvironment,
     ) {
-        val blocks = document.blocks.take(environment.visibleBlockCount)
+        val blocks = document.blocks
         when (environment.renderMode) {
             MarkdownRenderMode.LazyColumn -> {
                 LazyColumn(

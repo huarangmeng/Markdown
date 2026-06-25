@@ -4,17 +4,17 @@ import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.rememberTextMeasurer
 import com.hrm.codehigh.theme.CodeTheme
 import com.hrm.latex.renderer.measure.rememberLatexMeasurer
@@ -37,22 +37,16 @@ internal fun MarkdownDocumentRenderer(
     config: MarkdownConfig = MarkdownConfig.Default,
     scrollState: ScrollState = rememberScrollState(),
     isStreaming: Boolean = false,
-    enablePagination: Boolean = false,
     enableScroll: Boolean = true,
     enableSelection: Boolean = true,
-    initialBlockCount: Int = 100,
     header: (@Composable () -> Unit)? = null,
     footer: (@Composable () -> Unit)? = null,
     imageContent: MarkdownImageRenderer? = null,
     onLinkClick: ((String) -> Unit)? = null,
     directiveRegistry: MarkdownDirectiveRegistry = MarkdownDirectiveRegistry.Empty,
 ) {
-    val renderMode = remember(enableSelection, enableScroll, isStreaming) {
-        resolveMarkdownRenderMode(
-            enableSelection = enableSelection,
-            enableScroll = enableScroll,
-            isStreaming = isStreaming,
-        )
+    val renderMode = remember(enableScroll) {
+        resolveMarkdownRenderMode(enableScroll = enableScroll)
     }
     val lazyListState = rememberLazyListState()
     val renderDocument = rememberRenderDocument(
@@ -140,17 +134,8 @@ internal fun MarkdownDocumentRenderer(
                     diagramHostRegistry = diagramHostRegistry,
                 )
             }
-            val renderState = rememberMarkdownBlockRenderState(
-                blocks = layoutDocument.blocks,
-                renderMode = renderMode,
-                enablePagination = enablePagination,
-                initialBlockCount = initialBlockCount,
-                scrollState = scrollState,
-                isStreaming = isStreaming,
-            )
-            navigationController.effectivePagination = renderState.effectivePagination
-            navigationController.footnoteDefinitionItemIndexes = layoutDocument.metadata.footnoteDefinitionItemIndexes
-            navigationController.expandAllBlocks = renderState.expandAllBlocks
+            navigationController.footnoteDefinitionItemIndexes =
+                layoutDocument.metadata.footnoteDefinitionItemIndexes
             if (selectionController != null) {
                 LaunchedEffect(layoutDocument) {
                     selectionController.updateIndex(layoutDocument.blocks)
@@ -186,7 +171,6 @@ internal fun MarkdownDocumentRenderer(
                             environment = ComposeRenderEnvironment(
                                 modifier = Modifier.fillMaxWidth(),
                                 renderMode = renderMode,
-                                visibleBlockCount = renderState.visibleBlockCount,
                                 enableScroll = enableScroll,
                                 scrollState = scrollState,
                                 lazyListState = lazyListState,

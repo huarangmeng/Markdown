@@ -28,13 +28,13 @@ fun main(args: Array<String>) {
     println()
 
     repeat(cli.warmupIterations) { iteration ->
-        runStreamingIteration(chunks, cli.enablePagination)
+        runStreamingIteration(chunks)
         println("warmup ${iteration + 1}/${cli.warmupIterations} done")
     }
 
     val results = buildList {
         repeat(cli.measureIterations) {
-            add(runStreamingIteration(chunks, cli.enablePagination))
+            add(runStreamingIteration(chunks))
         }
     }
 
@@ -46,7 +46,6 @@ private data class BenchmarkCli(
     val measureIterations: Int,
     val sectionCount: Int,
     val chunkMode: ChunkMode,
-    val enablePagination: Boolean,
     val scenarioName: String,
 ) {
     companion object {
@@ -55,7 +54,6 @@ private data class BenchmarkCli(
             var measures = DEFAULT_MEASURE_ITERATIONS
             var sections = 18
             var chunkMode = ChunkMode.TOKEN
-            var enablePagination = false
             var scenario = "streaming-guide"
 
             var index = 0
@@ -70,7 +68,6 @@ private data class BenchmarkCli(
                             ?.let { value -> ChunkMode.entries.firstOrNull { it.name == value } }
                             ?: chunkMode
                     }
-                    "--pagination" -> enablePagination = true
                     "--scenario" -> scenario = args.getOrNull(index + 1) ?: scenario
                 }
                 index += if (args[index].startsWith("--") && index + 1 < args.size && !args[index + 1].startsWith("--")) 2 else 1
@@ -81,7 +78,6 @@ private data class BenchmarkCli(
                 measureIterations = measures.coerceAtLeast(1),
                 sectionCount = sections.coerceAtLeast(1),
                 chunkMode = chunkMode,
-                enablePagination = enablePagination,
                 scenarioName = scenario,
             )
         }
@@ -106,10 +102,7 @@ private data class IterationResult(
     val totalNs: Long get() = appendTotalNs + finalizeNs + blockFilterTotalNs
 }
 
-private fun runStreamingIteration(
-    chunks: List<String>,
-    enablePagination: Boolean,
-): IterationResult {
+private fun runStreamingIteration(chunks: List<String>): IterationResult {
     val parser = MarkdownParser()
     var previousBlocks = emptyList<Node>()
     var previousRevisions = emptyList<Long>()
@@ -128,12 +121,7 @@ private fun runStreamingIteration(
         appendMaxNs = maxOf(appendMaxNs, appendCost)
 
         val blockFilterStart = System.nanoTime()
-        val filtered = document.children.filter { it !is BlankLine }
-        val effectiveBlocks = if (enablePagination) {
-            filtered.take(100.coerceAtMost(filtered.size))
-        } else {
-            filtered
-        }
+        val effectiveBlocks = document.children.filter { it !is BlankLine }
         val revisions = effectiveBlocks.map(::benchmarkRenderRevision)
         if (!structurallyEqual(previousBlocks, effectiveBlocks) ||
             !revisionsEqual(previousRevisions, revisions)

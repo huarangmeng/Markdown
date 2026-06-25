@@ -19,9 +19,7 @@ internal class MarkdownNavigationController(
     var enableScroll: Boolean = true
     var scrollState: ScrollState? = null
     var lazyListState: LazyListState? = null
-    var effectivePagination: Boolean = false
     var footnoteDefinitionItemIndexes: Map<String, Int> = emptyMap()
-    var expandAllBlocks: () -> Unit = {}
     var onLinkClick: ((String) -> Unit)? = null
 
     val linkClickDelegate: (String) -> Unit = { target: String ->
@@ -51,11 +49,6 @@ internal class MarkdownNavigationController(
                 else -> {
                     val currentScrollState = scrollState ?: return@launch
                     footnoteNavigationState.rememberReturnPosition(label, currentScrollState.value)
-
-                    if (effectivePagination && !footnoteNavigationState.hasDefinition(label)) {
-                        expandAllBlocks.invoke()
-                        withFrameNanos { }
-                    }
 
                     if (!footnoteNavigationState.bringDefinitionIntoView(label)) {
                         onLinkClick?.invoke("#fn-$label")
