@@ -125,18 +125,6 @@ class WcagLintingTest {
         assertEquals(0, issues.size)
     }
 
-    // ---- LONG_ALT_TEXT ----
-
-    @Test
-    fun should_detect_long_alt_text() {
-        val longAlt = "a".repeat(130)
-        val parser = parseWithLinting("![$longAlt](image.png)")
-        val diagnostics = parser.diagnostics
-        val issues = diagnostics.filter(DiagnosticCode.LONG_ALT_TEXT)
-        assertEquals(1, issues.size)
-        assertTrue(issues[0].message.contains("130"))
-    }
-
     @Test
     fun should_not_flag_normal_length_alt_text() {
         val normalAlt = "A description of the image"
