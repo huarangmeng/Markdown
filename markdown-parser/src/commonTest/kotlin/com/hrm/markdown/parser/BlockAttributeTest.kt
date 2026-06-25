@@ -130,7 +130,7 @@ class BlockAttributeTest {
         val paragraphs = nonBlankChildren.filterIsInstance<Paragraph>()
         // 正文段落应该存在
         assertTrue(paragraphs.any { p ->
-            p.children.any { it is Text && (it as Text).literal.contains("Normal") }
+            p.children.any { it is Text && it.literal.contains("Normal") }
         })
         // 属性段落不应该存在
         assertTrue(paragraphs.none { p ->
@@ -211,7 +211,7 @@ class BlockAttributeTest {
 
         val paragraphs = doc.children.filterIsInstance<Paragraph>()
         val contentPara = paragraphs.first { p ->
-            p.children.any { it is Text && (it as Text).literal.contains("Paragraph") }
+            p.children.any { it is Text && it.literal.contains("Paragraph") }
         }
         assertEquals("para-class", contentPara.blockAttributes["class"])
     }

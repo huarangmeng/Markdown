@@ -122,7 +122,7 @@ class FlavourTest {
 
         val container = doc.children.filterIsInstance<CustomContainer>().firstOrNull()
         assertTrue(container != null, "Default parser should use ExtendedFlavour")
-        assertEquals("tip", container?.type)
+        assertEquals("tip", container.type)
     }
 
     @Test

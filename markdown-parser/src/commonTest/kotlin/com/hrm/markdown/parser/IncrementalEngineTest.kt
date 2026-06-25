@@ -55,7 +55,7 @@ class IncrementalEngineTest {
         val doc = parser.replace(offset = 0, length = 7, newText = "## Goodbye")
         val heading = doc.children.first()
         assertTrue(heading is Heading)
-        assertEquals(2, (heading as Heading).level)
+        assertEquals(2, heading.level)
     }
 
     @Test
@@ -230,7 +230,7 @@ class IncrementalEngineTest {
         val doc = parser.replace(offset = 0, length = 1, newText = "###")
         val heading = doc.children.first()
         assertTrue(heading is Heading)
-        assertEquals(3, (heading as Heading).level)
+        assertEquals(3, heading.level)
     }
 
     private fun containsSetextHeading(node: Node): Boolean {

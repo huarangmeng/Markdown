@@ -70,13 +70,13 @@ class InlineParserTest {
             "Expected Emphasis or StrongEmphasis, got ${outer::class.simpleName}"
         )
         // 内层也应该是 Emphasis 或 StrongEmphasis
-        val inner = (outer as ContainerNode).children.first()
+        val inner = outer.children.first()
         assertTrue(
             inner is Emphasis || inner is StrongEmphasis,
             "Expected nested Emphasis or StrongEmphasis, got ${inner::class.simpleName}"
         )
         // 最里层应该是文本 "bold italic"
-        val text = (inner as ContainerNode).children.first()
+        val text = inner.children.first()
         assertIs<Text>(text)
         assertEquals("bold italic", text.literal)
     }
