@@ -1,0 +1,1727 @@
+markdown-renderer/src/commonMain/kotlin/com/hrm/markdown/renderer/internal/layout/inline/InlineFlowLayoutCache.kt
+  s_e98769246c0138::t_32a7710ea3e1cb 13,23,32-35,37,41,47-59,63 gitai:{"mixed_line_ranges":[],"operations":[{"operation_id":"6a3df808e10f957944c9ba82","tool_type":"agent","tool_id":"apply_patch","line_ranges":[{"Single":13},{"Single":23},{"Range":[32,35]},{"Single":37},{"Single":41},{"Range":[47,59]},{"Single":63}]}]}
+  s_e98769246c0138::t_fa2f16de239dec 1-12,14-22,24-31,36,38-40,42-46,60-62,64-76 gitai:{"mixed_line_ranges":[],"operations":[{"operation_id":"6a3df4dbe10f957944c9b6ff","tool_type":"agent","tool_id":"apply_patch","line_ranges":[{"Range":[1,12]},{"Range":[14,22]},{"Range":[24,31]},{"Single":36},{"Range":[38,40]},{"Range":[42,46]},{"Range":[60,62]},{"Range":[64,76]}]}]}
+markdown-renderer/src/commonMain/kotlin/com/hrm/markdown/renderer/internal/layout/inline/InlineRenderResultCache.kt
+  s_e98769246c0138::t_41f4182e288ec4 1-63 gitai:{"mixed_line_ranges":[],"operations":[{"operation_id":"6a3df819e10f957944c9baba","tool_type":"agent","tool_id":"apply_patch","line_ranges":[{"Range":[1,63]}]}]}
+markdown-renderer/src/commonMain/kotlin/com/hrm/markdown/renderer/internal/layout/inline/InlineLayoutRuntime.kt
+  s_e98769246c0138::t_91601b4e10de18 5,16,84-116 gitai:{"mixed_line_ranges":[],"operations":[{"operation_id":"6a3dfb9ae10f957944c9bfc9","tool_type":"agent","tool_id":"apply_patch","line_ranges":[{"Single":5},{"Single":16},{"Range":[84,116]}]}]}
+  s_e98769246c0138::t_68397eb920ceb2 1-4,6-15,17-83,117-141 gitai:{"mixed_line_ranges":[],"operations":[{"operation_id":"6a3dfa90e10f957944c9bdbf","tool_type":"agent","tool_id":"apply_patch","line_ranges":[{"Range":[1,4]},{"Range":[6,15]},{"Range":[17,83]},{"Range":[117,141]}]}]}
+markdown-renderer/src/commonMain/kotlin/com/hrm/markdown/renderer/internal/layout/engine/LayoutEnvironment.kt
+  s_e98769246c0138::t_85985be4ea68a7 10,26 gitai:{"mixed_line_ranges":[],"operations":[{"operation_id":"6a3df822e10f957944c9bae6","tool_type":"agent","tool_id":"apply_patch","line_ranges":[{"Single":10},{"Single":26}]}]}
+  s_e98769246c0138::t_2f34f7e561d7fe 11,25 gitai:{"mixed_line_ranges":[],"operations":[{"operation_id":"6a3dfaa2e10f957944c9bdea","tool_type":"agent","tool_id":"apply_patch","line_ranges":[{"Single":11},{"Single":25}]}]}
+markdown-renderer/src/commonMain/kotlin/com/hrm/markdown/renderer/internal/MarkdownEngineHost.kt
+  s_e98769246c0138::t_0e0b07eb06419a 19-20,28,66,68-71 gitai:{"mixed_line_ranges":[],"operations":[{"operation_id":"6a3dfaa9e10f957944c9be13","tool_type":"agent","tool_id":"apply_patch","line_ranges":[{"Range":[19,20]},{"Single":28},{"Single":66},{"Range":[68,71]}]}]}
+  s_e98769246c0138::t_3d54913d572941 29,74-77 gitai:{"mixed_line_ranges":[],"operations":[{"operation_id":"6a3df4ffe10f957944c9b7a9","tool_type":"agent","tool_id":"apply_patch","line_ranges":[{"Single":29},{"Range":[74,77]}]}]}
+  s_e98769246c0138::t_54bb908f130ad5 67,72-73 gitai:{"mixed_line_ranges":[],"operations":[{"operation_id":"6a3df82fe10f957944c9bb0f","tool_type":"agent","tool_id":"apply_patch","line_ranges":[{"Single":67},{"Range":[72,73]}]}]}
+markdown-renderer/src/commonMain/kotlin/com/hrm/markdown/renderer/internal/layout/inline/InlineLayoutBlockSupport.kt
+  s_e98769246c0138::t_70a0ec49d84e18 128,136,139,161,180,188-190,192,195 gitai:{"mixed_line_ranges":[],"operations":[{"operation_id":"6a3dfab3e10f957944c9be3b","tool_type":"agent","tool_id":"apply_patch","line_ranges":[{"Single":128},{"Single":136},{"Single":139},{"Single":161},{"Single":180},{"Range":[188,190]},{"Single":192},{"Single":195}]}]}
+  s_e98769246c0138::t_51444b2e01393b 129,138,162,181 gitai:{"mixed_line_ranges":[],"operations":[{"operation_id":"6a3df836e10f957944c9bb37","tool_type":"agent","tool_id":"apply_patch","line_ranges":[{"Single":129},{"Single":138},{"Single":162},{"Single":181}]}]}
+markdown-renderer/src/commonMain/kotlin/com/hrm/markdown/renderer/inline/InlineLayoutBlockText.kt
+  s_e98769246c0138::t_3a0191161fe576 32,56,61-62,69,119,141,160,174 gitai:{"mixed_line_ranges":[],"operations":[{"operation_id":"6a3df86be10f957944c9bbe8","tool_type":"agent","tool_id":"apply_patch","line_ranges":[{"Single":32},{"Single":56},{"Range":[61,62]},{"Single":69},{"Single":119},{"Single":141},{"Single":160},{"Single":174}]}]}
+  s_e98769246c0138::t_f0922dff10c426 33,37,55,58,60,67-68,70-79,118,140,159,173 gitai:{"mixed_line_ranges":[],"operations":[{"operation_id":"6a3dfae7e10f957944c9bef9","tool_type":"agent","tool_id":"apply_patch","line_ranges":[{"Single":33},{"Single":37},{"Single":55},{"Single":58},{"Single":60},{"Range":[67,68]},{"Range":[70,79]},{"Single":118},{"Single":140},{"Single":159},{"Single":173}]}]}
+  s_e98769246c0138::t_6b7cd5cd8838a2 57,59,63-66 gitai:{"mixed_line_ranges":[],"operations":[{"operation_id":"6a3df52ce10f957944c9b854","tool_type":"agent","tool_id":"apply_patch","line_ranges":[{"Single":57},{"Single":59},{"Range":[63,66]}]}]}
+  s_e98769246c0138::t_6463e27673915f 80-83,86-88,91-92,97-98,187-188,193-194,212,221,229-231,233,243-245,247 gitai:{"mixed_line_ranges":[],"operations":[{"operation_id":"6a3dfba3e10f957944c9bff4","tool_type":"agent","tool_id":"apply_patch","line_ranges":[{"Range":[80,83]},{"Range":[86,88]},{"Range":[91,92]},{"Range":[97,98]},{"Range":[187,188]},{"Range":[193,194]},{"Single":212},{"Single":221},{"Range":[229,231]},{"Single":233},{"Range":[243,245]},{"Single":247}]}]}
+markdown-renderer/src/commonMain/kotlin/com/hrm/markdown/renderer/internal/selection/SelectionModifiers.kt
+  s_e98769246c0138::t_c6eb921a6a0d17 32-36 gitai:{"mixed_line_ranges":[],"operations":[{"operation_id":"6a3df538e10f957944c9b87e","tool_type":"agent","tool_id":"apply_patch","line_ranges":[{"Range":[32,36]}]}]}
+markdown-renderer/src/commonMain/kotlin/com/hrm/markdown/renderer/internal/layout/engine/BlockMeasurementKernel.kt
+  s_e98769246c0138::t_6a03b83e6b8471 32 gitai:{"mixed_line_ranges":[],"operations":[{"operation_id":"6a3df850e10f957944c9bb8f","tool_type":"agent","tool_id":"apply_patch","line_ranges":[{"Single":32}]}]}
+  s_e98769246c0138::t_3efcc527801fac 29,31,35-36,42-44,46,49 gitai:{"mixed_line_ranges":[],"operations":[{"operation_id":"6a3dfadce10f957944c9bece","tool_type":"agent","tool_id":"apply_patch","line_ranges":[{"Single":29},{"Single":31},{"Range":[35,36]},{"Range":[42,44]},{"Single":46},{"Single":49}]}]}
+markdown-renderer/src/commonMain/kotlin/com/hrm/markdown/renderer/internal/selection/SelectionModelIndex.kt
+  s_e98769246c0138::t_b9544951f11b47 3-5,20,172 gitai:{"mixed_line_ranges":[],"operations":[{"operation_id":"6a3df88ce10f957944c9bc15","tool_type":"agent","tool_id":"apply_patch","line_ranges":[{"Range":[3,5]},{"Single":20},{"Single":172}]}]}
+  s_e98769246c0138::t_bdfb510a85c42b 45,171,173-194 gitai:{"mixed_line_ranges":[],"operations":[{"operation_id":"6a3df926e10f957944c9bce8","tool_type":"agent","tool_id":"apply_patch","line_ranges":[{"Single":45},{"Single":171},{"Range":[173,194]}]}]}
+markdown-renderer/src/commonMain/kotlin/com/hrm/markdown/renderer/internal/layout/engine/DefaultMarkdownLayoutEngine.kt
+  s_e98769246c0138::t_8f00048bd49da4 554 gitai:{"mixed_line_ranges":[],"operations":[{"operation_id":"6a3dfacfe10f957944c9bea2","tool_type":"agent","tool_id":"apply_patch","line_ranges":[{"Single":554}]}]}
+  s_e98769246c0138::t_b6e98c91a2a44c 555 gitai:{"mixed_line_ranges":[],"operations":[{"operation_id":"6a3df845e10f957944c9bb63","tool_type":"agent","tool_id":"apply_patch","line_ranges":[{"Single":555}]}]}
+markdown-renderer/src/commonMain/kotlin/com/hrm/markdown/renderer/internal/layout/inline/InlineLayoutEpoch.kt
+  s_e98769246c0138::t_e769778665475b 1-14 gitai:{"mixed_line_ranges":[],"operations":[{"operation_id":"6a3df7f4e10f957944c9ba57","tool_type":"agent","tool_id":"apply_patch","line_ranges":[{"Range":[1,14]}]}]}
+markdown-renderer/src/commonMain/kotlin/com/hrm/markdown/renderer/internal/selection/MarkdownSelectionController.kt
+  s_e98769246c0138::t_b0b70ba2a2a7a3 46 gitai:{"mixed_line_ranges":[],"operations":[{"operation_id":"6a3df931e10f957944c9bd12","tool_type":"agent","tool_id":"apply_patch","line_ranges":[{"Single":46}]}]}
+  s_e98769246c0138::t_f9bbfca82c7c1e 90,261,272,275 gitai:{"mixed_line_ranges":[],"operations":[{"operation_id":"6a3df896e10f957944c9bc3f","tool_type":"agent","tool_id":"apply_patch","line_ranges":[{"Single":90},{"Single":261},{"Single":272},{"Single":275}]}]}
+markdown-renderer/src/commonMain/kotlin/com/hrm/markdown/renderer/internal/layout/engine/TableLayoutMetrics.kt
+  s_e98769246c0138::t_2728d87564e151 48,50-51,54-55,60 gitai:{"mixed_line_ranges":[],"operations":[{"operation_id":"6a3dfb2ce10f957944c9bf41","tool_type":"agent","tool_id":"apply_patch","line_ranges":[{"Single":48},{"Range":[50,51]},{"Range":[54,55]},{"Single":60}]}]}
+markdown-renderer/src/commonMain/kotlin/com/hrm/markdown/renderer/inline/InlineWidgets.kt
+  s_e98769246c0138::t_c348d2670cda01 24-25,54-78,80 gitai:{"mixed_line_ranges":[],"operations":[{"operation_id":"6a3dfb4be10f957944c9bf71","tool_type":"agent","tool_id":"apply_patch","line_ranges":[{"Range":[24,25]},{"Range":[54,78]},{"Single":80}]}]}
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "fbf1d2089334286f0a8a61efe6f165ffd6a4b441",
+  "prompts": {},
+  "sessions": {
+    "s_e98769246c0138": {
+      "agent_id": {
+        "tool": "trae",
+        "id": "6a3d27c3e10f957944c9b540",
+        "model": "gpt-5.5__dev"
+      },
+      "human_author": "huarangmeng <844707746@qq.com>"
+    }
+  },
+  "attestation_metadata": {
+    "markdown-renderer/src/commonMain/kotlin/com/hrm/markdown/renderer/inline/InlineLayoutBlockText.kt": [
+      {
+        "hash": "s_e98769246c0138::t_3a0191161fe576",
+        "line_ranges": [
+          {
+            "Single": 32
+          },
+          {
+            "Single": 56
+          },
+          {
+            "Range": [
+              61,
+              62
+            ]
+          },
+          {
+            "Single": 69
+          },
+          {
+            "Single": 119
+          },
+          {
+            "Single": 141
+          },
+          {
+            "Single": 160
+          },
+          {
+            "Single": 174
+          }
+        ],
+        "mixed_line_ranges": [],
+        "operations": [
+          {
+            "operation_id": "6a3df86be10f957944c9bbe8",
+            "tool_type": "agent",
+            "tool_id": "apply_patch",
+            "line_ranges": [
+              {
+                "Single": 32
+              },
+              {
+                "Single": 56
+              },
+              {
+                "Range": [
+                  61,
+                  62
+                ]
+              },
+              {
+                "Single": 69
+              },
+              {
+                "Single": 119
+              },
+              {
+                "Single": 141
+              },
+              {
+                "Single": 160
+              },
+              {
+                "Single": 174
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "hash": "s_e98769246c0138::t_f0922dff10c426",
+        "line_ranges": [
+          {
+            "Single": 33
+          },
+          {
+            "Single": 37
+          },
+          {
+            "Single": 55
+          },
+          {
+            "Single": 58
+          },
+          {
+            "Single": 60
+          },
+          {
+            "Range": [
+              67,
+              68
+            ]
+          },
+          {
+            "Range": [
+              70,
+              79
+            ]
+          },
+          {
+            "Single": 118
+          },
+          {
+            "Single": 140
+          },
+          {
+            "Single": 159
+          },
+          {
+            "Single": 173
+          }
+        ],
+        "mixed_line_ranges": [],
+        "operations": [
+          {
+            "operation_id": "6a3dfae7e10f957944c9bef9",
+            "tool_type": "agent",
+            "tool_id": "apply_patch",
+            "line_ranges": [
+              {
+                "Single": 33
+              },
+              {
+                "Single": 37
+              },
+              {
+                "Single": 55
+              },
+              {
+                "Single": 58
+              },
+              {
+                "Single": 60
+              },
+              {
+                "Range": [
+                  67,
+                  68
+                ]
+              },
+              {
+                "Range": [
+                  70,
+                  79
+                ]
+              },
+              {
+                "Single": 118
+              },
+              {
+                "Single": 140
+              },
+              {
+                "Single": 159
+              },
+              {
+                "Single": 173
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "hash": "s_e98769246c0138::t_6b7cd5cd8838a2",
+        "line_ranges": [
+          {
+            "Single": 57
+          },
+          {
+            "Single": 59
+          },
+          {
+            "Range": [
+              63,
+              66
+            ]
+          }
+        ],
+        "mixed_line_ranges": [],
+        "operations": [
+          {
+            "operation_id": "6a3df52ce10f957944c9b854",
+            "tool_type": "agent",
+            "tool_id": "apply_patch",
+            "line_ranges": [
+              {
+                "Single": 57
+              },
+              {
+                "Single": 59
+              },
+              {
+                "Range": [
+                  63,
+                  66
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "hash": "s_e98769246c0138::t_6463e27673915f",
+        "line_ranges": [
+          {
+            "Range": [
+              80,
+              83
+            ]
+          },
+          {
+            "Range": [
+              86,
+              88
+            ]
+          },
+          {
+            "Range": [
+              91,
+              92
+            ]
+          },
+          {
+            "Range": [
+              97,
+              98
+            ]
+          },
+          {
+            "Range": [
+              187,
+              188
+            ]
+          },
+          {
+            "Range": [
+              193,
+              194
+            ]
+          },
+          {
+            "Single": 212
+          },
+          {
+            "Single": 221
+          },
+          {
+            "Range": [
+              229,
+              231
+            ]
+          },
+          {
+            "Single": 233
+          },
+          {
+            "Range": [
+              243,
+              245
+            ]
+          },
+          {
+            "Single": 247
+          }
+        ],
+        "mixed_line_ranges": [],
+        "operations": [
+          {
+            "operation_id": "6a3dfba3e10f957944c9bff4",
+            "tool_type": "agent",
+            "tool_id": "apply_patch",
+            "line_ranges": [
+              {
+                "Range": [
+                  80,
+                  83
+                ]
+              },
+              {
+                "Range": [
+                  86,
+                  88
+                ]
+              },
+              {
+                "Range": [
+                  91,
+                  92
+                ]
+              },
+              {
+                "Range": [
+                  97,
+                  98
+                ]
+              },
+              {
+                "Range": [
+                  187,
+                  188
+                ]
+              },
+              {
+                "Range": [
+                  193,
+                  194
+                ]
+              },
+              {
+                "Single": 212
+              },
+              {
+                "Single": 221
+              },
+              {
+                "Range": [
+                  229,
+                  231
+                ]
+              },
+              {
+                "Single": 233
+              },
+              {
+                "Range": [
+                  243,
+                  245
+                ]
+              },
+              {
+                "Single": 247
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "markdown-renderer/src/commonMain/kotlin/com/hrm/markdown/renderer/inline/InlineWidgets.kt": [
+      {
+        "hash": "s_e98769246c0138::t_c348d2670cda01",
+        "line_ranges": [
+          {
+            "Range": [
+              24,
+              25
+            ]
+          },
+          {
+            "Range": [
+              54,
+              78
+            ]
+          },
+          {
+            "Single": 80
+          }
+        ],
+        "mixed_line_ranges": [],
+        "operations": [
+          {
+            "operation_id": "6a3dfb4be10f957944c9bf71",
+            "tool_type": "agent",
+            "tool_id": "apply_patch",
+            "line_ranges": [
+              {
+                "Range": [
+                  24,
+                  25
+                ]
+              },
+              {
+                "Range": [
+                  54,
+                  78
+                ]
+              },
+              {
+                "Single": 80
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "markdown-renderer/src/commonMain/kotlin/com/hrm/markdown/renderer/internal/MarkdownEngineHost.kt": [
+      {
+        "hash": "s_e98769246c0138::t_0e0b07eb06419a",
+        "line_ranges": [
+          {
+            "Range": [
+              19,
+              20
+            ]
+          },
+          {
+            "Single": 28
+          },
+          {
+            "Single": 66
+          },
+          {
+            "Range": [
+              68,
+              71
+            ]
+          }
+        ],
+        "mixed_line_ranges": [],
+        "operations": [
+          {
+            "operation_id": "6a3dfaa9e10f957944c9be13",
+            "tool_type": "agent",
+            "tool_id": "apply_patch",
+            "line_ranges": [
+              {
+                "Range": [
+                  19,
+                  20
+                ]
+              },
+              {
+                "Single": 28
+              },
+              {
+                "Single": 66
+              },
+              {
+                "Range": [
+                  68,
+                  71
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "hash": "s_e98769246c0138::t_3d54913d572941",
+        "line_ranges": [
+          {
+            "Single": 29
+          },
+          {
+            "Range": [
+              74,
+              77
+            ]
+          }
+        ],
+        "mixed_line_ranges": [],
+        "operations": [
+          {
+            "operation_id": "6a3df4ffe10f957944c9b7a9",
+            "tool_type": "agent",
+            "tool_id": "apply_patch",
+            "line_ranges": [
+              {
+                "Single": 29
+              },
+              {
+                "Range": [
+                  74,
+                  77
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "hash": "s_e98769246c0138::t_54bb908f130ad5",
+        "line_ranges": [
+          {
+            "Single": 67
+          },
+          {
+            "Range": [
+              72,
+              73
+            ]
+          }
+        ],
+        "mixed_line_ranges": [],
+        "operations": [
+          {
+            "operation_id": "6a3df82fe10f957944c9bb0f",
+            "tool_type": "agent",
+            "tool_id": "apply_patch",
+            "line_ranges": [
+              {
+                "Single": 67
+              },
+              {
+                "Range": [
+                  72,
+                  73
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "markdown-renderer/src/commonMain/kotlin/com/hrm/markdown/renderer/internal/layout/engine/BlockMeasurementKernel.kt": [
+      {
+        "hash": "s_e98769246c0138::t_6a03b83e6b8471",
+        "line_ranges": [
+          {
+            "Single": 32
+          }
+        ],
+        "mixed_line_ranges": [],
+        "operations": [
+          {
+            "operation_id": "6a3df850e10f957944c9bb8f",
+            "tool_type": "agent",
+            "tool_id": "apply_patch",
+            "line_ranges": [
+              {
+                "Single": 32
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "hash": "s_e98769246c0138::t_3efcc527801fac",
+        "line_ranges": [
+          {
+            "Single": 29
+          },
+          {
+            "Single": 31
+          },
+          {
+            "Range": [
+              35,
+              36
+            ]
+          },
+          {
+            "Range": [
+              42,
+              44
+            ]
+          },
+          {
+            "Single": 46
+          },
+          {
+            "Single": 49
+          }
+        ],
+        "mixed_line_ranges": [],
+        "operations": [
+          {
+            "operation_id": "6a3dfadce10f957944c9bece",
+            "tool_type": "agent",
+            "tool_id": "apply_patch",
+            "line_ranges": [
+              {
+                "Single": 29
+              },
+              {
+                "Single": 31
+              },
+              {
+                "Range": [
+                  35,
+                  36
+                ]
+              },
+              {
+                "Range": [
+                  42,
+                  44
+                ]
+              },
+              {
+                "Single": 46
+              },
+              {
+                "Single": 49
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "markdown-renderer/src/commonMain/kotlin/com/hrm/markdown/renderer/internal/layout/engine/DefaultMarkdownLayoutEngine.kt": [
+      {
+        "hash": "s_e98769246c0138::t_8f00048bd49da4",
+        "line_ranges": [
+          {
+            "Single": 554
+          }
+        ],
+        "mixed_line_ranges": [],
+        "operations": [
+          {
+            "operation_id": "6a3dfacfe10f957944c9bea2",
+            "tool_type": "agent",
+            "tool_id": "apply_patch",
+            "line_ranges": [
+              {
+                "Single": 554
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "hash": "s_e98769246c0138::t_b6e98c91a2a44c",
+        "line_ranges": [
+          {
+            "Single": 555
+          }
+        ],
+        "mixed_line_ranges": [],
+        "operations": [
+          {
+            "operation_id": "6a3df845e10f957944c9bb63",
+            "tool_type": "agent",
+            "tool_id": "apply_patch",
+            "line_ranges": [
+              {
+                "Single": 555
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "markdown-renderer/src/commonMain/kotlin/com/hrm/markdown/renderer/internal/layout/engine/LayoutEnvironment.kt": [
+      {
+        "hash": "s_e98769246c0138::t_85985be4ea68a7",
+        "line_ranges": [
+          {
+            "Single": 10
+          },
+          {
+            "Single": 26
+          }
+        ],
+        "mixed_line_ranges": [],
+        "operations": [
+          {
+            "operation_id": "6a3df822e10f957944c9bae6",
+            "tool_type": "agent",
+            "tool_id": "apply_patch",
+            "line_ranges": [
+              {
+                "Single": 10
+              },
+              {
+                "Single": 26
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "hash": "s_e98769246c0138::t_2f34f7e561d7fe",
+        "line_ranges": [
+          {
+            "Single": 11
+          },
+          {
+            "Single": 25
+          }
+        ],
+        "mixed_line_ranges": [],
+        "operations": [
+          {
+            "operation_id": "6a3dfaa2e10f957944c9bdea",
+            "tool_type": "agent",
+            "tool_id": "apply_patch",
+            "line_ranges": [
+              {
+                "Single": 11
+              },
+              {
+                "Single": 25
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "markdown-renderer/src/commonMain/kotlin/com/hrm/markdown/renderer/internal/layout/engine/TableLayoutMetrics.kt": [
+      {
+        "hash": "s_e98769246c0138::t_2728d87564e151",
+        "line_ranges": [
+          {
+            "Single": 48
+          },
+          {
+            "Range": [
+              50,
+              51
+            ]
+          },
+          {
+            "Range": [
+              54,
+              55
+            ]
+          },
+          {
+            "Single": 60
+          }
+        ],
+        "mixed_line_ranges": [],
+        "operations": [
+          {
+            "operation_id": "6a3dfb2ce10f957944c9bf41",
+            "tool_type": "agent",
+            "tool_id": "apply_patch",
+            "line_ranges": [
+              {
+                "Single": 48
+              },
+              {
+                "Range": [
+                  50,
+                  51
+                ]
+              },
+              {
+                "Range": [
+                  54,
+                  55
+                ]
+              },
+              {
+                "Single": 60
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "markdown-renderer/src/commonMain/kotlin/com/hrm/markdown/renderer/internal/layout/inline/InlineFlowLayoutCache.kt": [
+      {
+        "hash": "s_e98769246c0138::t_32a7710ea3e1cb",
+        "line_ranges": [
+          {
+            "Single": 13
+          },
+          {
+            "Single": 23
+          },
+          {
+            "Range": [
+              32,
+              35
+            ]
+          },
+          {
+            "Single": 37
+          },
+          {
+            "Single": 41
+          },
+          {
+            "Range": [
+              47,
+              59
+            ]
+          },
+          {
+            "Single": 63
+          }
+        ],
+        "mixed_line_ranges": [],
+        "operations": [
+          {
+            "operation_id": "6a3df808e10f957944c9ba82",
+            "tool_type": "agent",
+            "tool_id": "apply_patch",
+            "line_ranges": [
+              {
+                "Single": 13
+              },
+              {
+                "Single": 23
+              },
+              {
+                "Range": [
+                  32,
+                  35
+                ]
+              },
+              {
+                "Single": 37
+              },
+              {
+                "Single": 41
+              },
+              {
+                "Range": [
+                  47,
+                  59
+                ]
+              },
+              {
+                "Single": 63
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "hash": "s_e98769246c0138::t_fa2f16de239dec",
+        "line_ranges": [
+          {
+            "Range": [
+              1,
+              12
+            ]
+          },
+          {
+            "Range": [
+              14,
+              22
+            ]
+          },
+          {
+            "Range": [
+              24,
+              31
+            ]
+          },
+          {
+            "Single": 36
+          },
+          {
+            "Range": [
+              38,
+              40
+            ]
+          },
+          {
+            "Range": [
+              42,
+              46
+            ]
+          },
+          {
+            "Range": [
+              60,
+              62
+            ]
+          },
+          {
+            "Range": [
+              64,
+              76
+            ]
+          }
+        ],
+        "mixed_line_ranges": [],
+        "operations": [
+          {
+            "operation_id": "6a3df4dbe10f957944c9b6ff",
+            "tool_type": "agent",
+            "tool_id": "apply_patch",
+            "line_ranges": [
+              {
+                "Range": [
+                  1,
+                  12
+                ]
+              },
+              {
+                "Range": [
+                  14,
+                  22
+                ]
+              },
+              {
+                "Range": [
+                  24,
+                  31
+                ]
+              },
+              {
+                "Single": 36
+              },
+              {
+                "Range": [
+                  38,
+                  40
+                ]
+              },
+              {
+                "Range": [
+                  42,
+                  46
+                ]
+              },
+              {
+                "Range": [
+                  60,
+                  62
+                ]
+              },
+              {
+                "Range": [
+                  64,
+                  76
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "markdown-renderer/src/commonMain/kotlin/com/hrm/markdown/renderer/internal/layout/inline/InlineLayoutBlockSupport.kt": [
+      {
+        "hash": "s_e98769246c0138::t_70a0ec49d84e18",
+        "line_ranges": [
+          {
+            "Single": 128
+          },
+          {
+            "Single": 136
+          },
+          {
+            "Single": 139
+          },
+          {
+            "Single": 161
+          },
+          {
+            "Single": 180
+          },
+          {
+            "Range": [
+              188,
+              190
+            ]
+          },
+          {
+            "Single": 192
+          },
+          {
+            "Single": 195
+          }
+        ],
+        "mixed_line_ranges": [],
+        "operations": [
+          {
+            "operation_id": "6a3dfab3e10f957944c9be3b",
+            "tool_type": "agent",
+            "tool_id": "apply_patch",
+            "line_ranges": [
+              {
+                "Single": 128
+              },
+              {
+                "Single": 136
+              },
+              {
+                "Single": 139
+              },
+              {
+                "Single": 161
+              },
+              {
+                "Single": 180
+              },
+              {
+                "Range": [
+                  188,
+                  190
+                ]
+              },
+              {
+                "Single": 192
+              },
+              {
+                "Single": 195
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "hash": "s_e98769246c0138::t_51444b2e01393b",
+        "line_ranges": [
+          {
+            "Single": 129
+          },
+          {
+            "Single": 138
+          },
+          {
+            "Single": 162
+          },
+          {
+            "Single": 181
+          }
+        ],
+        "mixed_line_ranges": [],
+        "operations": [
+          {
+            "operation_id": "6a3df836e10f957944c9bb37",
+            "tool_type": "agent",
+            "tool_id": "apply_patch",
+            "line_ranges": [
+              {
+                "Single": 129
+              },
+              {
+                "Single": 138
+              },
+              {
+                "Single": 162
+              },
+              {
+                "Single": 181
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "markdown-renderer/src/commonMain/kotlin/com/hrm/markdown/renderer/internal/layout/inline/InlineLayoutEpoch.kt": [
+      {
+        "hash": "s_e98769246c0138::t_e769778665475b",
+        "line_ranges": [
+          {
+            "Range": [
+              1,
+              14
+            ]
+          }
+        ],
+        "mixed_line_ranges": [],
+        "operations": [
+          {
+            "operation_id": "6a3df7f4e10f957944c9ba57",
+            "tool_type": "agent",
+            "tool_id": "apply_patch",
+            "line_ranges": [
+              {
+                "Range": [
+                  1,
+                  14
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "markdown-renderer/src/commonMain/kotlin/com/hrm/markdown/renderer/internal/layout/inline/InlineLayoutRuntime.kt": [
+      {
+        "hash": "s_e98769246c0138::t_91601b4e10de18",
+        "line_ranges": [
+          {
+            "Single": 5
+          },
+          {
+            "Single": 16
+          },
+          {
+            "Range": [
+              84,
+              116
+            ]
+          }
+        ],
+        "mixed_line_ranges": [],
+        "operations": [
+          {
+            "operation_id": "6a3dfb9ae10f957944c9bfc9",
+            "tool_type": "agent",
+            "tool_id": "apply_patch",
+            "line_ranges": [
+              {
+                "Single": 5
+              },
+              {
+                "Single": 16
+              },
+              {
+                "Range": [
+                  84,
+                  116
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "hash": "s_e98769246c0138::t_68397eb920ceb2",
+        "line_ranges": [
+          {
+            "Range": [
+              1,
+              4
+            ]
+          },
+          {
+            "Range": [
+              6,
+              15
+            ]
+          },
+          {
+            "Range": [
+              17,
+              83
+            ]
+          },
+          {
+            "Range": [
+              117,
+              141
+            ]
+          }
+        ],
+        "mixed_line_ranges": [],
+        "operations": [
+          {
+            "operation_id": "6a3dfa90e10f957944c9bdbf",
+            "tool_type": "agent",
+            "tool_id": "apply_patch",
+            "line_ranges": [
+              {
+                "Range": [
+                  1,
+                  4
+                ]
+              },
+              {
+                "Range": [
+                  6,
+                  15
+                ]
+              },
+              {
+                "Range": [
+                  17,
+                  83
+                ]
+              },
+              {
+                "Range": [
+                  117,
+                  141
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "markdown-renderer/src/commonMain/kotlin/com/hrm/markdown/renderer/internal/layout/inline/InlineRenderResultCache.kt": [
+      {
+        "hash": "s_e98769246c0138::t_41f4182e288ec4",
+        "line_ranges": [
+          {
+            "Range": [
+              1,
+              63
+            ]
+          }
+        ],
+        "mixed_line_ranges": [],
+        "operations": [
+          {
+            "operation_id": "6a3df819e10f957944c9baba",
+            "tool_type": "agent",
+            "tool_id": "apply_patch",
+            "line_ranges": [
+              {
+                "Range": [
+                  1,
+                  63
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "markdown-renderer/src/commonMain/kotlin/com/hrm/markdown/renderer/internal/selection/MarkdownSelectionController.kt": [
+      {
+        "hash": "s_e98769246c0138::t_b0b70ba2a2a7a3",
+        "line_ranges": [
+          {
+            "Single": 46
+          }
+        ],
+        "mixed_line_ranges": [],
+        "operations": [
+          {
+            "operation_id": "6a3df931e10f957944c9bd12",
+            "tool_type": "agent",
+            "tool_id": "apply_patch",
+            "line_ranges": [
+              {
+                "Single": 46
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "hash": "s_e98769246c0138::t_f9bbfca82c7c1e",
+        "line_ranges": [
+          {
+            "Single": 90
+          },
+          {
+            "Single": 261
+          },
+          {
+            "Single": 272
+          },
+          {
+            "Single": 275
+          }
+        ],
+        "mixed_line_ranges": [],
+        "operations": [
+          {
+            "operation_id": "6a3df896e10f957944c9bc3f",
+            "tool_type": "agent",
+            "tool_id": "apply_patch",
+            "line_ranges": [
+              {
+                "Single": 90
+              },
+              {
+                "Single": 261
+              },
+              {
+                "Single": 272
+              },
+              {
+                "Single": 275
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "markdown-renderer/src/commonMain/kotlin/com/hrm/markdown/renderer/internal/selection/SelectionModelIndex.kt": [
+      {
+        "hash": "s_e98769246c0138::t_b9544951f11b47",
+        "line_ranges": [
+          {
+            "Range": [
+              3,
+              5
+            ]
+          },
+          {
+            "Single": 20
+          },
+          {
+            "Single": 172
+          }
+        ],
+        "mixed_line_ranges": [],
+        "operations": [
+          {
+            "operation_id": "6a3df88ce10f957944c9bc15",
+            "tool_type": "agent",
+            "tool_id": "apply_patch",
+            "line_ranges": [
+              {
+                "Range": [
+                  3,
+                  5
+                ]
+              },
+              {
+                "Single": 20
+              },
+              {
+                "Single": 172
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "hash": "s_e98769246c0138::t_bdfb510a85c42b",
+        "line_ranges": [
+          {
+            "Single": 45
+          },
+          {
+            "Single": 171
+          },
+          {
+            "Range": [
+              173,
+              194
+            ]
+          }
+        ],
+        "mixed_line_ranges": [],
+        "operations": [
+          {
+            "operation_id": "6a3df926e10f957944c9bce8",
+            "tool_type": "agent",
+            "tool_id": "apply_patch",
+            "line_ranges": [
+              {
+                "Single": 45
+              },
+              {
+                "Single": 171
+              },
+              {
+                "Range": [
+                  173,
+                  194
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "markdown-renderer/src/commonMain/kotlin/com/hrm/markdown/renderer/internal/selection/SelectionModifiers.kt": [
+      {
+        "hash": "s_e98769246c0138::t_c6eb921a6a0d17",
+        "line_ranges": [
+          {
+            "Range": [
+              32,
+              36
+            ]
+          }
+        ],
+        "mixed_line_ranges": [],
+        "operations": [
+          {
+            "operation_id": "6a3df538e10f957944c9b87e",
+            "tool_type": "agent",
+            "tool_id": "apply_patch",
+            "line_ranges": [
+              {
+                "Range": [
+                  32,
+                  36
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "remote_transcripts": {
+    "s_e98769246c0138": {
+      "tool": "trae",
+      "conversation_id": "6a3d27c3e10f957944c9b540",
+      "session_id": "6a3d27c3e10f957944c9b540",
+      "status": "remote_only",
+      "message": "Remote transcript resolution is not implemented yet for TRAE prompts."
+    },
+    "s_e98769246c0138::t_0e0b07eb06419a": {
+      "tool": "trae",
+      "conversation_id": "6a3d27c3e10f957944c9b540",
+      "session_id": "6a3d27c3e10f957944c9b540",
+      "status": "remote_only",
+      "message": "Remote transcript resolution is not implemented yet for TRAE prompts."
+    },
+    "s_e98769246c0138::t_2728d87564e151": {
+      "tool": "trae",
+      "conversation_id": "6a3d27c3e10f957944c9b540",
+      "session_id": "6a3d27c3e10f957944c9b540",
+      "status": "remote_only",
+      "message": "Remote transcript resolution is not implemented yet for TRAE prompts."
+    },
+    "s_e98769246c0138::t_2f34f7e561d7fe": {
+      "tool": "trae",
+      "conversation_id": "6a3d27c3e10f957944c9b540",
+      "session_id": "6a3d27c3e10f957944c9b540",
+      "status": "remote_only",
+      "message": "Remote transcript resolution is not implemented yet for TRAE prompts."
+    },
+    "s_e98769246c0138::t_32a7710ea3e1cb": {
+      "tool": "trae",
+      "conversation_id": "6a3d27c3e10f957944c9b540",
+      "session_id": "6a3d27c3e10f957944c9b540",
+      "status": "remote_only",
+      "message": "Remote transcript resolution is not implemented yet for TRAE prompts."
+    },
+    "s_e98769246c0138::t_394dc41b9f027e": {
+      "tool": "trae",
+      "conversation_id": "6a3d27c3e10f957944c9b540",
+      "session_id": "6a3d27c3e10f957944c9b540",
+      "status": "remote_only",
+      "message": "Remote transcript resolution is not implemented yet for TRAE prompts."
+    },
+    "s_e98769246c0138::t_3a0191161fe576": {
+      "tool": "trae",
+      "conversation_id": "6a3d27c3e10f957944c9b540",
+      "session_id": "6a3d27c3e10f957944c9b540",
+      "status": "remote_only",
+      "message": "Remote transcript resolution is not implemented yet for TRAE prompts."
+    },
+    "s_e98769246c0138::t_3d54913d572941": {
+      "tool": "trae",
+      "conversation_id": "6a3d27c3e10f957944c9b540",
+      "session_id": "6a3d27c3e10f957944c9b540",
+      "status": "remote_only",
+      "message": "Remote transcript resolution is not implemented yet for TRAE prompts."
+    },
+    "s_e98769246c0138::t_3efcc527801fac": {
+      "tool": "trae",
+      "conversation_id": "6a3d27c3e10f957944c9b540",
+      "session_id": "6a3d27c3e10f957944c9b540",
+      "status": "remote_only",
+      "message": "Remote transcript resolution is not implemented yet for TRAE prompts."
+    },
+    "s_e98769246c0138::t_41f4182e288ec4": {
+      "tool": "trae",
+      "conversation_id": "6a3d27c3e10f957944c9b540",
+      "session_id": "6a3d27c3e10f957944c9b540",
+      "status": "remote_only",
+      "message": "Remote transcript resolution is not implemented yet for TRAE prompts."
+    },
+    "s_e98769246c0138::t_457819e6691af2": {
+      "tool": "trae",
+      "conversation_id": "6a3d27c3e10f957944c9b540",
+      "session_id": "6a3d27c3e10f957944c9b540",
+      "status": "remote_only",
+      "message": "Remote transcript resolution is not implemented yet for TRAE prompts."
+    },
+    "s_e98769246c0138::t_51444b2e01393b": {
+      "tool": "trae",
+      "conversation_id": "6a3d27c3e10f957944c9b540",
+      "session_id": "6a3d27c3e10f957944c9b540",
+      "status": "remote_only",
+      "message": "Remote transcript resolution is not implemented yet for TRAE prompts."
+    },
+    "s_e98769246c0138::t_54bb908f130ad5": {
+      "tool": "trae",
+      "conversation_id": "6a3d27c3e10f957944c9b540",
+      "session_id": "6a3d27c3e10f957944c9b540",
+      "status": "remote_only",
+      "message": "Remote transcript resolution is not implemented yet for TRAE prompts."
+    },
+    "s_e98769246c0138::t_5cfaf707b4d097": {
+      "tool": "trae",
+      "conversation_id": "6a3d27c3e10f957944c9b540",
+      "session_id": "6a3d27c3e10f957944c9b540",
+      "status": "remote_only",
+      "message": "Remote transcript resolution is not implemented yet for TRAE prompts."
+    },
+    "s_e98769246c0138::t_6463e27673915f": {
+      "tool": "trae",
+      "conversation_id": "6a3d27c3e10f957944c9b540",
+      "session_id": "6a3d27c3e10f957944c9b540",
+      "status": "remote_only",
+      "message": "Remote transcript resolution is not implemented yet for TRAE prompts."
+    },
+    "s_e98769246c0138::t_68397eb920ceb2": {
+      "tool": "trae",
+      "conversation_id": "6a3d27c3e10f957944c9b540",
+      "session_id": "6a3d27c3e10f957944c9b540",
+      "status": "remote_only",
+      "message": "Remote transcript resolution is not implemented yet for TRAE prompts."
+    },
+    "s_e98769246c0138::t_69309e4fea1070": {
+      "tool": "trae",
+      "conversation_id": "6a3d27c3e10f957944c9b540",
+      "session_id": "6a3d27c3e10f957944c9b540",
+      "status": "remote_only",
+      "message": "Remote transcript resolution is not implemented yet for TRAE prompts."
+    },
+    "s_e98769246c0138::t_6a03b83e6b8471": {
+      "tool": "trae",
+      "conversation_id": "6a3d27c3e10f957944c9b540",
+      "session_id": "6a3d27c3e10f957944c9b540",
+      "status": "remote_only",
+      "message": "Remote transcript resolution is not implemented yet for TRAE prompts."
+    },
+    "s_e98769246c0138::t_6b7cd5cd8838a2": {
+      "tool": "trae",
+      "conversation_id": "6a3d27c3e10f957944c9b540",
+      "session_id": "6a3d27c3e10f957944c9b540",
+      "status": "remote_only",
+      "message": "Remote transcript resolution is not implemented yet for TRAE prompts."
+    },
+    "s_e98769246c0138::t_70a0ec49d84e18": {
+      "tool": "trae",
+      "conversation_id": "6a3d27c3e10f957944c9b540",
+      "session_id": "6a3d27c3e10f957944c9b540",
+      "status": "remote_only",
+      "message": "Remote transcript resolution is not implemented yet for TRAE prompts."
+    },
+    "s_e98769246c0138::t_805bde750a08c2": {
+      "tool": "trae",
+      "conversation_id": "6a3d27c3e10f957944c9b540",
+      "session_id": "6a3d27c3e10f957944c9b540",
+      "status": "remote_only",
+      "message": "Remote transcript resolution is not implemented yet for TRAE prompts."
+    },
+    "s_e98769246c0138::t_85985be4ea68a7": {
+      "tool": "trae",
+      "conversation_id": "6a3d27c3e10f957944c9b540",
+      "session_id": "6a3d27c3e10f957944c9b540",
+      "status": "remote_only",
+      "message": "Remote transcript resolution is not implemented yet for TRAE prompts."
+    },
+    "s_e98769246c0138::t_8f00048bd49da4": {
+      "tool": "trae",
+      "conversation_id": "6a3d27c3e10f957944c9b540",
+      "session_id": "6a3d27c3e10f957944c9b540",
+      "status": "remote_only",
+      "message": "Remote transcript resolution is not implemented yet for TRAE prompts."
+    },
+    "s_e98769246c0138::t_91601b4e10de18": {
+      "tool": "trae",
+      "conversation_id": "6a3d27c3e10f957944c9b540",
+      "session_id": "6a3d27c3e10f957944c9b540",
+      "status": "remote_only",
+      "message": "Remote transcript resolution is not implemented yet for TRAE prompts."
+    },
+    "s_e98769246c0138::t_9418025c5053e1": {
+      "tool": "trae",
+      "conversation_id": "6a3d27c3e10f957944c9b540",
+      "session_id": "6a3d27c3e10f957944c9b540",
+      "status": "remote_only",
+      "message": "Remote transcript resolution is not implemented yet for TRAE prompts."
+    },
+    "s_e98769246c0138::t_9758cba2a312bd": {
+      "tool": "trae",
+      "conversation_id": "6a3d27c3e10f957944c9b540",
+      "session_id": "6a3d27c3e10f957944c9b540",
+      "status": "remote_only",
+      "message": "Remote transcript resolution is not implemented yet for TRAE prompts."
+    },
+    "s_e98769246c0138::t_9af3b85874d304": {
+      "tool": "trae",
+      "conversation_id": "6a3d27c3e10f957944c9b540",
+      "session_id": "6a3d27c3e10f957944c9b540",
+      "status": "remote_only",
+      "message": "Remote transcript resolution is not implemented yet for TRAE prompts."
+    },
+    "s_e98769246c0138::t_b09c434fa630da": {
+      "tool": "trae",
+      "conversation_id": "6a3d27c3e10f957944c9b540",
+      "session_id": "6a3d27c3e10f957944c9b540",
+      "status": "remote_only",
+      "message": "Remote transcript resolution is not implemented yet for TRAE prompts."
+    },
+    "s_e98769246c0138::t_b0b70ba2a2a7a3": {
+      "tool": "trae",
+      "conversation_id": "6a3d27c3e10f957944c9b540",
+      "session_id": "6a3d27c3e10f957944c9b540",
+      "status": "remote_only",
+      "message": "Remote transcript resolution is not implemented yet for TRAE prompts."
+    },
+    "s_e98769246c0138::t_b242ffbbbe9ba7": {
+      "tool": "trae",
+      "conversation_id": "6a3d27c3e10f957944c9b540",
+      "session_id": "6a3d27c3e10f957944c9b540",
+      "status": "remote_only",
+      "message": "Remote transcript resolution is not implemented yet for TRAE prompts."
+    },
+    "s_e98769246c0138::t_b6e98c91a2a44c": {
+      "tool": "trae",
+      "conversation_id": "6a3d27c3e10f957944c9b540",
+      "session_id": "6a3d27c3e10f957944c9b540",
+      "status": "remote_only",
+      "message": "Remote transcript resolution is not implemented yet for TRAE prompts."
+    },
+    "s_e98769246c0138::t_b7a74d3381d9d4": {
+      "tool": "trae",
+      "conversation_id": "6a3d27c3e10f957944c9b540",
+      "session_id": "6a3d27c3e10f957944c9b540",
+      "status": "remote_only",
+      "message": "Remote transcript resolution is not implemented yet for TRAE prompts."
+    },
+    "s_e98769246c0138::t_b9544951f11b47": {
+      "tool": "trae",
+      "conversation_id": "6a3d27c3e10f957944c9b540",
+      "session_id": "6a3d27c3e10f957944c9b540",
+      "status": "remote_only",
+      "message": "Remote transcript resolution is not implemented yet for TRAE prompts."
+    },
+    "s_e98769246c0138::t_bb4d3cce950be6": {
+      "tool": "trae",
+      "conversation_id": "6a3d27c3e10f957944c9b540",
+      "session_id": "6a3d27c3e10f957944c9b540",
+      "status": "remote_only",
+      "message": "Remote transcript resolution is not implemented yet for TRAE prompts."
+    },
+    "s_e98769246c0138::t_bdfb510a85c42b": {
+      "tool": "trae",
+      "conversation_id": "6a3d27c3e10f957944c9b540",
+      "session_id": "6a3d27c3e10f957944c9b540",
+      "status": "remote_only",
+      "message": "Remote transcript resolution is not implemented yet for TRAE prompts."
+    },
+    "s_e98769246c0138::t_c348d2670cda01": {
+      "tool": "trae",
+      "conversation_id": "6a3d27c3e10f957944c9b540",
+      "session_id": "6a3d27c3e10f957944c9b540",
+      "status": "remote_only",
+      "message": "Remote transcript resolution is not implemented yet for TRAE prompts."
+    },
+    "s_e98769246c0138::t_c6eb921a6a0d17": {
+      "tool": "trae",
+      "conversation_id": "6a3d27c3e10f957944c9b540",
+      "session_id": "6a3d27c3e10f957944c9b540",
+      "status": "remote_only",
+      "message": "Remote transcript resolution is not implemented yet for TRAE prompts."
+    },
+    "s_e98769246c0138::t_cf5f4f0a1967e9": {
+      "tool": "trae",
+      "conversation_id": "6a3d27c3e10f957944c9b540",
+      "session_id": "6a3d27c3e10f957944c9b540",
+      "status": "remote_only",
+      "message": "Remote transcript resolution is not implemented yet for TRAE prompts."
+    },
+    "s_e98769246c0138::t_e769778665475b": {
+      "tool": "trae",
+      "conversation_id": "6a3d27c3e10f957944c9b540",
+      "session_id": "6a3d27c3e10f957944c9b540",
+      "status": "remote_only",
+      "message": "Remote transcript resolution is not implemented yet for TRAE prompts."
+    },
+    "s_e98769246c0138::t_f0922dff10c426": {
+      "tool": "trae",
+      "conversation_id": "6a3d27c3e10f957944c9b540",
+      "session_id": "6a3d27c3e10f957944c9b540",
+      "status": "remote_only",
+      "message": "Remote transcript resolution is not implemented yet for TRAE prompts."
+    },
+    "s_e98769246c0138::t_f9bbfca82c7c1e": {
+      "tool": "trae",
+      "conversation_id": "6a3d27c3e10f957944c9b540",
+      "session_id": "6a3d27c3e10f957944c9b540",
+      "status": "remote_only",
+      "message": "Remote transcript resolution is not implemented yet for TRAE prompts."
+    },
+    "s_e98769246c0138::t_fa2f16de239dec": {
+      "tool": "trae",
+      "conversation_id": "6a3d27c3e10f957944c9b540",
+      "session_id": "6a3d27c3e10f957944c9b540",
+      "status": "remote_only",
+      "message": "Remote transcript resolution is not implemented yet for TRAE prompts."
+    },
+    "s_e98769246c0138::t_fd5e654bc073ad": {
+      "tool": "trae",
+      "conversation_id": "6a3d27c3e10f957944c9b540",
+      "session_id": "6a3d27c3e10f957944c9b540",
+      "status": "remote_only",
+      "message": "Remote transcript resolution is not implemented yet for TRAE prompts."
+    }
+  }
+}
