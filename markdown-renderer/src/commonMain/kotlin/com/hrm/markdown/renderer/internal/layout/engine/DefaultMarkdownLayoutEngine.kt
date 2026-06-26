@@ -1,7 +1,7 @@
 package com.hrm.markdown.renderer.internal.layout.engine
 
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import com.hrm.markdown.renderer.internal.core.identity.RenderIdentity
@@ -551,6 +551,8 @@ private fun layoutInlineBlock(
         latexMeasurer = environment.latexMeasurer,
         density = environment.density,
         textMeasurer = environment.textMeasurer,
+        inlineLayoutRuntime = environment.inlineLayoutRuntime,
+        inlineLayoutEpoch = environment.inlineLayoutEpoch,
         codeTheme = environment.codeTheme,
         onLinkClick = environment.onLinkClick,
         onFootnoteClick = environment.onFootnoteClick,
@@ -682,7 +684,7 @@ private fun layoutDefinitionListBlock(
             is com.hrm.markdown.renderer.internal.core.model.DefinitionTermBlockModel -> {
                 val height = environment.measureInlineBlock(
                     model = item.inline,
-                    style = environment.markdownTheme.bodyStyle.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold),
+                    style = environment.markdownTheme.bodyStyle.copy(fontWeight = FontWeight.Bold),
                     widthPx = contentWidth,
                 )
                 val group = LayoutDefinitionTermGroup(
@@ -790,8 +792,8 @@ private fun layoutTocBlock(
         val height =
             environment.measureTocEntryHeight(entry, (contentWidth - indent).coerceAtLeast(24f))
         val group = LayoutTocEntryGroup(
-            identity = com.hrm.markdown.renderer.internal.core.identity.RenderIdentity(
-                stableId = com.hrm.markdown.renderer.internal.core.identity.renderIdentityFromText("${entry.level}:${entry.text}:${entry.id.orEmpty()}"),
+            identity = RenderIdentity(
+                stableId = renderIdentityFromText("${entry.level}:${entry.text}:${entry.id.orEmpty()}"),
                 contentRevision = 0L,
                 layoutRevision = 0L,
                 paintRevision = 0L,
@@ -835,8 +837,8 @@ private fun layoutBibliographyBlock(
     val entryHeight = environment.lineHeightPx(environment.markdownTheme.bodyStyle)
     val entries = block.entries.map { entry ->
         val group = LayoutBibliographyEntryGroup(
-            identity = com.hrm.markdown.renderer.internal.core.identity.RenderIdentity(
-                stableId = com.hrm.markdown.renderer.internal.core.identity.renderIdentityFromText("${entry.key}:${entry.content}"),
+            identity = RenderIdentity(
+                stableId = renderIdentityFromText("${entry.key}:${entry.content}"),
                 contentRevision = 0L,
                 layoutRevision = 0L,
                 paintRevision = 0L,

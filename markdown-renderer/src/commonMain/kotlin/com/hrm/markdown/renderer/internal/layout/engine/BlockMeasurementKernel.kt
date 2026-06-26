@@ -3,7 +3,6 @@ package com.hrm.markdown.renderer.internal.layout.engine
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
-import com.hrm.markdown.renderer.inline.buildInlineFlowInputFromModel
 import com.hrm.markdown.renderer.internal.core.model.BibliographyDefinitionBlockModel
 import com.hrm.markdown.renderer.internal.core.model.DefinitionDescriptionBlockModel
 import com.hrm.markdown.renderer.internal.core.model.DefinitionListBlockModel
@@ -20,7 +19,6 @@ import com.hrm.markdown.renderer.internal.core.model.TabBlockModel
 import com.hrm.markdown.renderer.internal.core.model.TableBlockModel
 import com.hrm.markdown.renderer.internal.core.model.ThematicBreakBlockModel
 import com.hrm.markdown.renderer.internal.core.model.TocBlockModel
-import com.hrm.markdown.renderer.internal.layout.inline.computeInlineFlowLayout
 
 internal fun LayoutEnvironment.measureInlineBlock(
     model: InlineModel,
@@ -28,22 +26,27 @@ internal fun LayoutEnvironment.measureInlineBlock(
     widthPx: Float,
 ): Float {
     if (widthPx <= 0f) return 0f
-    val flowInput = buildInlineFlowInputFromModel(
+    val inlineResult = inlineLayoutRuntime.renderResult(
         model = model,
+        style = style,
+        epoch = inlineLayoutEpoch,
         theme = markdownTheme,
-        hostTextStyle = style,
         directiveRegistry = compileEnvironment.directiveRegistry,
+        onLinkClick = onLinkClick,
+        onFootnoteClick = onFootnoteClick,
         latexMeasurer = latexMeasurer,
         density = density,
         textMeasurer = textMeasurer,
         codeTheme = codeTheme,
     )
-    return computeInlineFlowLayout(
-        input = flowInput,
+    return inlineLayoutRuntime.flowLayout(
+        identity = model.identity,
+        inlineResult = inlineResult,
         style = style,
+        epoch = inlineLayoutEpoch,
         density = density,
         textMeasurer = textMeasurer,
-        maxWidthPx = widthPx,
+        widthPx = widthPx,
         maxLines = Int.MAX_VALUE,
     ).heightPx
 }

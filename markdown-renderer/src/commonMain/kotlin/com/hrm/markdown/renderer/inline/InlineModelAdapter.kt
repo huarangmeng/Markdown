@@ -90,41 +90,6 @@ internal fun buildInlineRenderResultFromModel(
     )
 }
 
-internal fun buildInlineFlowInputFromModel(
-    model: InlineModel,
-    theme: MarkdownTheme,
-    hostTextStyle: TextStyle,
-    directiveRegistry: MarkdownDirectiveRegistry,
-    onLinkClick: ((String) -> Unit)? = null,
-    onFootnoteClick: ((String) -> Unit)? = null,
-    latexMeasurer: LatexMeasurerState,
-    density: Density,
-    textMeasurer: TextMeasurer,
-    codeTheme: CodeTheme? = null,
-): InlineFlowInput {
-    val flowSegments = mutableListOf<InlineFlowSegment>()
-    val context = InlineRenderBuildContext(
-        paintPayloads = linkedMapOf(),
-        flowSegments = flowSegments,
-    )
-    AnnotatedString.Builder().apply {
-        renderInlineModel(
-            model = model,
-            theme = theme,
-            hostTextStyle = hostTextStyle,
-            context = context,
-            directiveRegistry = directiveRegistry,
-            onLinkClick = onLinkClick,
-            onFootnoteClick = onFootnoteClick,
-            latexMeasurer = latexMeasurer,
-            density = density,
-            textMeasurer = textMeasurer,
-            inlineCodeTheme = codeTheme,
-        )
-    }
-    return InlineFlowInput(flowSegments)
-}
-
 internal fun AnnotatedString.Builder.renderInlineModel(
     model: InlineModel,
     theme: MarkdownTheme,

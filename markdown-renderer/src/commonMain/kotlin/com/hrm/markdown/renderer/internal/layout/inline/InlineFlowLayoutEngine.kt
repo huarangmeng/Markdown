@@ -450,31 +450,3 @@ internal fun computeMinIntrinsicWidthPx(
     }
     return ceil(maxPieceWidth).toInt()
 }
-
-internal fun computeIntrinsicHeightPx(
-    input: InlineFlowInput,
-    style: TextStyle,
-    density: Density,
-    textMeasurer: TextMeasurer,
-    maxLines: Int,
-    widthPx: Int,
-): Int {
-    val targetWidth = if (widthPx == Constraints.Infinity || widthPx <= 0) {
-        computeMaxIntrinsicWidthPx(
-            input,
-            style,
-            textMeasurer
-        ).coerceAtLeast(1)
-    } else {
-        widthPx
-    }
-    val layout = computeInlineFlowLayout(
-        input = input,
-        style = style,
-        density = density,
-        textMeasurer = textMeasurer,
-        maxWidthPx = targetWidth.toFloat(),
-        maxLines = maxLines,
-    )
-    return ceil(layout.heightPx).toInt()
-}

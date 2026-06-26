@@ -29,11 +29,12 @@ import com.hrm.markdown.renderer.LocalOnLinkClick
 import com.hrm.markdown.renderer.MarkdownTheme
 import com.hrm.markdown.renderer.internal.compose.PaintInlineLayoutContent
 import com.hrm.markdown.renderer.internal.core.model.InlineModel
-import com.hrm.markdown.renderer.internal.layout.inline.InlineFlowInput
+import com.hrm.markdown.renderer.internal.layout.inline.InlineLayoutEpoch
+import com.hrm.markdown.renderer.internal.layout.inline.InlineLayoutRuntime
 import com.hrm.markdown.renderer.internal.layout.inline.buildInlineLayoutBlockFromResult
-import com.hrm.markdown.renderer.internal.layout.inline.computeIntrinsicHeightPx
 import com.hrm.markdown.renderer.internal.layout.inline.computeMaxIntrinsicWidthPx
 import com.hrm.markdown.renderer.internal.layout.inline.computeMinIntrinsicWidthPx
+import com.hrm.markdown.renderer.internal.layout.inline.inlineLayoutEpoch
 import com.hrm.markdown.runtime.MarkdownDirectiveRegistry
 
 @Composable
@@ -51,38 +52,50 @@ internal fun InlineLayoutBlockText(
     val density = LocalDensity.current
     val textMeasurer = rememberTextMeasurer()
     val inlineCodeTheme = LocalCodeHighlightTheme.current ?: LocalCodeTheme.current
-    val inlineResult = remember(
-        model,
-        theme,
-        directiveRegistry,
-        onLinkClick,
-        onFootnoteClick,
-        latexMeasurer,
+    val inlineLayoutRuntime = remember { InlineLayoutRuntime() }
+    val inlineLayoutEpoch = inlineLayoutEpoch(
+        theme = theme,
+        codeTheme = inlineCodeTheme,
+        directiveRegistry = directiveRegistry,
+        config = null,
+        onLinkClick = onLinkClick,
+        onFootnoteClick = onFootnoteClick,
+        latexMeasurer = latexMeasurer,
+        density = density,
+        textMeasurer = textMeasurer,
+    )
+    val inlineResult = inlineLayoutRuntime.renderResult(
+        model = model,
+        style = style,
+        epoch = inlineLayoutEpoch,
+        theme = theme,
+        directiveRegistry = directiveRegistry,
+        onLinkClick = onLinkClick,
+        onFootnoteClick = onFootnoteClick,
+        latexMeasurer = latexMeasurer,
+        density = density,
+        textMeasurer = textMeasurer,
+        codeTheme = inlineCodeTheme,
+    )
+    val measurePolicy = remember(
+        model.identity,
+        inlineResult,
+        style,
         density,
         textMeasurer,
-        inlineCodeTheme,
-        style,
+        maxLines,
+        inlineLayoutRuntime,
+        inlineLayoutEpoch,
     ) {
-        buildInlineRenderResultFromModel(
-            model = model,
-            theme = theme,
-            hostTextStyle = style,
-            directiveRegistry = directiveRegistry,
-            onLinkClick = onLinkClick,
-            onFootnoteClick = onFootnoteClick,
-            latexMeasurer = latexMeasurer,
-            density = density,
-            textMeasurer = textMeasurer,
-            codeTheme = inlineCodeTheme,
-        )
-    }
-    val measurePolicy = remember(inlineResult.flowInput, style, density, textMeasurer, maxLines) {
         inlineLayoutBlockMeasurePolicy(
-            input = inlineResult.flowInput,
+            model = model,
+            inlineResult = inlineResult,
             style = style,
             density = density,
             textMeasurer = textMeasurer,
             maxLines = maxLines,
+            inlineLayoutRuntime = inlineLayoutRuntime,
+            inlineLayoutEpoch = inlineLayoutEpoch,
         )
     }
 
@@ -102,6 +115,8 @@ internal fun InlineLayoutBlockText(
                 maxLines = maxLines,
                 inlineCodeTheme = inlineCodeTheme,
                 inlineResult = inlineResult,
+                inlineLayoutRuntime = inlineLayoutRuntime,
+                inlineLayoutEpoch = inlineLayoutEpoch,
             )
         },
         measurePolicy = measurePolicy,
@@ -122,6 +137,8 @@ private fun InlineLayoutBlockMeasuredContent(
     maxLines: Int,
     inlineCodeTheme: CodeTheme?,
     inlineResult: InlineRenderResult,
+    inlineLayoutRuntime: InlineLayoutRuntime,
+    inlineLayoutEpoch: InlineLayoutEpoch,
 ) {
     BoxWithConstraints {
         val maxWidthPx = with(density) { maxWidth.toPx() }
@@ -139,6 +156,8 @@ private fun InlineLayoutBlockMeasuredContent(
             maxLines,
             inlineCodeTheme,
             inlineResult,
+            inlineLayoutRuntime,
+            inlineLayoutEpoch,
         ) {
             buildInlineLayoutBlockFromResult(
                 identity = model.identity,
@@ -151,6 +170,8 @@ private fun InlineLayoutBlockMeasuredContent(
                 inlineResult = inlineResult,
                 density = density,
                 textMeasurer = textMeasurer,
+                inlineLayoutRuntime = inlineLayoutRuntime,
+                inlineLayoutEpoch = inlineLayoutEpoch,
                 maxLines = maxLines,
             )
         }
@@ -163,11 +184,14 @@ private fun InlineLayoutBlockMeasuredContent(
 }
 
 private fun inlineLayoutBlockMeasurePolicy(
-    input: InlineFlowInput,
+    model: InlineModel,
+    inlineResult: InlineRenderResult,
     style: TextStyle,
     density: Density,
     textMeasurer: TextMeasurer,
     maxLines: Int,
+    inlineLayoutRuntime: InlineLayoutRuntime,
+    inlineLayoutEpoch: InlineLayoutEpoch,
 ): MeasurePolicy = object : MeasurePolicy {
     override fun MeasureScope.measure(
         measurables: List<Measurable>,
@@ -185,7 +209,7 @@ private fun inlineLayoutBlockMeasurePolicy(
         measurables: List<IntrinsicMeasurable>,
         height: Int,
     ): Int = computeMinIntrinsicWidthPx(
-        input = input,
+        input = inlineResult.flowInput,
         style = style,
         textMeasurer = textMeasurer,
     )
@@ -194,7 +218,7 @@ private fun inlineLayoutBlockMeasurePolicy(
         measurables: List<IntrinsicMeasurable>,
         height: Int,
     ): Int = computeMaxIntrinsicWidthPx(
-        input = input,
+        input = inlineResult.flowInput,
         style = style,
         textMeasurer = textMeasurer,
     )
@@ -202,9 +226,11 @@ private fun inlineLayoutBlockMeasurePolicy(
     override fun IntrinsicMeasureScope.minIntrinsicHeight(
         measurables: List<IntrinsicMeasurable>,
         width: Int,
-    ): Int = computeIntrinsicHeightPx(
-        input = input,
+    ): Int = inlineLayoutRuntime.intrinsicHeightPx(
+        identity = model.identity,
+        inlineResult = inlineResult,
         style = style,
+        epoch = inlineLayoutEpoch,
         density = density,
         textMeasurer = textMeasurer,
         maxLines = maxLines,
@@ -214,9 +240,11 @@ private fun inlineLayoutBlockMeasurePolicy(
     override fun IntrinsicMeasureScope.maxIntrinsicHeight(
         measurables: List<IntrinsicMeasurable>,
         width: Int,
-    ): Int = computeIntrinsicHeightPx(
-        input = input,
+    ): Int = inlineLayoutRuntime.intrinsicHeightPx(
+        identity = model.identity,
+        inlineResult = inlineResult,
         style = style,
+        epoch = inlineLayoutEpoch,
         density = density,
         textMeasurer = textMeasurer,
         maxLines = maxLines,

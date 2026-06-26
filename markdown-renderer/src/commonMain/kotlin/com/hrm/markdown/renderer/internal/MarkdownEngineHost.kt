@@ -16,6 +16,8 @@ import com.hrm.markdown.renderer.internal.core.compile.RenderThemeSnapshot
 import com.hrm.markdown.renderer.internal.core.model.InternalRenderDocumentModel
 import com.hrm.markdown.renderer.internal.layout.engine.DefaultMarkdownLayoutEngine
 import com.hrm.markdown.renderer.internal.layout.engine.LayoutEnvironment
+import com.hrm.markdown.renderer.internal.layout.inline.InlineLayoutRuntime
+import com.hrm.markdown.renderer.internal.layout.inline.inlineLayoutEpoch
 import com.hrm.markdown.renderer.internal.layout.model.InternalLayoutDocumentModel
 
 internal class MarkdownEngineHost(
@@ -23,6 +25,8 @@ internal class MarkdownEngineHost(
     private val layoutEngine: DefaultMarkdownLayoutEngine = DefaultMarkdownLayoutEngine,
     val composePainter: MarkdownComposePainter = DefaultMarkdownComposePainter,
 ) {
+    private val inlineLayoutRuntime = InlineLayoutRuntime()
+
     fun compile(
         document: Document,
         facadeState: RendererFacadeState,
@@ -59,6 +63,18 @@ internal class MarkdownEngineHost(
                 latexMeasurer = latexMeasurer,
                 compileEnvironment = facadeState.toCompileEnvironment(),
                 diagramHostRegistry = diagramHostRegistry,
+                inlineLayoutRuntime = inlineLayoutRuntime,
+                inlineLayoutEpoch = inlineLayoutEpoch(
+                    theme = facadeState.theme,
+                    codeTheme = facadeState.codeTheme,
+                    directiveRegistry = facadeState.directiveRegistry,
+                    config = facadeState.config,
+                    onLinkClick = onLinkClick,
+                    onFootnoteClick = onFootnoteClick,
+                    density = density,
+                    textMeasurer = textMeasurer,
+                    latexMeasurer = latexMeasurer,
+                ),
             ),
         )
     }

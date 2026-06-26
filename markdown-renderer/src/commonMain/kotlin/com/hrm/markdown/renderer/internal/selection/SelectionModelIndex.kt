@@ -1,5 +1,8 @@
 package com.hrm.markdown.renderer.internal.selection
 
+import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.text.TextMeasurer
+import androidx.compose.ui.unit.Constraints
 import com.hrm.markdown.renderer.internal.core.model.CodeBlockModel
 import com.hrm.markdown.renderer.internal.core.model.DiagramBlockModel
 import com.hrm.markdown.renderer.internal.core.model.DirectiveInlineWidgetModel
@@ -14,6 +17,7 @@ import com.hrm.markdown.renderer.internal.core.model.SpoilerWidgetModel
 import com.hrm.markdown.renderer.internal.core.model.TextAtom
 import com.hrm.markdown.renderer.internal.core.model.WidgetAtom
 import com.hrm.markdown.renderer.internal.layout.inline.runPlacements
+import com.hrm.markdown.renderer.internal.layout.inline.textMeasurementStyle
 import com.hrm.markdown.renderer.internal.layout.model.InternalLayoutBlockModel
 import com.hrm.markdown.renderer.internal.layout.model.LayoutColumnsBlockModel
 import com.hrm.markdown.renderer.internal.layout.model.LayoutDefinitionDescriptionGroup
@@ -38,6 +42,7 @@ internal data class SelectionRunSpan(
     val runIndex: Int,
     val run: LayoutInlineRun,
     val text: String,
+    val textLayout: TextLayoutResult? = null,
     val charStart: Int,
     val charEnd: Int,
 )
@@ -161,6 +166,30 @@ internal fun buildSelectionIndex(blocks: List<InternalLayoutBlockModel>): Select
 
     blocks.forEach(::visit)
     return SelectionModelIndex(entries)
+}
+
+internal fun SelectionModelIndex.withMeasuredTextRuns(
+    textMeasurer: TextMeasurer,
+): SelectionModelIndex {
+    val measuredEntries = entries.map { entry ->
+        val inlineBlock = entry.block as? LayoutInlineBlockModel ?: return@map entry
+        val style = textMeasurementStyle(inlineBlock.style)
+        entry.copy(
+            runs = entry.runs.map { span ->
+                val textRun = span.run as? LayoutTextRun ?: return@map span
+                span.copy(
+                    textLayout = textMeasurer.measure(
+                        text = textRun.text,
+                        style = style,
+                        constraints = Constraints(maxWidth = Int.MAX_VALUE),
+                        maxLines = 1,
+                        softWrap = false,
+                    )
+                )
+            }
+        )
+    }
+    return SelectionModelIndex(measuredEntries)
 }
 
 private fun buildBlockEntry(block: LayoutInlineBlockModel, order: Int): SelectionBlockEntry {

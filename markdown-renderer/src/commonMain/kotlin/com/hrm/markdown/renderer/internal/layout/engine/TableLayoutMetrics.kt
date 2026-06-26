@@ -4,7 +4,6 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import com.hrm.markdown.parser.ast.Table
-import com.hrm.markdown.renderer.inline.buildInlineFlowInputFromModel
 import com.hrm.markdown.renderer.internal.core.model.TableBlockModel
 import com.hrm.markdown.renderer.internal.layout.inline.computeMaxIntrinsicWidthPx
 import com.hrm.markdown.renderer.internal.layout.inline.computeMinIntrinsicWidthPx
@@ -46,16 +45,19 @@ internal fun LayoutEnvironment.computeTableColumnWidths(
             if (colIndex >= columnCount) return@forEachIndexed
             val alignment = block.columnAlignments.getOrElse(colIndex) { Table.Alignment.NONE }
             val style = tableCellTextStyle(alignment, row.isHeader)
-            val flowInput = buildInlineFlowInputFromModel(
+            val flowInput = inlineLayoutRuntime.renderResult(
                 model = cell.inline,
+                style = style,
+                epoch = inlineLayoutEpoch,
                 theme = markdownTheme,
-                hostTextStyle = style,
                 directiveRegistry = compileEnvironment.directiveRegistry,
+                onLinkClick = onLinkClick,
+                onFootnoteClick = onFootnoteClick,
                 latexMeasurer = latexMeasurer,
                 density = density,
                 textMeasurer = textMeasurer,
                 codeTheme = codeTheme,
-            )
+            ).flowInput
             val minWidth = computeMinIntrinsicWidthPx(flowInput, style, textMeasurer).toFloat() + horizontalPadding
             val maxWidth = computeMaxIntrinsicWidthPx(flowInput, style, textMeasurer).toFloat() + horizontalPadding
             minWidths[colIndex] = maxOf(minWidths[colIndex], minWidth)

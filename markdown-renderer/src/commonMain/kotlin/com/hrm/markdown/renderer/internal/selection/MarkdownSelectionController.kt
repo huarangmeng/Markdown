@@ -8,9 +8,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.platform.Clipboard
 import androidx.compose.ui.text.TextMeasurer
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.unit.Constraints
-import com.hrm.markdown.renderer.internal.layout.inline.textMeasurementStyle
 import com.hrm.markdown.renderer.internal.layout.model.InternalLayoutBlockModel
 import com.hrm.markdown.renderer.internal.layout.model.LayoutInlineBlockModel
 import com.hrm.markdown.renderer.internal.layout.model.LayoutTextRun
@@ -46,7 +43,7 @@ internal class MarkdownSelectionController(
 
     /** 文档（重）布局后刷新索引，并把既有选区夹紧到新索引（reflow 容错）。 */
     fun updateIndex(blocks: List<InternalLayoutBlockModel>) {
-        index = buildSelectionIndex(blocks)
+        index = buildSelectionIndex(blocks).withMeasuredTextRuns(textMeasurer)
         val current = state.range ?: return
         val start = index.clampAnchor(current.start)
         val end = index.clampAnchor(current.end)
@@ -77,7 +74,6 @@ internal class MarkdownSelectionController(
             return if (entry.runs.isEmpty()) wholeBlockHighlightBox(entry) else emptyList()
         }
         val block = entry.block as? LayoutInlineBlockModel ?: return wholeBlockHighlightBox(entry)
-        val style = textMeasurementStyle(block.style)
 
         val boxes = ArrayList<Rect>(slices.size)
         for (slice in slices) {
@@ -91,13 +87,7 @@ internal class MarkdownSelectionController(
                 startX = 0f
                 endX = run.frame.width
             } else {
-                val layout = textMeasurer.measure(
-                    text = text,
-                    style = style,
-                    constraints = Constraints(maxWidth = Int.MAX_VALUE),
-                    maxLines = 1,
-                    softWrap = false,
-                )
+                val layout = slice.span.textLayout ?: continue
                 val s = slice.startInRun.coerceIn(0, text.length)
                 val e = slice.endInRun.coerceIn(0, text.length)
                 startX = layout.getHorizontalPosition(s, usePrimaryDirection = true)
@@ -268,7 +258,7 @@ internal class MarkdownSelectionController(
             it.lineIndex == hit.lineIndex && it.runIndex == hit.runIndex
         } ?: return SelectionAnchor(entry.stableId, 0)
 
-        val offsetInRun = charOffsetInRun(inlineBlock.style, hit)
+        val offsetInRun = charOffsetInRun(span, hit)
         val charInBlock = (span.charStart + offsetInRun).coerceIn(0, entry.totalChars)
         return SelectionAnchor(entry.stableId, charInBlock)
     }
@@ -279,16 +269,10 @@ internal class MarkdownSelectionController(
         return if (local.y < height / 2f) 0 else entry.totalChars
     }
 
-    private fun charOffsetInRun(style: TextStyle, hit: RunHit): Int {
+    private fun charOffsetInRun(span: SelectionRunSpan, hit: RunHit): Int {
         val text = hit.run.text
         if (text.isEmpty()) return 0
-        val layout = textMeasurer.measure(
-            text = text,
-            style = textMeasurementStyle(style),
-            constraints = Constraints(maxWidth = Int.MAX_VALUE),
-            maxLines = 1,
-            softWrap = false,
-        )
+        val layout = span.textLayout ?: return 0
         val raw = layout.getOffsetForPosition(Offset(hit.runLocalX, hit.runLocalY.coerceAtLeast(0f)))
         return clampToCharBoundary(text, raw.coerceIn(0, text.length))
     }

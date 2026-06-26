@@ -7,6 +7,8 @@ import com.hrm.latex.renderer.measure.LatexMeasurerState
 import com.hrm.markdown.renderer.DiagramHostRegistry
 import com.hrm.markdown.renderer.MarkdownTheme
 import com.hrm.markdown.renderer.internal.core.compile.RenderCompileEnvironment
+import com.hrm.markdown.renderer.internal.layout.inline.InlineLayoutEpoch
+import com.hrm.markdown.renderer.internal.layout.inline.InlineLayoutRuntime
 
 internal data class LayoutEnvironment(
     val viewportWidth: Float,
@@ -20,4 +22,6 @@ internal data class LayoutEnvironment(
     val latexMeasurer: LatexMeasurerState,
     val compileEnvironment: RenderCompileEnvironment,
     val diagramHostRegistry: DiagramHostRegistry,
+    val inlineLayoutRuntime: InlineLayoutRuntime,
+    val inlineLayoutEpoch: InlineLayoutEpoch,
 )

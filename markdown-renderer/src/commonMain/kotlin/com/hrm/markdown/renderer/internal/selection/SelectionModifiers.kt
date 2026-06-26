@@ -1,7 +1,6 @@
 package com.hrm.markdown.renderer.internal.selection
 
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.draw.drawWithContent
@@ -23,10 +22,6 @@ internal fun Modifier.selectableBlock(
     if (controller == null) return this
     return this.composed {
         val highlightColor = LocalMarkdownTheme.current.linkColor.copy(alpha = 0.3f)
-        val range = controller.state.range
-        val highlightBoxes = remember(stableId, range) {
-            controller.highlightBoxesFor(stableId)
-        }
         DisposableEffect(stableId, controller) {
             onDispose { controller.registry.unregister(stableId) }
         }
@@ -34,6 +29,11 @@ internal fun Modifier.selectableBlock(
             .onGloballyPositioned { controller.registry.register(stableId, it) }
             .drawWithContent {
                 drawContent()
+                val highlightBoxes = if (controller.state.range == null) {
+                    emptyList()
+                } else {
+                    controller.highlightBoxesFor(stableId)
+                }
                 for (box in highlightBoxes) {
                     drawRect(
                         color = highlightColor,
