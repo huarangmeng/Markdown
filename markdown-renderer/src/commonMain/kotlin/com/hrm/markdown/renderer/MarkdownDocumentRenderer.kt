@@ -23,6 +23,7 @@ import com.hrm.markdown.renderer.internal.MarkdownEngineHost
 import com.hrm.markdown.renderer.internal.RendererFacadeState
 import com.hrm.markdown.renderer.internal.compose.ComposeRenderEnvironment
 import com.hrm.markdown.renderer.internal.selection.LocalMarkdownSelectionController
+import com.hrm.markdown.renderer.internal.selection.SelectionHandlesHost
 import com.hrm.markdown.renderer.internal.selection.SelectionToolbarHost
 import com.hrm.markdown.renderer.internal.selection.markdownSelectionGestures
 import com.hrm.markdown.renderer.internal.selection.rememberMarkdownSelectionController
@@ -181,6 +182,7 @@ internal fun MarkdownDocumentRenderer(
                     }
                 }
                 if (selectionController != null) {
+                    SelectionHandlesHost(selectionController)
                     SelectionToolbarHost(selectionController)
                 }
             }

@@ -2,7 +2,10 @@ package com.hrm.markdown.renderer.internal.selection
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
@@ -33,6 +36,8 @@ internal class MarkdownSelectionController(
     private var index: SelectionModelIndex = SelectionModelIndex(emptyList())
     private var clipboard: Clipboard? = null
     private var startAnchor: SelectionAnchor? = null
+    private var draggedHandleAnchor: SelectionAnchor? by mutableStateOf(null)
+    private var fixedHandleAnchor: SelectionAnchor? = null
     private var skipNextTapClear: Boolean = false
 
     val hasSelection: Boolean get() = state.hasSelection
@@ -117,7 +122,11 @@ internal class MarkdownSelectionController(
         val anchor = anchorFromWindow(windowOffset) ?: return
         skipNextTapClear = false
         startAnchor = anchor
+        draggedHandleAnchor = null
+        fixedHandleAnchor = null
         state.activeHandle = SelectionActiveHandle.End
+        state.isHandleDrag = false
+        state.toolbarRequestKey = 0
         state.range = SelectionRange(anchor, anchor)
     }
 
@@ -129,6 +138,9 @@ internal class MarkdownSelectionController(
 
     fun finishSelectionGesture() {
         state.activeHandle = SelectionActiveHandle.None
+        state.isHandleDrag = false
+        draggedHandleAnchor = null
+        fixedHandleAnchor = null
         if (selectedText.isEmpty()) {
             clearSelection()
         } else {
@@ -152,6 +164,8 @@ internal class MarkdownSelectionController(
     fun clearSelection() {
         skipNextTapClear = false
         startAnchor = null
+        draggedHandleAnchor = null
+        fixedHandleAnchor = null
         state.clear()
     }
 
@@ -168,6 +182,105 @@ internal class MarkdownSelectionController(
         val last = index.lastAnchor ?: return
         startAnchor = first
         state.range = index.normalize(first, last)
+    }
+
+    fun beginSelectionHandleDrag(handle: SelectionActiveHandle) {
+        if (handle == SelectionActiveHandle.None) return
+        val range = state.range ?: return
+        draggedHandleAnchor = when (handle) {
+            SelectionActiveHandle.Start -> range.start
+            SelectionActiveHandle.End -> range.end
+            SelectionActiveHandle.None -> return
+        }
+        fixedHandleAnchor = when (handle) {
+            SelectionActiveHandle.Start -> range.end
+            SelectionActiveHandle.End -> range.start
+            SelectionActiveHandle.None -> return
+        }
+        skipNextTapClear = false
+        state.activeHandle = handle
+        state.isHandleDrag = true
+    }
+
+    fun dragSelectionHandleToRootLocal(rootLocal: Offset) {
+        if (!state.isHandleDrag) return
+        val root = registry.rootCoordinates?.takeIf { it.isAttached } ?: return
+        dragSelectionHandleTo(anchorFromWindow(root.localToWindow(rootLocal)) ?: return)
+    }
+
+    internal fun dragSelectionHandleTo(anchor: SelectionAnchor) {
+        if (!state.isHandleDrag) return
+        val fixed = fixedHandleAnchor ?: return
+        val moving = index.clampAnchor(anchor) ?: return
+        draggedHandleAnchor = moving
+        state.range = index.normalize(fixed, moving)
+    }
+
+    fun finishSelectionHandleDrag() {
+        if (!state.isHandleDrag) return
+        state.activeHandle = SelectionActiveHandle.None
+        state.isHandleDrag = false
+        draggedHandleAnchor = null
+        fixedHandleAnchor = null
+        if (selectedText.isEmpty()) {
+            clearSelection()
+        } else {
+            skipNextTapClear = false
+            state.toolbarRequestKey += 1
+        }
+    }
+
+    internal fun selectionAnchorForHandle(handle: SelectionActiveHandle): SelectionAnchor? {
+        if (handle == SelectionActiveHandle.None) return null
+        if (state.isHandleDrag) {
+            return if (handle == state.activeHandle) draggedHandleAnchor else fixedHandleAnchor
+        }
+        val range = state.range ?: return null
+        return when (handle) {
+            SelectionActiveHandle.Start -> range.start
+            SelectionActiveHandle.End -> range.end
+            SelectionActiveHandle.None -> null
+        }
+    }
+
+    fun selectionHandlePositionInRoot(handle: SelectionActiveHandle): SelectionHandlePosition? {
+        val anchor = selectionAnchorForHandle(handle) ?: return null
+        val entry = index.entryOf(anchor.blockStableId) ?: return null
+        val blockSnapshot = registry.snapshotOf(anchor.blockStableId) ?: return null
+        val rootSnapshot = registry.rootSnapshot ?: return null
+        val blockCoordinates = registry.coordinatesOf(anchor.blockStableId) ?: return null
+        val rootCoordinates = registry.rootCoordinates?.takeIf { it.isAttached } ?: return null
+        val inlineBlock = entry.block as? LayoutInlineBlockModel
+        val blockLocalPosition: Offset
+        if (inlineBlock == null || entry.runs.isEmpty()) {
+            val atStart = anchor.charInBlock <= 0
+            blockLocalPosition = Offset(
+                x = if (atStart) 0f else blockSnapshot.size.width.toFloat(),
+                y = if (atStart) 0f else blockSnapshot.size.height.toFloat(),
+            )
+        } else {
+            val (span, offsetInRun) = charToRunForHandle(entry, anchor.charInBlock, handle)
+                ?: return null
+            val run = span.run
+            val runLeft = run.frame.left - inlineBlock.frame.left
+            val runTop = run.frame.top - inlineBlock.frame.top
+            val horizontal = span.textLayout?.getHorizontalPosition(
+                offset = offsetInRun.coerceIn(0, span.text.length),
+                usePrimaryDirection = true,
+            ) ?: if (offsetInRun <= 0) 0f else run.frame.width
+            blockLocalPosition = Offset(
+                x = runLeft + horizontal,
+                y = runTop + run.frame.height,
+            )
+        }
+        val positionInWindow = blockCoordinates.localToWindow(blockLocalPosition)
+        val positionInRoot = rootCoordinates.windowToLocal(positionInWindow)
+        if (positionInRoot.x < 0f || positionInRoot.x > rootSnapshot.size.width ||
+            positionInRoot.y < 0f || positionInRoot.y > rootSnapshot.size.height
+        ) {
+            return null
+        }
+        return SelectionHandlePosition(positionInRoot)
     }
 
     val selectedText: String
@@ -276,7 +389,26 @@ internal class MarkdownSelectionController(
         val raw = layout.getOffsetForPosition(Offset(hit.runLocalX, hit.runLocalY.coerceAtLeast(0f)))
         return clampToCharBoundary(text, raw.coerceIn(0, text.length))
     }
+
+    private fun charToRunForHandle(
+        entry: SelectionBlockEntry,
+        charInBlock: Int,
+        handle: SelectionActiveHandle,
+    ): Pair<SelectionRunSpan, Int>? {
+        if (handle != SelectionActiveHandle.End || charInBlock <= 0) {
+            return index.charToRun(entry, charInBlock)
+        }
+        val clamped = charInBlock.coerceIn(0, entry.totalChars)
+        val span = entry.runs.firstOrNull {
+            clamped > it.charStart && clamped <= it.charEnd
+        } ?: return index.charToRun(entry, clamped)
+        return span to (clamped - span.charStart)
+    }
 }
+
+internal data class SelectionHandlePosition(
+    val positionInRoot: Offset,
+)
 
 internal val LocalMarkdownSelectionController =
     staticCompositionLocalOf<MarkdownSelectionController?> { null }

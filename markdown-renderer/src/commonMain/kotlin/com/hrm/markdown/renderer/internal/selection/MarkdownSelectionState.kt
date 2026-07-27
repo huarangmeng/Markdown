@@ -16,6 +16,7 @@ internal enum class SelectionActiveHandle { None, Start, End }
 internal class MarkdownSelectionState {
     var range: SelectionRange? by mutableStateOf(null)
     var activeHandle: SelectionActiveHandle by mutableStateOf(SelectionActiveHandle.None)
+    var isHandleDrag: Boolean by mutableStateOf(false)
     var toolbarRequestKey: Int by mutableStateOf(0)
 
     val hasSelection: Boolean get() = range != null
@@ -23,6 +24,7 @@ internal class MarkdownSelectionState {
     fun clear() {
         range = null
         activeHandle = SelectionActiveHandle.None
+        isHandleDrag = false
         toolbarRequestKey = 0
     }
 }

@@ -53,9 +53,10 @@ internal fun SelectionToolbarHost(controller: MarkdownSelectionController) {
     val textToolbar = LocalTextToolbar.current
     val range = controller.state.range
     val toolbarRequestKey = controller.state.toolbarRequestKey
+    val activeHandle = controller.state.activeHandle
     var watchExternalDismiss by remember(controller) { mutableStateOf(false) }
-    LaunchedEffect(range, toolbarRequestKey) {
-        if (range == null) {
+    LaunchedEffect(range, toolbarRequestKey, activeHandle) {
+        if (range == null || activeHandle != SelectionActiveHandle.None) {
             watchExternalDismiss = false
             textToolbar.hide()
         } else if (toolbarRequestKey > 0) {
@@ -71,14 +72,19 @@ internal fun SelectionToolbarHost(controller: MarkdownSelectionController) {
             watchExternalDismiss = true
         }
     }
-    LaunchedEffect(textToolbar, range, watchExternalDismiss) {
-        if (range == null || !watchExternalDismiss) return@LaunchedEffect
+    LaunchedEffect(textToolbar, range, activeHandle, watchExternalDismiss) {
+        if (range == null || activeHandle != SelectionActiveHandle.None || !watchExternalDismiss) {
+            return@LaunchedEffect
+        }
         var seenShown = textToolbar.status == TextToolbarStatus.Shown
         snapshotFlow { textToolbar.status }.collect { status ->
             when (status) {
                 TextToolbarStatus.Shown -> seenShown = true
                 TextToolbarStatus.Hidden -> {
-                    if (seenShown && controller.state.range != null) {
+                    if (seenShown &&
+                        controller.state.range != null &&
+                        controller.state.activeHandle == SelectionActiveHandle.None
+                    ) {
                         watchExternalDismiss = false
                         controller.clearSelection()
                     }
