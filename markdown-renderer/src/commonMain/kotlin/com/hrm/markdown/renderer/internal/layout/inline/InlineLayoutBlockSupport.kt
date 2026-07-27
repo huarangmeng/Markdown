@@ -43,6 +43,7 @@ internal fun buildInlineLayoutLines(
         val runs = line.items.map { item ->
             when (item) {
                 is LineItem.TextItem -> {
+                    val runTop = lineTop + line.baselinePx - item.baselinePx
                     val run = LayoutTextRun(
                         identity = RenderIdentity(
                             stableId = renderIdentityFromText(
@@ -53,7 +54,7 @@ internal fun buildInlineLayoutLines(
                             layoutRevision = identity.layoutRevision,
                             paintRevision = identity.paintRevision,
                         ),
-                        frame = LayoutRect(cursorX, lineTop, item.widthPx, item.heightPx),
+                        frame = LayoutRect(cursorX, runTop, item.widthPx, item.heightPx),
                         text = item.text,
                     )
                     cursorX += item.widthPx
@@ -62,9 +63,11 @@ internal fun buildInlineLayoutLines(
 
                 is LineItem.InlineItem -> {
                     val widget = widgetById[item.id]
+                    val runTop = lineTop +
+                        ((line.lineHeightPx - item.heightPx) / 2f).coerceAtLeast(0f)
                     val run = LayoutWidgetRun(
                         identity = widget?.identity ?: identity,
-                        frame = LayoutRect(cursorX, lineTop, item.widthPx, item.heightPx),
+                        frame = LayoutRect(cursorX, runTop, item.widthPx, item.heightPx),
                         id = item.id,
                         widget = widget
                             ?: throw IllegalStateException("Missing inline widget for placeholder ${item.id}"),
@@ -77,7 +80,7 @@ internal fun buildInlineLayoutLines(
         }
         LayoutInlineLine(
             frame = LayoutRect(contentLeft, lineTop, line.lineWidthPx, line.lineHeightPx),
-            baseline = line.baselinePx,
+            baseline = lineTop + line.baselinePx,
             runs = runs,
         ).also {
             lineTop += line.lineHeightPx

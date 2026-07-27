@@ -10,6 +10,7 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.Placeable
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.TextStyle
@@ -26,8 +27,12 @@ import kotlin.math.ceil
 internal fun PaintInlineLayoutContent(
     block: LayoutInlineBlockModel,
     modifier: Modifier = Modifier,
+    onTextLayout: ((TextLayoutResult) -> Unit)? = null,
 ) {
     val textMeasurer = rememberTextMeasurer()
+    val textPaintStyle = remember(block.style) {
+        textMeasurementStyle(block.style)
+    }
     val placements = remember(block.lines, block.frame) {
         block.runPlacements()
     }
@@ -48,9 +53,12 @@ internal fun PaintInlineLayoutContent(
                         BasicText(
                             text = item.text,
                             modifier = Modifier.clipToBounds(),
-                            style = block.style,
+                            // InlineFlowLayout owns line spacing. Paint with the same
+                            // line-height-free style used to measure the fixed run bounds.
+                            style = textPaintStyle,
                             maxLines = 1,
                             softWrap = false,
+                            onTextLayout = onTextLayout,
                         )
                     }
 

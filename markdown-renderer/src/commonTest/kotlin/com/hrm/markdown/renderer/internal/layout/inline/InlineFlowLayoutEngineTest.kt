@@ -4,10 +4,12 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.v2.runComposeUiTest
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.sp
+import com.hrm.markdown.renderer.internal.core.identity.RenderIdentity
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -111,6 +113,107 @@ class InlineFlowLayoutEngineTest {
         actual.assertNoLineOrRunExceeds(maxWidthPx)
     }
 
+    @Test
+    fun should_keep_devanagari_text_inside_line_when_line_height_is_specified() = runComposeUiTest {
+        var flowLayout: InlineFlowLayout? = null
+
+        setContent {
+            flowLayout = computeInlineFlowLayout(
+                input = InlineFlowInput(
+                    listOf(
+                        InlineFlowSegment.TextRun(AnnotatedString("भीमसेन थापा")),
+                    )
+                ),
+                style = TextStyle(fontSize = 16.sp, lineHeight = 24.sp),
+                density = LocalDensity.current,
+                textMeasurer = rememberTextMeasurer(),
+                maxWidthPx = 320f,
+                maxLines = Int.MAX_VALUE,
+            )
+        }
+
+        waitForIdle()
+
+        val actual = assertNotNull(flowLayout)
+        val layoutLines = buildInlineLayoutLines(
+            identity = renderIdentityForTest,
+            contentLeft = 0f,
+            contentTop = 12f,
+            layout = actual,
+            widgetById = emptyMap(),
+        )
+        val flowLine = actual.lines.single()
+        val textItem = flowLine.items.single() as LineItem.TextItem
+        val layoutLine = layoutLines.single()
+        val textRun = layoutLine.runs.single()
+
+        assertTrue(textRun.frame.top >= layoutLine.frame.top)
+        assertTrue(
+            textRun.frame.top + textRun.frame.height <= layoutLine.frame.top + layoutLine.frame.height
+        )
+        assertEquals(
+            expected = layoutLine.baseline,
+            actual = textRun.frame.top + textItem.baselinePx,
+            absoluteTolerance = 0.01f,
+        )
+    }
+
+    @Test
+    fun should_align_mixed_text_runs_to_one_baseline_without_clipping() = runComposeUiTest {
+        var flowLayout: InlineFlowLayout? = null
+
+        setContent {
+            flowLayout = computeInlineFlowLayout(
+                input = InlineFlowInput(
+                    listOf(
+                        InlineFlowSegment.TextRun(AnnotatedString("Latin")),
+                        InlineFlowSegment.TextRun(
+                            AnnotatedString(
+                                text = "पृथ्वीनारायण",
+                                spanStyles = listOf(
+                                    AnnotatedString.Range(
+                                        item = SpanStyle(fontSize = 22.sp),
+                                        start = 0,
+                                        end = "पृथ्वीनारायण".length,
+                                    )
+                                ),
+                            )
+                        ),
+                    )
+                ),
+                style = TextStyle(fontSize = 16.sp, lineHeight = 24.sp),
+                density = LocalDensity.current,
+                textMeasurer = rememberTextMeasurer(),
+                maxWidthPx = 500f,
+                maxLines = Int.MAX_VALUE,
+            )
+        }
+
+        waitForIdle()
+
+        val actual = assertNotNull(flowLayout)
+        val flowLine = actual.lines.single()
+        val layoutLine = buildInlineLayoutLines(
+            identity = renderIdentityForTest,
+            contentLeft = 0f,
+            contentTop = 20f,
+            layout = actual,
+            widgetById = emptyMap(),
+        ).single()
+        val textItems = flowLine.items.filterIsInstance<LineItem.TextItem>()
+
+        assertEquals(textItems.size, layoutLine.runs.size)
+        layoutLine.runs.zip(textItems).forEach { (run, item) ->
+            assertTrue(run.frame.top >= layoutLine.frame.top)
+            assertTrue(run.frame.top + run.frame.height <= layoutLine.frame.top + layoutLine.frame.height)
+            assertEquals(
+                expected = layoutLine.baseline,
+                actual = run.frame.top + item.baselinePx,
+                absoluteTolerance = 0.01f,
+            )
+        }
+    }
+
     private fun InlineFlowLayout.assertNoLineOrRunExceeds(maxWidthPx: Float) {
         val epsilon = 0.5f
         lines.forEachIndexed { lineIndex, line ->
@@ -128,5 +231,14 @@ class InlineFlowLayoutEngineTest {
                 cursor = right
             }
         }
+    }
+
+    private companion object {
+        val renderIdentityForTest = RenderIdentity(
+            stableId = 1L,
+            contentRevision = 1L,
+            layoutRevision = 1L,
+            paintRevision = 1L,
+        )
     }
 }

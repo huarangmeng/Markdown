@@ -24,11 +24,19 @@ private val narrowBubbleMarkdown = """
 1. 有序项也放在同一个窄容器中，确认 marker 后面的行内文本不会冲出气泡。
 """.trimIndent()
 
+private val complexScriptMarkdown = """
+भीमसेन थापा
+
+पृथ्वीनारायण शाह
+
+**जङ्गबहादुर राणा** — Devanagari mixed with Latin text.
+""".trimIndent()
+
 internal val inlineLayoutPreviewGroups = listOf(
     PreviewGroup(
         id = "overflow_regression",
         title = "越界回归",
-        description = "窄容器中的长中文、混合标点和嵌套列表",
+        description = "窄容器换行及复杂文字字形裁剪回归",
         items = listOf(
             PreviewItem(
                 id = "issue_29_narrow_bubble",
@@ -37,6 +45,14 @@ internal val inlineLayoutPreviewGroups = listOf(
                 content = {
                     NarrowBubbleMarkdown(markdown = narrowBubbleMarkdown)
                 }
+            ),
+            PreviewItem(
+                id = "issue_34_devanagari_clipping",
+                title = "Issue #34 天城文裁剪",
+                markdown = complexScriptMarkdown,
+                content = {
+                    Markdown(markdown = complexScriptMarkdown)
+                },
             ),
         )
     ),

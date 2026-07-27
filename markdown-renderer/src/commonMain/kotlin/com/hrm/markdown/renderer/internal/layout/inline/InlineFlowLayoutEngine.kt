@@ -86,18 +86,18 @@ internal fun computeInlineFlowLayout(
 
     fun flushLine(force: Boolean = false) {
         if (!force && currentItems.isEmpty()) return
-        val lineHeightPx = maxOf(baseLineHeightPx, maxItemHeight)
-        val firstTextBaselinePx = currentItems.firstNotNullOfOrNull { item ->
-            (item as? LineItem.TextItem)?.let { textItem ->
-                ((lineHeightPx - textItem.heightPx) / 2f).coerceAtLeast(0f) + textItem.baselinePx
-            }
-        }
+        val textItems = currentItems.filterIsInstance<LineItem.TextItem>()
+        val maxTextAscentPx = textItems.maxOfOrNull { it.baselinePx } ?: baseTextBaselinePx
+        val maxTextDescentPx = textItems.maxOfOrNull { it.heightPx - it.baselinePx }
+            ?: (baseTextHeightPx - baseTextBaselinePx)
+        val alignedTextHeightPx = maxTextAscentPx + maxTextDescentPx
+        val lineHeightPx = maxOf(baseLineHeightPx, maxItemHeight, alignedTextHeightPx)
+        val textLeadingPx = ((lineHeightPx - alignedTextHeightPx) / 2f).coerceAtLeast(0f)
         lines += InlineFlowLine(
             textStyle = textStyle,
             lineWidthPx = currentWidth,
             lineHeightPx = lineHeightPx,
-            baselinePx = firstTextBaselinePx
-                ?: (((lineHeightPx - baseTextHeightPx) / 2f).coerceAtLeast(0f) + baseTextBaselinePx),
+            baselinePx = textLeadingPx + maxTextAscentPx,
             textAlign = style.textAlign,
             items = currentItems.toList(),
         )
