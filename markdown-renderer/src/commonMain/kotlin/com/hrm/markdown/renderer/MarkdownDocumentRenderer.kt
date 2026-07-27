@@ -22,6 +22,7 @@ import com.hrm.markdown.parser.ast.Document
 import com.hrm.markdown.renderer.internal.MarkdownEngineHost
 import com.hrm.markdown.renderer.internal.RendererFacadeState
 import com.hrm.markdown.renderer.internal.compose.ComposeRenderEnvironment
+import com.hrm.markdown.renderer.internal.layout.engine.EagerMarkdownLayoutSource
 import com.hrm.markdown.renderer.internal.selection.LocalMarkdownSelectionController
 import com.hrm.markdown.renderer.internal.selection.SelectionHandlesHost
 import com.hrm.markdown.renderer.internal.selection.SelectionToolbarHost
@@ -111,10 +112,11 @@ internal fun MarkdownDocumentRenderer(
                 lazyListState = lazyListState,
                 onLinkClick = onLinkClick,
             )
-            val layoutDocument = remember(
+            val layoutSource = remember(
                 engineHost,
                 internalRenderDocument,
                 facadeState,
+                renderMode,
                 viewportWidthPx,
                 blockSpacingPx,
                 density,
@@ -122,24 +124,41 @@ internal fun MarkdownDocumentRenderer(
                 latexMeasurer,
                 diagramHostRegistry,
             ) {
-                engineHost.layout(
-                    renderDocument = internalRenderDocument,
-                    facadeState = facadeState,
-                    viewportWidth = viewportWidthPx,
-                    blockSpacing = blockSpacingPx,
-                    onLinkClick = navigationController.linkClickDelegate,
-                    onFootnoteClick = navigationController.onFootnoteClick,
-                    density = density,
-                    textMeasurer = textMeasurer,
-                    latexMeasurer = latexMeasurer,
-                    diagramHostRegistry = diagramHostRegistry,
-                )
+                if (renderMode == MarkdownRenderMode.LazyColumn) {
+                    engineHost.layoutSession(
+                        renderDocument = internalRenderDocument,
+                        facadeState = facadeState,
+                        viewportWidth = viewportWidthPx,
+                        blockSpacing = blockSpacingPx,
+                        onLinkClick = navigationController.linkClickDelegate,
+                        onFootnoteClick = navigationController.onFootnoteClick,
+                        density = density,
+                        textMeasurer = textMeasurer,
+                        latexMeasurer = latexMeasurer,
+                        diagramHostRegistry = diagramHostRegistry,
+                    )
+                } else {
+                    EagerMarkdownLayoutSource(
+                        engineHost.layout(
+                            renderDocument = internalRenderDocument,
+                            facadeState = facadeState,
+                            viewportWidth = viewportWidthPx,
+                            blockSpacing = blockSpacingPx,
+                            onLinkClick = navigationController.linkClickDelegate,
+                            onFootnoteClick = navigationController.onFootnoteClick,
+                            density = density,
+                            textMeasurer = textMeasurer,
+                            latexMeasurer = latexMeasurer,
+                            diagramHostRegistry = diagramHostRegistry,
+                        )
+                    )
+                }
             }
             navigationController.footnoteDefinitionItemIndexes =
-                layoutDocument.metadata.footnoteDefinitionItemIndexes
+                layoutSource.metadata.footnoteDefinitionItemIndexes
             if (selectionController != null) {
-                LaunchedEffect(layoutDocument) {
-                    selectionController.updateIndex(layoutDocument.blocks)
+                LaunchedEffect(internalRenderDocument) {
+                    selectionController.updateDocument(internalRenderDocument.blocks)
                 }
             }
             Box(
@@ -168,7 +187,7 @@ internal fun MarkdownDocumentRenderer(
                         diagramHostRegistry = diagramHostRegistry,
                     ) {
                         engineHost.composePainter.Paint(
-                            document = layoutDocument,
+                            document = layoutSource,
                             environment = ComposeRenderEnvironment(
                                 modifier = Modifier.fillMaxWidth(),
                                 renderMode = renderMode,

@@ -23,6 +23,7 @@ import com.hrm.markdown.renderer.internal.core.model.FallbackContainerBlockModel
 import com.hrm.markdown.renderer.internal.core.model.InternalRenderBlockModel
 import com.hrm.markdown.renderer.internal.core.model.TabBlockModel
 import com.hrm.markdown.renderer.internal.core.model.TabItemBlockModel
+import com.hrm.markdown.renderer.internal.layout.engine.EagerMarkdownLayoutSource
 import com.hrm.markdown.renderer.internal.layout.model.InternalLayoutBlockModel
 import com.hrm.markdown.renderer.internal.layout.model.InternalLayoutDocumentModel
 import com.hrm.markdown.renderer.internal.layout.model.LayoutColumnGroup
@@ -214,7 +215,7 @@ class NestedBlockChildrenLayoutTest {
         setContent {
             CompositionLocalProvider(LocalMarkdownDirectiveRegistry provides directiveRegistry) {
                 DefaultMarkdownComposePainter.Paint(
-                    document = document,
+                    document = EagerMarkdownLayoutSource(document),
                     environment = ComposeRenderEnvironment(
                         modifier = Modifier.width(320.dp),
                         renderMode = MarkdownRenderMode.StaticColumn,

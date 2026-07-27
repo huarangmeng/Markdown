@@ -5,6 +5,9 @@ import com.hrm.markdown.renderer.internal.core.model.TableBlockModel
 import com.hrm.markdown.renderer.internal.core.model.BlockQuoteBlockModel
 import com.hrm.markdown.renderer.internal.core.model.ColumnBlockModel
 import com.hrm.markdown.renderer.internal.core.model.ColumnsLayoutBlockModel
+import com.hrm.markdown.renderer.internal.core.model.MathBlockModel
+import com.hrm.markdown.renderer.internal.core.model.MathBlockWidgetModel
+import com.hrm.markdown.renderer.internal.core.model.ParagraphBlockModel
 import com.hrm.markdown.renderer.internal.layout.model.LayoutColumnGroup
 import com.hrm.markdown.renderer.internal.layout.model.LayoutColumnsBlockModel
 import com.hrm.markdown.renderer.internal.layout.model.LayoutRenderBlockModel
@@ -17,8 +20,30 @@ import kotlin.test.assertTrue
 class SelectionModelIndexTest {
 
     @Test
+    fun should_build_full_document_index_directly_from_render_models() {
+        val paragraph = ParagraphBlockModel(
+            identity = selIdentity(1),
+            inline = inlineModelText(id = 10, text = "before"),
+        )
+        val table = tableBlock(
+            id = 2,
+            rows = listOf(listOf("H1", "H2"), listOf("A1", "A2")),
+        ).block
+        val math = MathBlockModel(
+            identity = selIdentity(3),
+            latex = "x^2 + y^2",
+            widget = MathBlockWidgetModel(selIdentity(30), "x^2 + y^2"),
+        )
+
+        val index = buildSelectionIndex(listOf(paragraph, table, math))
+
+        assertEquals(listOf(1L, 2L, 3L), index.entries.map { it.stableId })
+        assertEquals(listOf("before", "H1\tH2\nA1\tA2", "x^2 + y^2"), index.entries.map { it.text })
+    }
+
+    @Test
     fun should_flatten_nested_blocks_in_document_order() {
-        val index = buildSelectionIndex(
+        val index = buildSelectionIndexFromLayout(
             selDocument(
                 inlineTextBlock(id = 1, text = "first"),
                 LayoutRenderBlockModel(
@@ -58,7 +83,7 @@ class SelectionModelIndexTest {
 
     @Test
     fun should_include_table_blocks_as_copyable_entries() {
-        val index = buildSelectionIndex(
+        val index = buildSelectionIndexFromLayout(
             selDocument(
                 inlineTextBlock(id = 1, text = "before"),
                 tableBlock(id = 99, rows = listOf(listOf("H1", "H2"), listOf("A1", "A2"))),
@@ -68,24 +93,25 @@ class SelectionModelIndexTest {
 
         assertEquals(listOf(1L, 99L, 2L), index.entries.map { it.stableId })
         assertEquals("H1\tH2\nA1\tA2", index.entryOf(99)!!.text)
-        assertTrue(index.entryOf(99)!!.runs.isEmpty())
     }
 
     @Test
     fun should_accumulate_run_char_spans() {
-        val index = buildSelectionIndex(
-            selDocument(inlineMultiRunBlock(id = 1, runs = listOf("abc", "de", "fghi")))
+        val block = inlineMultiRunBlock(id = 1, runs = listOf("abc", "de", "fghi"))
+        val index = buildSelectionIndexFromLayout(
+            selDocument(block)
         )
         val entry = index.entries.single()
+        val geometry = buildSelectionGeometry(block, entry)
         assertEquals(9, entry.totalChars)
         assertEquals("abcdefghi", entry.text)
-        assertEquals(listOf(0, 3, 5), entry.runs.map { it.charStart })
-        assertEquals(listOf(3, 5, 9), entry.runs.map { it.charEnd })
+        assertEquals(listOf(0, 3, 5), geometry.runs.map { it.charStart })
+        assertEquals(listOf(3, 5, 9), geometry.runs.map { it.charEnd })
     }
 
     @Test
     fun should_compare_and_normalize_anchors_by_document_order() {
-        val index = buildSelectionIndex(
+        val index = buildSelectionIndexFromLayout(
             selDocument(
                 inlineTextBlock(id = 1, text = "aaaa"),
                 inlineTextBlock(id = 2, text = "bbbb"),
@@ -103,20 +129,21 @@ class SelectionModelIndexTest {
 
     @Test
     fun should_clamp_anchor_char_offset() {
-        val index = buildSelectionIndex(selDocument(inlineTextBlock(id = 1, text = "abc")))
+        val index = buildSelectionIndexFromLayout(selDocument(inlineTextBlock(id = 1, text = "abc")))
         assertEquals(SelectionAnchor(1, 3), index.clampAnchor(SelectionAnchor(1, 99)))
         assertEquals(SelectionAnchor(1, 0), index.clampAnchor(SelectionAnchor(1, -5)))
         assertNull(index.clampAnchor(SelectionAnchor(404, 0)))
     }
 
     @Test
-    fun should_map_char_offset_to_run() {
-        val index = buildSelectionIndex(
-            selDocument(inlineMultiRunBlock(id = 1, runs = listOf("abc", "de")))
+    fun should_map_visible_runs_into_logical_character_space() {
+        val block = inlineMultiRunBlock(id = 1, runs = listOf("abc", "de"))
+        val index = buildSelectionIndexFromLayout(
+            selDocument(block)
         )
         val entry = index.entries.single()
-        val (span, inRun) = index.charToRun(entry, 4)!!
+        val span = buildSelectionGeometry(block, entry).runs[1]
         assertEquals(3, span.charStart)
-        assertEquals(1, inRun)
+        assertEquals(5, span.charEnd)
     }
 }

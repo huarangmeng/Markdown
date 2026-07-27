@@ -8,6 +8,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.layout.onGloballyPositioned
 import com.hrm.markdown.renderer.LocalMarkdownTheme
+import com.hrm.markdown.renderer.internal.layout.model.InternalLayoutBlockModel
 
 /**
  * 把一个可选 inline block 接入自研选区层：
@@ -16,14 +17,19 @@ import com.hrm.markdown.renderer.LocalMarkdownTheme
  * - [drawWithContent] 按控制器给出的 block-local 高亮矩形绘制选中背景。
  */
 internal fun Modifier.selectableBlock(
-    stableId: Long,
+    block: InternalLayoutBlockModel,
     controller: MarkdownSelectionController?,
 ): Modifier {
     if (controller == null) return this
     return this.composed {
+        val stableId = block.identity.stableId
         val highlightColor = LocalMarkdownTheme.current.linkColor.copy(alpha = 0.3f)
-        DisposableEffect(stableId, controller) {
-            onDispose { controller.registry.unregister(stableId) }
+        DisposableEffect(block, controller) {
+            controller.registerVisibleBlock(block)
+            onDispose {
+                controller.unregisterVisibleBlock(stableId)
+                controller.registry.unregister(stableId)
+            }
         }
         this
             .onGloballyPositioned { controller.registry.register(stableId, it) }

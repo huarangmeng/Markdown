@@ -40,12 +40,14 @@ class SelectionGeometryTest {
 
     @Test
     fun should_slice_runs_across_range() {
-        val index = buildSelectionIndex(
-            selDocument(inlineMultiRunBlock(id = 1, runs = listOf("abc", "de", "fghi")))
+        val block = inlineMultiRunBlock(id = 1, runs = listOf("abc", "de", "fghi"))
+        val index = buildSelectionIndexFromLayout(
+            selDocument(block)
         )
         val entry = index.entries.single()
+        val geometry = buildSelectionGeometry(block, entry)
         // Select chars [2, 7): spans run0 tail "c", run1 "de", run2 head "fg".
-        val slices = runRangeForBlock(entry, blockCharStart = 2, blockCharEnd = 7)
+        val slices = runRangeForBlock(geometry, entry.totalChars, blockCharStart = 2, blockCharEnd = 7)
         assertEquals(3, slices.size)
         assertEquals(listOf(0, 1, 2), slices.map { it.span.lineIndex })
         assertEquals(listOf(2 to 3, 0 to 2, 0 to 2), slices.map { it.startInRun to it.endInRun })
@@ -53,11 +55,13 @@ class SelectionGeometryTest {
 
     @Test
     fun should_slice_within_single_run() {
-        val index = buildSelectionIndex(
-            selDocument(inlineMultiRunBlock(id = 1, runs = listOf("abcdef")))
+        val block = inlineMultiRunBlock(id = 1, runs = listOf("abcdef"))
+        val index = buildSelectionIndexFromLayout(
+            selDocument(block)
         )
         val entry = index.entries.single()
-        val slices = runRangeForBlock(entry, blockCharStart = 1, blockCharEnd = 4)
+        val geometry = buildSelectionGeometry(block, entry)
+        val slices = runRangeForBlock(geometry, entry.totalChars, blockCharStart = 1, blockCharEnd = 4)
         assertEquals(1, slices.size)
         assertEquals(1, slices[0].startInRun)
         assertEquals(4, slices[0].endInRun)
@@ -65,11 +69,13 @@ class SelectionGeometryTest {
 
     @Test
     fun should_return_empty_slices_for_empty_or_clamped_range() {
-        val index = buildSelectionIndex(
-            selDocument(inlineMultiRunBlock(id = 1, runs = listOf("abc")))
+        val block = inlineMultiRunBlock(id = 1, runs = listOf("abc"))
+        val index = buildSelectionIndexFromLayout(
+            selDocument(block)
         )
         val entry = index.entries.single()
-        assertTrue(runRangeForBlock(entry, blockCharStart = 2, blockCharEnd = 2).isEmpty())
-        assertTrue(runRangeForBlock(entry, blockCharStart = 5, blockCharEnd = 9).isEmpty())
+        val geometry = buildSelectionGeometry(block, entry)
+        assertTrue(runRangeForBlock(geometry, entry.totalChars, blockCharStart = 2, blockCharEnd = 2).isEmpty())
+        assertTrue(runRangeForBlock(geometry, entry.totalChars, blockCharStart = 5, blockCharEnd = 9).isEmpty())
     }
 }

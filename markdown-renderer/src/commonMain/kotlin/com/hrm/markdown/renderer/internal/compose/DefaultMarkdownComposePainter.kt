@@ -72,7 +72,7 @@ import com.hrm.markdown.renderer.internal.core.model.TabBlockModel
 import com.hrm.markdown.renderer.internal.core.model.TableBlockModel
 import com.hrm.markdown.renderer.internal.core.model.ThematicBreakBlockModel
 import com.hrm.markdown.renderer.internal.core.model.TocBlockModel
-import com.hrm.markdown.renderer.internal.layout.model.InternalLayoutDocumentModel
+import com.hrm.markdown.renderer.internal.layout.engine.MarkdownLayoutSource
 import com.hrm.markdown.renderer.internal.layout.model.LayoutBibliographyBlockModel
 import com.hrm.markdown.renderer.internal.layout.model.LayoutColumnsBlockModel
 import com.hrm.markdown.renderer.internal.layout.model.LayoutDefinitionListBlockModel
@@ -92,10 +92,9 @@ import com.hrm.markdown.renderer.internal.selection.selectableBlock
 internal object DefaultMarkdownComposePainter : MarkdownComposePainter {
     @Composable
     override fun Paint(
-        document: InternalLayoutDocumentModel,
+        document: MarkdownLayoutSource,
         environment: ComposeRenderEnvironment,
     ) {
-        val blocks = document.blocks
         when (environment.renderMode) {
             MarkdownRenderMode.LazyColumn -> {
                 LazyColumn(
@@ -107,10 +106,10 @@ internal object DefaultMarkdownComposePainter : MarkdownComposePainter {
                         item(key = "markdown_header") { header() }
                     }
                     items(
-                        items = blocks,
-                        key = { it.identity.stableId },
-                    ) { block ->
-                        PaintBlock(block)
+                        count = document.blockCount,
+                        key = document::stableIdAt,
+                    ) { index ->
+                        PaintBlock(document.blockAt(index))
                     }
                     environment.footer?.let { footer ->
                         item(key = "markdown_footer") { footer() }
@@ -124,9 +123,9 @@ internal object DefaultMarkdownComposePainter : MarkdownComposePainter {
                         modifier = Modifier.fillMaxWidth(),
                         verticalArrangement = Arrangement.spacedBy(LocalMarkdownTheme.current.blockSpacing),
                     ) {
-                        for (block in blocks) {
-                            key(block.identity.stableId) {
-                                PaintBlock(block)
+                        for (index in 0 until document.blockCount) {
+                            key(document.stableIdAt(index)) {
+                                PaintBlock(document.blockAt(index))
                             }
                         }
                     }
@@ -172,7 +171,7 @@ private fun PaintBlock(block: com.hrm.markdown.renderer.internal.layout.model.In
             model = block,
             modifier = Modifier
                 .fillMaxWidth()
-                .selectableBlock(block.identity.stableId, LocalMarkdownSelectionController.current),
+                .selectableBlock(block, LocalMarkdownSelectionController.current),
         )
 
         is LayoutDefinitionListBlockModel -> RenderDefinitionListLayoutBlockModel(
@@ -226,7 +225,7 @@ private fun PaintBlock(block: com.hrm.markdown.renderer.internal.layout.model.In
             block,
             modifier = Modifier
                 .fillMaxWidth()
-                .selectableBlock(block.identity.stableId, LocalMarkdownSelectionController.current),
+                .selectableBlock(block, LocalMarkdownSelectionController.current),
         )
 
         is LayoutInlineBlockModel -> PaintInlineBlock(block)
@@ -286,7 +285,9 @@ private fun PaintRenderBlock(block: LayoutRenderBlockModel) {
 
         is HtmlBlockModel -> RenderHtmlBlockModel(
             model = renderBlock,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .selectableBlock(block, LocalMarkdownSelectionController.current),
         )
 
         is CustomContainerBlockModel -> RenderCustomContainerBlockModel(
@@ -419,7 +420,7 @@ private fun PaintInlineBlock(block: LayoutInlineBlockModel) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .selectableBlock(block.identity.stableId, LocalMarkdownSelectionController.current)
+            .selectableBlock(block, LocalMarkdownSelectionController.current)
     ) {
         PaintInlineLayoutContent(block = block, modifier = Modifier.fillMaxWidth())
         if (block.showDivider) {

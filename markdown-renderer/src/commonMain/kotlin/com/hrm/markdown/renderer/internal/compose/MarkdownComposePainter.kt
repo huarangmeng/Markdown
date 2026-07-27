@@ -1,12 +1,12 @@
 package com.hrm.markdown.renderer.internal.compose
 
 import androidx.compose.runtime.Composable
-import com.hrm.markdown.renderer.internal.layout.model.InternalLayoutDocumentModel
+import com.hrm.markdown.renderer.internal.layout.engine.MarkdownLayoutSource
 
 internal interface MarkdownComposePainter {
     @Composable
     fun Paint(
-        document: InternalLayoutDocumentModel,
+        document: MarkdownLayoutSource,
         environment: ComposeRenderEnvironment,
     )
 }

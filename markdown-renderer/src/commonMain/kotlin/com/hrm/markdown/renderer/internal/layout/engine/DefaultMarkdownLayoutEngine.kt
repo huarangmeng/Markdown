@@ -84,18 +84,31 @@ internal object DefaultMarkdownLayoutEngine : MarkdownLayoutEngine {
                 width = environment.viewportWidth,
                 height = endY.coerceAtLeast(0f),
             ),
-            metadata = InternalLayoutDocumentMetadata(
-                footnoteDefinitionItemIndexes = buildMap {
-                    blocks.forEachIndexed { index, block ->
-                        val label =
-                            (extractRenderBlock(block) as? FootnoteDefinitionBlockModel)?.label
-                                ?: return@forEachIndexed
-                        put(label, index)
-                    }
-                },
-            ),
+            metadata = metadata(document),
         )
     }
+
+    override fun layoutBlock(
+        block: InternalRenderBlockModel,
+        environment: LayoutEnvironment,
+    ): InternalLayoutBlockModel = layoutBlockInternal(
+        block = block,
+        left = 0f,
+        top = 0f,
+        width = environment.viewportWidth,
+        environment = environment,
+    )
+
+    override fun metadata(document: InternalRenderDocumentModel): InternalLayoutDocumentMetadata =
+        InternalLayoutDocumentMetadata(
+            footnoteDefinitionItemIndexes = buildMap {
+                document.blocks.forEachIndexed { index, block ->
+                    val label = (block as? FootnoteDefinitionBlockModel)?.label
+                        ?: return@forEachIndexed
+                    put(label, index)
+                }
+            },
+        )
 }
 
 private fun layoutBlocks(
@@ -108,7 +121,7 @@ private fun layoutBlocks(
     val result = ArrayList<InternalLayoutBlockModel>(blocks.size)
     var cursorY = top
     blocks.forEachIndexed { index, block ->
-        val layoutBlock = layoutBlock(
+        val layoutBlock = layoutBlockInternal(
             block = block,
             left = left,
             top = cursorY,
@@ -124,7 +137,7 @@ private fun layoutBlocks(
     return result to cursorY
 }
 
-private fun layoutBlock(
+private fun layoutBlockInternal(
     block: InternalRenderBlockModel,
     left: Float,
     top: Float,
@@ -490,7 +503,7 @@ private fun layoutFootnoteBlock(
     val leadLeft = contentLeft + labelWidth + arrowWidth + horizontalSpacing * 2f
     val leadWidth = (contentWidth - (leadLeft - contentLeft)).coerceAtLeast(0f)
     val leadChild = block.children.firstOrNull()?.let { child ->
-        layoutBlock(
+        layoutBlockInternal(
             block = child,
             left = leadLeft,
             top = contentTop,
@@ -946,19 +959,3 @@ private fun blockInsets(block: InternalRenderBlockModel): LayoutInsets = when (b
 
     else -> LayoutInsets()
 }
-
-private fun extractRenderBlock(block: InternalLayoutBlockModel): InternalRenderBlockModel? =
-    when (block) {
-        is LayoutRenderBlockModel -> block.block
-        is LayoutListBlockModel -> block.block
-        is LayoutColumnsBlockModel -> block.block
-        is LayoutTableBlockModel -> block.block
-        is LayoutDefinitionListBlockModel -> block.block
-        is LayoutFigureBlockModel -> block.block
-        is LayoutTocBlockModel -> block.block
-        is LayoutBibliographyBlockModel -> block.block
-        is LayoutTabBlockModel -> block.block
-        is LayoutFootnoteBlockModel -> block.block
-        is LayoutWidgetBlockModel -> block.block
-        else -> null
-    }

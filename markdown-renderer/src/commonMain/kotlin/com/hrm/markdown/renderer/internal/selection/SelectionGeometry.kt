@@ -82,16 +82,17 @@ internal fun hitTestRunInBlock(
  * 及其在 run 文本内的字符切片，用于高亮。
  */
 internal fun runRangeForBlock(
-    entry: SelectionBlockEntry,
+    geometry: SelectionBlockGeometry,
+    totalChars: Int,
     blockCharStart: Int,
     blockCharEnd: Int,
 ): List<RunCharSlice> {
-    val from = blockCharStart.coerceIn(0, entry.totalChars)
-    val to = blockCharEnd.coerceIn(0, entry.totalChars)
+    val from = blockCharStart.coerceIn(0, totalChars)
+    val to = blockCharEnd.coerceIn(0, totalChars)
     if (to <= from) return emptyList()
 
     val slices = ArrayList<RunCharSlice>()
-    for (span in entry.runs) {
+    for (span in geometry.runs) {
         val overlapStart = maxOf(from, span.charStart)
         val overlapEnd = minOf(to, span.charEnd)
         if (overlapEnd > overlapStart) {

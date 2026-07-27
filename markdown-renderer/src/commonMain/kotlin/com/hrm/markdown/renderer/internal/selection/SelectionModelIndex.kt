@@ -1,23 +1,39 @@
 package com.hrm.markdown.renderer.internal.selection
 
-import androidx.compose.ui.text.TextLayoutResult
-import androidx.compose.ui.text.TextMeasurer
-import androidx.compose.ui.unit.Constraints
+import com.hrm.markdown.renderer.internal.core.model.AdmonitionBlockModel
+import com.hrm.markdown.renderer.internal.core.model.BibliographyDefinitionBlockModel
+import com.hrm.markdown.renderer.internal.core.model.BlockQuoteBlockModel
 import com.hrm.markdown.renderer.internal.core.model.CodeBlockModel
+import com.hrm.markdown.renderer.internal.core.model.ColumnsLayoutBlockModel
+import com.hrm.markdown.renderer.internal.core.model.CustomContainerBlockModel
+import com.hrm.markdown.renderer.internal.core.model.DefinitionDescriptionBlockModel
+import com.hrm.markdown.renderer.internal.core.model.DefinitionListBlockModel
 import com.hrm.markdown.renderer.internal.core.model.DiagramBlockModel
+import com.hrm.markdown.renderer.internal.core.model.DirectiveBlockModel
 import com.hrm.markdown.renderer.internal.core.model.DirectiveInlineWidgetModel
+import com.hrm.markdown.renderer.internal.core.model.FallbackContainerBlockModel
+import com.hrm.markdown.renderer.internal.core.model.FigureBlockModel
+import com.hrm.markdown.renderer.internal.core.model.FootnoteDefinitionBlockModel
+import com.hrm.markdown.renderer.internal.core.model.HeadingBlockModel
 import com.hrm.markdown.renderer.internal.core.model.HtmlBlockModel
 import com.hrm.markdown.renderer.internal.core.model.ImageWidgetModel
 import com.hrm.markdown.renderer.internal.core.model.InlineCodeWidgetModel
 import com.hrm.markdown.renderer.internal.core.model.InlineMathWidgetModel
 import com.hrm.markdown.renderer.internal.core.model.InlineModel
+import com.hrm.markdown.renderer.internal.core.model.InternalRenderBlockModel
+import com.hrm.markdown.renderer.internal.core.model.ListBlockModel
 import com.hrm.markdown.renderer.internal.core.model.MathBlockModel
+import com.hrm.markdown.renderer.internal.core.model.PageBreakBlockModel
+import com.hrm.markdown.renderer.internal.core.model.ParagraphBlockModel
 import com.hrm.markdown.renderer.internal.core.model.RubyTextWidgetModel
 import com.hrm.markdown.renderer.internal.core.model.SpoilerWidgetModel
+import com.hrm.markdown.renderer.internal.core.model.TabBlockModel
+import com.hrm.markdown.renderer.internal.core.model.TableBlockModel
 import com.hrm.markdown.renderer.internal.core.model.TextAtom
+import com.hrm.markdown.renderer.internal.core.model.ThematicBreakBlockModel
+import com.hrm.markdown.renderer.internal.core.model.TocBlockModel
 import com.hrm.markdown.renderer.internal.core.model.WidgetAtom
 import com.hrm.markdown.renderer.internal.layout.inline.runPlacements
-import com.hrm.markdown.renderer.internal.layout.inline.textMeasurementStyle
 import com.hrm.markdown.renderer.internal.layout.model.InternalLayoutBlockModel
 import com.hrm.markdown.renderer.internal.layout.model.LayoutColumnsBlockModel
 import com.hrm.markdown.renderer.internal.layout.model.LayoutDefinitionDescriptionGroup
@@ -33,44 +49,41 @@ import com.hrm.markdown.renderer.internal.layout.model.LayoutTextRun
 import com.hrm.markdown.renderer.internal.layout.model.LayoutWidgetBlockModel
 import com.hrm.markdown.renderer.internal.layout.model.LayoutWidgetRun
 
-/**
- * 单个 LayoutTextRun 在所属 block 字符空间内占据的区间 `[charStart, charEnd)`。
- * [lineIndex]/[runIndex] 用于命中测试与高亮时回到几何模型定位。
- */
+/** Lightweight, layout-independent selectable text for one document block. */
+internal data class SelectionBlockEntry(
+    val stableId: Long,
+    val order: Int,
+    val totalChars: Int,
+    val text: String,
+)
+
+/** A visible layout run mapped back into its block's logical character space. */
 internal data class SelectionRunSpan(
     val lineIndex: Int,
     val runIndex: Int,
     val run: LayoutInlineRun,
     val text: String,
-    val textLayout: TextLayoutResult? = null,
     val charStart: Int,
     val charEnd: Int,
 )
 
-/**
- * 一个可选中的 inline 块在文档中的索引条目。
- * [order] 为深度优先访问顺序；[totalChars] 为块内全部文本长度。
- */
-internal data class SelectionBlockEntry(
+/** Heavy geometry retained only while the corresponding block is composed. */
+internal data class SelectionBlockGeometry(
     val stableId: Long,
-    val order: Int,
     val block: InternalLayoutBlockModel,
     val runs: List<SelectionRunSpan>,
-    val totalChars: Int,
-    val text: String,
 )
 
 /**
- * 选区文档模型索引：把整棵 layout 树里所有可选 inline 块按文档序拍平，
- * 提供锚点比较、归一化、夹紧、字符→run 定位等纯函数能力。
+ * Whole-document logical selection index. It intentionally contains no layout objects or
+ * [androidx.compose.ui.text.TextLayoutResult] instances, so select-all/copy remain available
+ * without forcing offscreen blocks through the layout pipeline.
  */
 internal class SelectionModelIndex(
     val entries: List<SelectionBlockEntry>,
 ) {
-    private val orderByStableId: Map<Long, Int> =
-        entries.associate { it.stableId to it.order }
-    private val entryByStableId: Map<Long, SelectionBlockEntry> =
-        entries.associateBy { it.stableId }
+    private val orderByStableId = entries.associate { it.stableId to it.order }
+    private val entryByStableId = entries.associateBy { it.stableId }
 
     val isEmpty: Boolean get() = entries.isEmpty()
 
@@ -78,14 +91,12 @@ internal class SelectionModelIndex(
 
     fun orderOf(stableId: Long): Int? = orderByStableId[stableId]
 
-    /** 把锚点的 charInBlock 夹紧到所属块的合法范围；块不存在则返回 null。 */
     fun clampAnchor(anchor: SelectionAnchor): SelectionAnchor? {
         val entry = entryByStableId[anchor.blockStableId] ?: return null
         val clamped = anchor.charInBlock.coerceIn(0, entry.totalChars)
         return if (clamped == anchor.charInBlock) anchor else anchor.copy(charInBlock = clamped)
     }
 
-    /** 文档序比较：先比 order，再比块内偏移。块不存在时按 0 处理。 */
     fun compare(a: SelectionAnchor, b: SelectionAnchor): Int {
         val oa = orderByStableId[a.blockStableId] ?: 0
         val ob = orderByStableId[b.blockStableId] ?: 0
@@ -93,22 +104,8 @@ internal class SelectionModelIndex(
         return a.charInBlock.compareTo(b.charInBlock)
     }
 
-    /** 顺序无关地构造规范范围（start 不晚于 end）。 */
     fun normalize(a: SelectionAnchor, b: SelectionAnchor): SelectionRange =
         if (compare(a, b) <= 0) SelectionRange(a, b) else SelectionRange(b, a)
-
-    /** 把块内字符偏移定位到具体 run 及 run 内偏移。 */
-    fun charToRun(entry: SelectionBlockEntry, charInBlock: Int): Pair<SelectionRunSpan, Int>? {
-        if (entry.runs.isEmpty()) return null
-        val clamped = charInBlock.coerceIn(0, entry.totalChars)
-        for (span in entry.runs) {
-            if (clamped < span.charEnd) {
-                return span to (clamped - span.charStart).coerceAtLeast(0)
-            }
-        }
-        val last = entry.runs.last()
-        return last to (last.charEnd - last.charStart)
-    }
 
     val firstAnchor: SelectionAnchor?
         get() = entries.firstOrNull()?.let { SelectionAnchor(it.stableId, 0) }
@@ -117,49 +114,53 @@ internal class SelectionModelIndex(
         get() = entries.lastOrNull()?.let { SelectionAnchor(it.stableId, it.totalChars) }
 }
 
-/**
- * 深度优先遍历 layout 树，收集可选文本块。
- * Inline 块支持逐字命中与局部高亮；表格、代码、数学公式和图表等非 inline 块按原子块参与复制。
- */
-internal fun buildSelectionIndex(blocks: List<InternalLayoutBlockModel>): SelectionModelIndex {
+/** Build the full logical index directly from the cheap render model. */
+internal fun buildSelectionIndex(blocks: List<InternalRenderBlockModel>): SelectionModelIndex {
     val entries = ArrayList<SelectionBlockEntry>()
     var nextOrder = 0
 
-    fun visit(block: InternalLayoutBlockModel) {
+    fun add(stableId: Long, text: String) {
+        if (text.isEmpty()) return
+        entries += SelectionBlockEntry(
+            stableId = stableId,
+            order = nextOrder++,
+            totalChars = text.length,
+            text = text,
+        )
+    }
+
+    fun visit(block: InternalRenderBlockModel) {
         when (block) {
-            is LayoutInlineBlockModel -> {
-                entries += buildBlockEntry(block, nextOrder++)
+            is ParagraphBlockModel -> add(block.identity.stableId, block.inline.plainText())
+            is HeadingBlockModel -> add(
+                block.identity.stableId,
+                buildString {
+                    block.numbering?.takeIf { it.isNotBlank() }?.let { append(it).append(' ') }
+                    append(block.inline.plainText())
+                },
+            )
+            is CodeBlockModel -> add(block.identity.stableId, block.code)
+            is MathBlockModel -> add(block.identity.stableId, block.latex)
+            is DiagramBlockModel -> add(block.identity.stableId, block.code)
+            is HtmlBlockModel -> add(block.identity.stableId, block.html)
+            is TableBlockModel -> add(block.identity.stableId, block.plainText())
+            is BlockQuoteBlockModel -> block.children.forEach(::visit)
+            is AdmonitionBlockModel -> block.children.forEach(::visit)
+            is CustomContainerBlockModel -> block.children.forEach(::visit)
+            is DirectiveBlockModel -> block.children.forEach(::visit)
+            is FallbackContainerBlockModel -> block.children.forEach(::visit)
+            is ListBlockModel -> block.items.forEach { item -> item.children.forEach(::visit) }
+            is ColumnsLayoutBlockModel -> block.columns.forEach { column -> column.children.forEach(::visit) }
+            is TabBlockModel -> block.items.forEach { tab -> tab.children.forEach(::visit) }
+            is FootnoteDefinitionBlockModel -> block.children.forEach(::visit)
+            is DefinitionListBlockModel -> block.items.forEach { item ->
+                if (item is DefinitionDescriptionBlockModel) item.children.forEach(::visit)
             }
-
-            is LayoutTableBlockModel -> {
-                val text = tablePlainText(block)
-                if (text.isNotEmpty()) entries += buildTextOnlyEntry(block, nextOrder++, text)
-            }
-
-            is LayoutWidgetBlockModel -> {
-                val text = widgetBlockPlainText(block)
-                if (text.isNotEmpty()) entries += buildTextOnlyEntry(block, nextOrder++, text)
-            }
-
-            is LayoutRenderBlockModel -> {
-                val text = renderBlockPlainText(block)
-                if (text.isNotEmpty()) {
-                    entries += buildTextOnlyEntry(block, nextOrder++, text)
-                } else {
-                    block.children.forEach(::visit)
-                }
-            }
-            is LayoutListBlockModel -> block.items.forEach { item -> item.children.forEach(::visit) }
-            is LayoutColumnsBlockModel -> block.columns.forEach { col -> col.children.forEach(::visit) }
-            is LayoutTabBlockModel -> block.tabs.forEach { tab -> tab.children.forEach(::visit) }
-            is LayoutFootnoteBlockModel -> {
-                block.leadChild?.let(::visit)
-                block.trailingChildren.forEach(::visit)
-            }
-            is LayoutDefinitionListBlockModel -> block.items.forEach { item ->
-                if (item is LayoutDefinitionDescriptionGroup) item.children.forEach(::visit)
-            }
-            // Excluded from selection: figure/toc/bibliography and blocks without a stable plain-text form.
+            is BibliographyDefinitionBlockModel,
+            is FigureBlockModel,
+            is PageBreakBlockModel,
+            is ThematicBreakBlockModel,
+            is TocBlockModel -> Unit
             else -> Unit
         }
     }
@@ -168,98 +169,106 @@ internal fun buildSelectionIndex(blocks: List<InternalLayoutBlockModel>): Select
     return SelectionModelIndex(entries)
 }
 
-internal fun SelectionModelIndex.withMeasuredTextRuns(
-    textMeasurer: TextMeasurer,
+/** Legacy/test helper that derives the logical index from already-created layout blocks. */
+internal fun buildSelectionIndexFromLayout(
+    blocks: List<InternalLayoutBlockModel>,
 ): SelectionModelIndex {
-    val measuredEntries = entries.map { entry ->
-        val inlineBlock = entry.block as? LayoutInlineBlockModel ?: return@map entry
-        val style = textMeasurementStyle(inlineBlock.style)
-        entry.copy(
-            runs = entry.runs.map { span ->
-                val textRun = span.run as? LayoutTextRun ?: return@map span
-                span.copy(
-                    textLayout = textMeasurer.measure(
-                        text = textRun.text,
-                        style = style,
-                        constraints = Constraints(maxWidth = Int.MAX_VALUE),
-                        maxLines = 1,
-                        softWrap = false,
-                    )
-                )
-            }
-        )
+    val entries = ArrayList<SelectionBlockEntry>()
+    var nextOrder = 0
+
+    fun add(stableId: Long, text: String) {
+        if (text.isEmpty()) return
+        entries += SelectionBlockEntry(stableId, nextOrder++, text.length, text)
     }
-    return SelectionModelIndex(measuredEntries)
+
+    fun visit(block: InternalLayoutBlockModel) {
+        when (block) {
+            is LayoutInlineBlockModel -> add(
+                block.identity.stableId,
+                block.runPlacements().joinToString("") { placement ->
+                    when (val run = placement.run) {
+                        is LayoutTextRun -> run.text.text
+                        is LayoutWidgetRun -> run.alternateText
+                    }
+                },
+            )
+            is LayoutTableBlockModel -> add(block.identity.stableId, block.plainText())
+            is LayoutWidgetBlockModel -> add(block.identity.stableId, block.plainText())
+            is LayoutRenderBlockModel -> {
+                val text = (block.block as? HtmlBlockModel)?.html.orEmpty()
+                if (text.isNotEmpty()) add(block.identity.stableId, text) else block.children.forEach(::visit)
+            }
+            is LayoutListBlockModel -> block.items.forEach { item -> item.children.forEach(::visit) }
+            is LayoutColumnsBlockModel -> block.columns.forEach { column -> column.children.forEach(::visit) }
+            is LayoutTabBlockModel -> block.tabs.forEach { tab -> tab.children.forEach(::visit) }
+            is LayoutFootnoteBlockModel -> {
+                block.leadChild?.let(::visit)
+                block.trailingChildren.forEach(::visit)
+            }
+            is LayoutDefinitionListBlockModel -> block.items.forEach { item ->
+                if (item is LayoutDefinitionDescriptionGroup) item.children.forEach(::visit)
+            }
+            else -> Unit
+        }
+    }
+
+    blocks.forEach(::visit)
+    return SelectionModelIndex(entries)
 }
 
-private fun buildBlockEntry(block: LayoutInlineBlockModel, order: Int): SelectionBlockEntry {
-    val runs = ArrayList<SelectionRunSpan>()
-    var cursor = 0
+internal fun buildSelectionGeometry(
+    block: InternalLayoutBlockModel,
+    entry: SelectionBlockEntry,
+): SelectionBlockGeometry {
+    if (block !is LayoutInlineBlockModel) {
+        return SelectionBlockGeometry(entry.stableId, block, emptyList())
+    }
+    val spans = ArrayList<SelectionRunSpan>()
+    var searchFrom = 0
     for (placement in block.runPlacements()) {
         val run = placement.run
         val text = when (run) {
             is LayoutTextRun -> run.text.text
             is LayoutWidgetRun -> run.alternateText
         }
-        if (text.isNotEmpty()) {
-            val len = text.length
-            runs += SelectionRunSpan(
+        if (text.isEmpty()) continue
+        val found = entry.text.indexOf(text, startIndex = searchFrom)
+        val start = (if (found >= 0) found else searchFrom).coerceIn(0, entry.totalChars)
+        val end = (start + text.length).coerceIn(start, entry.totalChars)
+        if (end > start) {
+            spans += SelectionRunSpan(
                 lineIndex = placement.lineIndex,
                 runIndex = placement.runIndex,
                 run = run,
-                text = text,
-                charStart = cursor,
-                charEnd = cursor + len,
+                text = text.take(end - start),
+                charStart = start,
+                charEnd = end,
             )
-            cursor += len
         }
+        searchFrom = end
     }
-    return SelectionBlockEntry(
-        stableId = block.identity.stableId,
-        order = order,
-        block = block,
-        runs = runs,
-        totalChars = cursor,
-        text = buildString { for (span in runs) append(span.text) },
-    )
+    return SelectionBlockGeometry(entry.stableId, block, spans)
 }
 
-private fun buildTextOnlyEntry(
-    block: InternalLayoutBlockModel,
-    order: Int,
-    text: String,
-): SelectionBlockEntry =
-    SelectionBlockEntry(
-        stableId = block.identity.stableId,
-        order = order,
-        block = block,
-        runs = emptyList(),
-        totalChars = text.length,
-        text = text,
-    )
-
-private fun tablePlainText(block: LayoutTableBlockModel): String =
-    block.rows.joinToString("\n") { row ->
-        row.cells.joinToString("\t") { cell ->
-            cell.cell?.inline?.plainText().orEmpty()
-        }
+private fun TableBlockModel.plainText(): String =
+    rows.joinToString("\n") { row ->
+        row.cells.joinToString("\t") { cell -> cell.inline.plainText() }
     }
 
-private fun widgetBlockPlainText(block: LayoutWidgetBlockModel): String =
-    when (val renderBlock = block.block) {
+private fun LayoutTableBlockModel.plainText(): String =
+    rows.joinToString("\n") { row ->
+        row.cells.joinToString("\t") { cell -> cell.cell?.inline?.plainText().orEmpty() }
+    }
+
+private fun LayoutWidgetBlockModel.plainText(): String =
+    when (val renderBlock = block) {
         is CodeBlockModel -> renderBlock.code
         is MathBlockModel -> renderBlock.latex
         is DiagramBlockModel -> renderBlock.code
         else -> ""
     }
 
-private fun renderBlockPlainText(block: LayoutRenderBlockModel): String =
-    when (val renderBlock = block.block) {
-        is HtmlBlockModel -> renderBlock.html
-        else -> ""
-    }
-
-private fun InlineModel.plainText(): String =
+internal fun InlineModel.plainText(): String =
     buildString {
         for (atom in atoms) {
             when (atom) {
