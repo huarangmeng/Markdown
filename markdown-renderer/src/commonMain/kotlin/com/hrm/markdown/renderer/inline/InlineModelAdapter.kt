@@ -1,10 +1,6 @@
 package com.hrm.markdown.renderer.inline
 
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.LinkAnnotation
@@ -25,7 +21,6 @@ import androidx.compose.ui.unit.sp
 import com.hrm.codehigh.renderer.InlineCodeDefaults
 import com.hrm.codehigh.renderer.measureInlineCodeSize
 import com.hrm.codehigh.theme.CodeTheme
-import com.hrm.latex.renderer.Latex
 import com.hrm.latex.renderer.measure.LatexMeasurerState
 import com.hrm.latex.renderer.model.LatexConfig
 import com.hrm.markdown.parser.core.CharacterUtils
@@ -311,8 +306,7 @@ private fun AnnotatedString.Builder.renderWidgetAtom(
             hostTextStyle,
             context,
             latexMeasurer,
-            density,
-            textMeasurer
+            density
         )
 
         is SpoilerWidgetModel -> renderSpoilerWidget(
@@ -404,63 +398,27 @@ private fun AnnotatedString.Builder.renderInlineMathWidget(
     context: InlineRenderBuildContext,
     latexMeasurer: LatexMeasurerState,
     density: Density,
-    textMeasurer: TextMeasurer,
 ) {
     val trimmedLatex = widget.latex.trim()
-    val fontSize = theme.mathFontSize
     val latexConfig = LatexConfig(
-        fontSize = fontSize.sp,
+        fontSize = theme.mathFontSize.sp,
         theme = theme.latexTheme,
     )
-    val dims = latexMeasurer.measure(trimmedLatex, latexConfig)
-    val placeholderWidth = dims?.contentWidthPx ?: with(density) {
-        (fontSize * estimateLatexWidth(
-            trimmedLatex
-        )).sp.toPx()
+    val inlineContent = latexMeasurer.inlineContent(trimmedLatex, latexConfig)
+    if (inlineContent == null) {
+        context.emitStyledTextAtom(
+            builder = this,
+            text = widget.latex,
+            style = hostTextStyle.toSpanStyle(),
+        )
+        return
     }
-    val placeholderHeight = run {
-        val measuredHeightPx = dims?.heightPx ?: with(density) { (fontSize * 1.6f).sp.toPx() }
-        val hostHeightPx = textMeasurer.measure("Ag", style = hostTextStyle).size.height.toFloat()
-        val extraPx = with(density) { 2f.toDp().toPx() }
-        maxOf(hostHeightPx, measuredHeightPx + extraPx)
-    }
-
     context.emitInlineMathWidget(
         builder = this,
         widget = widget,
-        widthPx = placeholderWidth,
-        heightPx = placeholderHeight,
-    ) {
-        val canvasWidthDp = if (dims != null) {
-            with(density) { dims.widthPx.toDp() }
-        } else {
-            null
-        }
-        val canvasHeightDp = if (dims != null) {
-            with(density) { dims.heightPx.toDp() }
-        } else {
-            null
-        }
-        Box(
-            modifier = Modifier
-                .fillMaxHeight()
-                .clipToBounds()
-        ) {
-            val latexModifier = Modifier
-                .then(
-                    if (canvasWidthDp != null && canvasHeightDp != null) {
-                        Modifier.requiredSize(canvasWidthDp, canvasHeightDp)
-                    } else {
-                        Modifier
-                    }
-                )
-            Latex(
-                latex = trimmedLatex,
-                modifier = latexModifier,
-                config = latexConfig,
-            )
-        }
-    }
+        inlineContent = inlineContent,
+        density = density,
+    )
 }
 
 private fun AnnotatedString.Builder.renderSpoilerWidget(

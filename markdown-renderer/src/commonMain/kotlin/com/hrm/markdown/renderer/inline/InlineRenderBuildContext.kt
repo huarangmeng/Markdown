@@ -1,10 +1,12 @@
 package com.hrm.markdown.renderer.inline
 
+import androidx.compose.foundation.text.InlineTextContent
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.Density
 import com.hrm.markdown.renderer.internal.core.model.DirectiveInlineWidgetModel
 import com.hrm.markdown.renderer.internal.core.model.ImageWidgetModel
 import com.hrm.markdown.renderer.internal.core.model.InlineCodeWidgetModel
@@ -94,18 +96,19 @@ internal class InlineRenderBuildContext(
     fun emitInlineMathWidget(
         builder: AnnotatedString.Builder,
         widget: InlineMathWidgetModel,
-        widthPx: Float,
-        heightPx: Float,
-        content: @Composable () -> Unit,
+        inlineContent: InlineTextContent,
+        density: Density,
     ) {
+        val placeholder = inlineContent.placeholder
         emitInlineWidget(
             builder = builder,
             widget = widget,
             alternateText = widget.latex,
-            widthPx = widthPx,
-            heightPx = heightPx,
-            content = content,
-        )
+            widthPx = with(density) { placeholder.width.toPx() },
+            heightPx = with(density) { placeholder.height.toPx() },
+        ) {
+            inlineContent.children(widget.latex)
+        }
     }
 
     fun emitSpoilerWidget(

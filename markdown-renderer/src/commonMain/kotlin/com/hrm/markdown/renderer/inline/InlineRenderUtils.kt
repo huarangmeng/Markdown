@@ -21,11 +21,6 @@ internal fun buildInlineDirectiveFallbackText(node: DirectiveInline): String {
     return "{% ${node.tagName}$argsText %}"
 }
 
-internal fun estimateLatexWidth(latex: String): Float {
-    val baseLen = latex.length.toFloat()
-    return (baseLen * 0.7f).coerceIn(1.5f, 20f)
-}
-
 internal fun parseCssStyleToSpanStyle(css: String): SpanStyle? {
     if (css.isBlank()) return null
     var color: Color? = null
