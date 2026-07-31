@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "description": "Portable JVM performance budgets. Update only after reviewing a reproducible benchmark report.",
+  "benchmarks": {
+    "ParserMicrobenchmark.fullParse": {
+      "maxP95Us": 4000,
+      "minThroughputOpsPerSecond": 300,
+      "maxAllocatedBytesPerOp": 4500000,
+      "maxPeakHeapDeltaBytes": 805306368
+    },
+    "ParserMicrobenchmark.inlineHeavyParse": {
+      "maxP95Us": 2000,
+      "minThroughputOpsPerSecond": 600,
+      "maxAllocatedBytesPerOp": 3000000,
+      "maxPeakHeapDeltaBytes": 805306368
+    },
+    "ParserMicrobenchmark.streamingAppendBatch": {
+      "maxP95Us": 250000,
+      "minThroughputOpsPerSecond": 3.5,
+      "maxAllocatedBytesPerOp": 750000000,
+      "maxPeakHeapDeltaBytes": 805306368
+    }
+  }
+}

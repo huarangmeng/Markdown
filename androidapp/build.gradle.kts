@@ -24,6 +24,11 @@ android {
                 "proguard-rules.pro"
             )
         }
+        create("benchmark") {
+            initWith(getByName("release"))
+            signingConfig = signingConfigs.getByName("debug")
+            matchingFallbacks += listOf("release")
+        }
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_21
@@ -53,4 +58,6 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 
     implementation(projects.markdownParser)
+    add("benchmarkImplementation", libs.androidx.profileinstaller)
+    add("benchmarkImplementation", projects.markdownRenderer)
 }

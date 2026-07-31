@@ -6,8 +6,13 @@ import androidx.compose.ui.unit.Density
 
 internal class InlineFlowLayoutCache(
     private val maxEntries: Int = DefaultMaxEntries,
+    private val maxEstimatedBytes: Long = DefaultMaxEstimatedBytes,
 ) {
-    private val entries = mutableMapOf<InlineFlowLayoutCacheKey, InlineFlowLayout>()
+    private val cache = WeightedLruCache<InlineFlowLayoutCacheKey, InlineFlowLayout>(
+        maxEntries = maxEntries,
+        maxEstimatedBytes = maxEstimatedBytes,
+        estimateValueBytes = ::estimateInlineFlowLayoutBytes,
+    )
 
     fun getOrPut(
         epoch: InlineLayoutEpoch,
@@ -29,35 +34,16 @@ internal class InlineFlowLayoutCache(
             fontScaleBits = density.fontScale.toBits(),
             textMeasurerHash = textMeasurer.hashCode(),
         )
-        entries[key]?.let { layout ->
-            touch(key)
-            return layout
-        }
-        if (entries.size >= maxEntries) {
-            evictEldest()
-        }
-        return compute().also { layout ->
-            entries[key] = layout
-            accessOrder += key
-        }
+        return cache.getOrPut(key, compute)
     }
 
     fun clear() {
-        entries.clear()
-        accessOrder.clear()
+        cache.clear()
     }
 
-    private val accessOrder = ArrayList<InlineFlowLayoutCacheKey>(maxEntries)
+    fun metricsSnapshot(): LruCacheMetricsSnapshot = cache.snapshot()
 
-    private fun touch(key: InlineFlowLayoutCacheKey) {
-        accessOrder.remove(key)
-        accessOrder += key
-    }
-
-    private fun evictEldest() {
-        val eldest = accessOrder.removeFirstOrNull() ?: entries.keys.firstOrNull() ?: return
-        entries.remove(eldest)
-    }
+    fun resetStatistics() = cache.resetStatistics()
 
     private data class InlineFlowLayoutCacheKey(
         val epoch: InlineLayoutEpoch,
@@ -72,5 +58,20 @@ internal class InlineFlowLayoutCache(
 
     private companion object {
         const val DefaultMaxEntries = 2048
+        const val DefaultMaxEstimatedBytes = 32L * 1024L * 1024L
     }
+}
+
+private fun estimateInlineFlowLayoutBytes(layout: InlineFlowLayout): Long {
+    var bytes = 64L
+    for (line in layout.lines) {
+        bytes += 96L
+        for (item in line.items) {
+            bytes += when (item) {
+                is LineItem.TextItem -> 64L + item.text.length * 2L
+                is LineItem.InlineItem -> 64L + item.alternateText.length * 2L
+            }
+        }
+    }
+    return bytes
 }

@@ -84,13 +84,13 @@ private data class LlmIterationResult(
 private fun runOneIteration(chunks: List<String>, coalesce: Int = 0): LlmIterationResult {
     val parser = MarkdownParser(appendCoalesceThreshold = coalesce)
     val appendNs = LongArray(chunks.size)
+    lateinit var finalDoc: Node
     val total = measureNanoTime {
         for ((i, c) in chunks.withIndex()) {
             appendNs[i] = measureNanoTime { parser.append(c) }
         }
-        parser.endStream()
+        finalDoc = parser.endStream()
     }
-    val finalDoc = parser.endStream()
     val traverse = measureNanoTime { traverseAll(finalDoc) }
 
     // One-shot baseline on a fresh parser.

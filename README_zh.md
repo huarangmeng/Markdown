@@ -493,7 +493,17 @@ Markdown(
 ./gradlew :markdown-parser:jvmTest      # Parser 模块测试
 ./gradlew :markdown-renderer:jvmTest     # Renderer 模块测试
 ./gradlew jvmTest                        # 全部测试
+
+# Parser 性能回归门禁（p95、吞吐、分配量、峰值堆）
+./gradlew :markdown-benchmark:performanceGate
+
+# 真实 Compose 首帧、长文档滚动、跨 Block 选择
+# 请在真机上使用 benchmark 构建变体运行。
+./gradlew :macrobenchmark:connectedBenchmarkAndroidTest
 ```
+
+性能预算保存在 `markdown-benchmark/performance-baseline.json`；可复现执行方式和基线更新规则见
+[`markdown-benchmark/README.md`](markdown-benchmark/README.md)。
 
 ---
 
