@@ -14,10 +14,17 @@ internal data class InlinePlaceholderLayoutSpec(
 )
 
 internal sealed interface InlineFlowSegment {
-    data class TextRun(val annotated: AnnotatedString) : InlineFlowSegment
+    data class TextRun(
+        val annotated: AnnotatedString,
+        val sourceStart: Int? = null,
+        val sourceEnd: Int? = null,
+    ) : InlineFlowSegment
+
     data class InlineRun(
         val id: InlinePlaceholderId,
         val placeholder: InlinePlaceholderLayoutSpec,
+        val sourceStart: Int? = null,
+        val sourceEnd: Int? = null,
     ) : InlineFlowSegment
 
     data object Newline : InlineFlowSegment

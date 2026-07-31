@@ -21,13 +21,29 @@ internal class InlineRenderBuildContext(
     val paintPayloads: MutableMap<InlinePlaceholderId, InlineWidgetPaintPayload> = linkedMapOf(),
     val flowSegments: MutableList<InlineFlowSegment>? = null,
 ) {
+    private var sourceCursor: Int = 0
+
+    var inlineMathBuildRequests: Int = 0
+        private set
+
+    fun recordInlineMathBuildRequest() {
+        inlineMathBuildRequests++
+    }
+
     fun emitTextAtom(
         builder: AnnotatedString.Builder,
         segment: AnnotatedString,
+        sourceOffset: Int = 0,
+        sourceLength: Int = segment.length,
     ) {
-        if (segment.isEmpty()) return
-        builder.append(segment)
-        flowSegments?.appendTextAnnotatedSegment(segment)
+        if (segment.isNotEmpty()) {
+            builder.append(segment)
+            flowSegments?.appendTextAnnotatedSegment(
+                segment = segment,
+                sourceStart = sourceCursor + sourceOffset,
+            )
+        }
+        sourceCursor += sourceLength
     }
 
     fun emitStyledTextAtom(
@@ -86,7 +102,7 @@ internal class InlineRenderBuildContext(
         emitInlineWidget(
             builder = builder,
             widget = widget,
-            alternateText = widget.title ?: widget.altText.ifEmpty { widget.url },
+            alternateText = widget.altText.ifEmpty { widget.title ?: widget.url },
             widthPx = widthPx,
             heightPx = heightPx,
             content = content,
@@ -167,7 +183,12 @@ internal class InlineRenderBuildContext(
         payload: InlineWidgetPaintPayload,
     ) {
         paintPayloads[id] = payload
-        flowSegments?.appendInlineSegment(id, payload.placeholder)
+        flowSegments?.appendInlineSegment(
+            id = id,
+            placeholder = payload.placeholder,
+            sourceStart = sourceCursor,
+        )
+        sourceCursor += payload.alternateText.length
     }
 
     private fun emitInlineWidget(
@@ -191,13 +212,22 @@ internal class InlineRenderBuildContext(
     }
 }
 
-private fun MutableList<InlineFlowSegment>.appendTextAnnotatedSegment(segment: AnnotatedString) {
+private fun MutableList<InlineFlowSegment>.appendTextAnnotatedSegment(
+    segment: AnnotatedString,
+    sourceStart: Int,
+) {
     if (segment.isEmpty()) return
     val text = segment.text
     var start = 0
     fun pushText(end: Int) {
         if (end > start) {
-            add(InlineFlowSegment.TextRun(segment.subSequence(start, end)))
+            add(
+                InlineFlowSegment.TextRun(
+                    annotated = segment.subSequence(start, end),
+                    sourceStart = sourceStart + start,
+                    sourceEnd = sourceStart + end,
+                )
+            )
         }
         start = end
     }
@@ -214,6 +244,14 @@ private fun MutableList<InlineFlowSegment>.appendTextAnnotatedSegment(segment: A
 private fun MutableList<InlineFlowSegment>.appendInlineSegment(
     id: InlinePlaceholderId,
     placeholder: InlinePlaceholderLayoutSpec,
+    sourceStart: Int,
 ) {
-    add(InlineFlowSegment.InlineRun(id = id, placeholder = placeholder))
+    add(
+        InlineFlowSegment.InlineRun(
+            id = id,
+            placeholder = placeholder,
+            sourceStart = sourceStart,
+            sourceEnd = sourceStart + placeholder.alternateText.length,
+        )
+    )
 }

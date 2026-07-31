@@ -42,6 +42,7 @@ internal data class InlineRenderResult(
     val annotated: AnnotatedString,
     val paintPayloads: Map<InlinePlaceholderId, InlineWidgetPaintPayload>,
     val flowInput: InlineFlowInput,
+    val inlineMathBuildRequests: Int,
 )
 
 internal fun inlineWidgetPaintPayload(

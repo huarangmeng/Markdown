@@ -18,6 +18,11 @@ import kotlin.math.ceil
 internal class InlineLayoutRuntime {
     private val renderResultCache = InlineRenderResultCache()
     private val flowLayoutCache = InlineFlowLayoutCache()
+    private val metrics = InlineLayoutMetrics()
+
+    fun metricsSnapshot(): InlineLayoutMetricsSnapshot = metrics.snapshot()
+
+    fun resetMetrics() = metrics.reset()
 
     fun renderResult(
         model: InlineModel,
@@ -32,13 +37,15 @@ internal class InlineLayoutRuntime {
         textMeasurer: TextMeasurer,
         codeTheme: CodeTheme?,
     ): InlineRenderResult {
+        metrics.renderResultRequests++
         return renderResultCache.getOrPut(
             epoch = epoch,
             stableId = model.identity.stableId,
             contentRevision = model.identity.contentRevision,
             style = style,
         ) {
-            buildInlineRenderResultFromModel(
+            metrics.renderResultComputations++
+            val result = buildInlineRenderResultFromModel(
                 model = model,
                 theme = theme,
                 hostTextStyle = style,
@@ -50,6 +57,8 @@ internal class InlineLayoutRuntime {
                 textMeasurer = textMeasurer,
                 codeTheme = codeTheme,
             )
+            metrics.inlineMathBuildRequests += result.inlineMathBuildRequests
+            result
         }
     }
 
@@ -63,6 +72,7 @@ internal class InlineLayoutRuntime {
         widthPx: Float,
         maxLines: Int,
     ): InlineFlowLayout {
+        metrics.flowLayoutRequests++
         return flowLayoutCache.getOrPut(
             epoch = epoch,
             layoutRevision = identity.layoutRevision,
@@ -72,6 +82,7 @@ internal class InlineLayoutRuntime {
             density = density,
             textMeasurer = textMeasurer,
         ) {
+            metrics.flowLayoutComputations++
             computeInlineFlowLayout(
                 input = inlineResult.flowInput,
                 style = style,

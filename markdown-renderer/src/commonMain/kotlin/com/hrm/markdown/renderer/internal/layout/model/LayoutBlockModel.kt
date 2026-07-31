@@ -231,6 +231,8 @@ internal data class LayoutTextRun(
     override val identity: RenderIdentity,
     override val frame: LayoutRect,
     val text: AnnotatedString,
+    val sourceStart: Int? = null,
+    val sourceEnd: Int? = null,
 ) : LayoutInlineRun
 
 internal data class LayoutWidgetRun(
@@ -239,4 +241,6 @@ internal data class LayoutWidgetRun(
     val id: InlinePlaceholderId,
     val widget: InlineWidgetModel,
     val alternateText: String = "",
+    val sourceStart: Int? = null,
+    val sourceEnd: Int? = null,
 ) : LayoutInlineRun

@@ -25,12 +25,16 @@ internal data class InlineFlowLine(
 internal sealed class LineItem {
     abstract val widthPx: Float
     abstract val heightPx: Float
+    abstract val sourceStart: Int?
+    abstract val sourceEnd: Int?
 
     data class TextItem(
         val text: AnnotatedString,
         override val widthPx: Float,
         override val heightPx: Float,
         val baselinePx: Float,
+        override val sourceStart: Int? = null,
+        override val sourceEnd: Int? = null,
     ) : LineItem()
 
     data class InlineItem(
@@ -38,5 +42,7 @@ internal sealed class LineItem {
         override val widthPx: Float,
         override val heightPx: Float,
         val alternateText: String,
+        override val sourceStart: Int? = null,
+        override val sourceEnd: Int? = null,
     ) : LineItem()
 }

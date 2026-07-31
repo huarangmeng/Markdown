@@ -116,57 +116,116 @@ internal class SelectionModelIndex(
 
 /** Build the full logical index directly from the cheap render model. */
 internal fun buildSelectionIndex(blocks: List<InternalRenderBlockModel>): SelectionModelIndex {
-    val entries = ArrayList<SelectionBlockEntry>()
-    var nextOrder = 0
+    return IncrementalSelectionIndexBuilder().build(blocks)
+}
 
-    fun add(stableId: Long, text: String) {
-        if (text.isEmpty()) return
-        entries += SelectionBlockEntry(
-            stableId = stableId,
-            order = nextOrder++,
-            totalChars = text.length,
-            text = text,
-        )
-    }
+internal data class SelectionIndexBuildMetrics(
+    val computedTopLevelBlocks: Int = 0,
+    val reusedTopLevelBlocks: Int = 0,
+)
 
-    fun visit(block: InternalRenderBlockModel) {
-        when (block) {
-            is ParagraphBlockModel -> add(block.identity.stableId, block.inline.plainText())
-            is HeadingBlockModel -> add(
-                block.identity.stableId,
-                buildString {
-                    block.numbering?.takeIf { it.isNotBlank() }?.let { append(it).append(' ') }
-                    append(block.inline.plainText())
-                },
-            )
-            is CodeBlockModel -> add(block.identity.stableId, block.code)
-            is MathBlockModel -> add(block.identity.stableId, block.latex)
-            is DiagramBlockModel -> add(block.identity.stableId, block.code)
-            is HtmlBlockModel -> add(block.identity.stableId, block.html)
-            is TableBlockModel -> add(block.identity.stableId, block.plainText())
-            is BlockQuoteBlockModel -> block.children.forEach(::visit)
-            is AdmonitionBlockModel -> block.children.forEach(::visit)
-            is CustomContainerBlockModel -> block.children.forEach(::visit)
-            is DirectiveBlockModel -> block.children.forEach(::visit)
-            is FallbackContainerBlockModel -> block.children.forEach(::visit)
-            is ListBlockModel -> block.items.forEach { item -> item.children.forEach(::visit) }
-            is ColumnsLayoutBlockModel -> block.columns.forEach { column -> column.children.forEach(::visit) }
-            is TabBlockModel -> block.items.forEach { tab -> tab.children.forEach(::visit) }
-            is FootnoteDefinitionBlockModel -> block.children.forEach(::visit)
-            is DefinitionListBlockModel -> block.items.forEach { item ->
-                if (item is DefinitionDescriptionBlockModel) item.children.forEach(::visit)
+/**
+ * Reuses the selectable-text fragments of unchanged top-level blocks across streaming snapshots.
+ * Document order is still rebuilt because blocks may be inserted or moved, but plain-text
+ * extraction and recursive traversal are limited to changed blocks.
+ */
+internal class IncrementalSelectionIndexBuilder {
+    private data class RawEntry(val stableId: Long, val text: String)
+
+    private data class CachedFragment(
+        val contentRevision: Long,
+        val entries: List<RawEntry>,
+    )
+
+    private var fragmentsByStableId: Map<Long, CachedFragment> = emptyMap()
+
+    var lastMetrics: SelectionIndexBuildMetrics = SelectionIndexBuildMetrics()
+        private set
+
+    fun build(blocks: List<InternalRenderBlockModel>): SelectionModelIndex {
+        val nextFragments = HashMap<Long, CachedFragment>(blocks.size)
+        val entries = ArrayList<SelectionBlockEntry>()
+        var computed = 0
+        var reused = 0
+
+        for (block in blocks) {
+            val stableId = block.identity.stableId
+            val cached = fragmentsByStableId[stableId]
+            val fragment = if (cached?.contentRevision == block.identity.contentRevision) {
+                reused++
+                cached
+            } else {
+                computed++
+                CachedFragment(
+                    contentRevision = block.identity.contentRevision,
+                    entries = selectionEntriesForBlock(block),
+                )
             }
-            is BibliographyDefinitionBlockModel,
-            is FigureBlockModel,
-            is PageBreakBlockModel,
-            is ThematicBreakBlockModel,
-            is TocBlockModel -> Unit
-            else -> Unit
+            nextFragments[stableId] = fragment
+            for (entry in fragment.entries) {
+                entries += SelectionBlockEntry(
+                    stableId = entry.stableId,
+                    order = entries.size,
+                    totalChars = entry.text.length,
+                    text = entry.text,
+                )
+            }
         }
+
+        fragmentsByStableId = nextFragments
+        lastMetrics = SelectionIndexBuildMetrics(
+            computedTopLevelBlocks = computed,
+            reusedTopLevelBlocks = reused,
+        )
+        return SelectionModelIndex(entries)
     }
 
-    blocks.forEach(::visit)
-    return SelectionModelIndex(entries)
+    private fun selectionEntriesForBlock(block: InternalRenderBlockModel): List<RawEntry> {
+        val entries = ArrayList<RawEntry>()
+
+        fun add(stableId: Long, text: String) {
+            if (text.isNotEmpty()) entries += RawEntry(stableId, text)
+        }
+
+        fun visit(current: InternalRenderBlockModel) {
+            when (current) {
+                is ParagraphBlockModel -> add(current.identity.stableId, current.inline.plainText())
+                is HeadingBlockModel -> add(
+                    current.identity.stableId,
+                    buildString {
+                        current.numbering?.takeIf { it.isNotBlank() }?.let { append(it).append(' ') }
+                        append(current.inline.plainText())
+                    },
+                )
+                is CodeBlockModel -> add(current.identity.stableId, current.code)
+                is MathBlockModel -> add(current.identity.stableId, current.latex)
+                is DiagramBlockModel -> add(current.identity.stableId, current.code)
+                is HtmlBlockModel -> add(current.identity.stableId, current.html)
+                is TableBlockModel -> add(current.identity.stableId, current.plainText())
+                is BlockQuoteBlockModel -> current.children.forEach(::visit)
+                is AdmonitionBlockModel -> current.children.forEach(::visit)
+                is CustomContainerBlockModel -> current.children.forEach(::visit)
+                is DirectiveBlockModel -> current.children.forEach(::visit)
+                is FallbackContainerBlockModel -> current.children.forEach(::visit)
+                is ListBlockModel -> current.items.forEach { item -> item.children.forEach(::visit) }
+                is ColumnsLayoutBlockModel -> current.columns.forEach { column -> column.children.forEach(::visit) }
+                is TabBlockModel -> current.items.forEach { tab -> tab.children.forEach(::visit) }
+                is FootnoteDefinitionBlockModel -> current.children.forEach(::visit)
+                is DefinitionListBlockModel -> current.items.forEach { item ->
+                    if (item is DefinitionDescriptionBlockModel) item.children.forEach(::visit)
+                }
+                is BibliographyDefinitionBlockModel,
+                is FigureBlockModel,
+                is PageBreakBlockModel,
+                is ThematicBreakBlockModel,
+                is TocBlockModel -> Unit
+                else -> Unit
+            }
+        }
+
+        visit(block)
+        return entries
+    }
 }
 
 /** Legacy/test helper that derives the logical index from already-created layout blocks. */
@@ -224,7 +283,7 @@ internal fun buildSelectionGeometry(
         return SelectionBlockGeometry(entry.stableId, block, emptyList())
     }
     val spans = ArrayList<SelectionRunSpan>()
-    var searchFrom = 0
+    var fallbackCursor = 0
     for (placement in block.runPlacements()) {
         val run = placement.run
         val text = when (run) {
@@ -232,9 +291,16 @@ internal fun buildSelectionGeometry(
             is LayoutWidgetRun -> run.alternateText
         }
         if (text.isEmpty()) continue
-        val found = entry.text.indexOf(text, startIndex = searchFrom)
-        val start = (if (found >= 0) found else searchFrom).coerceIn(0, entry.totalChars)
-        val end = (start + text.length).coerceIn(start, entry.totalChars)
+        val explicitStart = when (run) {
+            is LayoutTextRun -> run.sourceStart
+            is LayoutWidgetRun -> run.sourceStart
+        }
+        val explicitEnd = when (run) {
+            is LayoutTextRun -> run.sourceEnd
+            is LayoutWidgetRun -> run.sourceEnd
+        }
+        val start = (explicitStart ?: fallbackCursor).coerceIn(0, entry.totalChars)
+        val end = (explicitEnd ?: (start + text.length)).coerceIn(start, entry.totalChars)
         if (end > start) {
             spans += SelectionRunSpan(
                 lineIndex = placement.lineIndex,
@@ -245,7 +311,7 @@ internal fun buildSelectionGeometry(
                 charEnd = end,
             )
         }
-        searchFrom = end
+        fallbackCursor = end
     }
     return SelectionBlockGeometry(entry.stableId, block, spans)
 }

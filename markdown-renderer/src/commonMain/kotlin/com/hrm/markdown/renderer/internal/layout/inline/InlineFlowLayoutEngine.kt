@@ -71,6 +71,7 @@ internal fun computeInlineFlowLayout(
         text: AnnotatedString,
         measured: MeasuredText,
         widthPx: Float = measured.widthPx,
+        sourceStart: Int? = null,
     ) {
         currentItems.add(
             LineItem.TextItem(
@@ -78,6 +79,8 @@ internal fun computeInlineFlowLayout(
                 widthPx = widthPx.coerceAtLeast(0f),
                 heightPx = measured.heightPx,
                 baselinePx = measured.baselinePx,
+                sourceStart = sourceStart,
+                sourceEnd = sourceStart?.plus(text.length),
             )
         )
         currentWidth += widthPx.coerceAtLeast(0f)
@@ -124,6 +127,8 @@ internal fun computeInlineFlowLayout(
                         widthPx = w,
                         heightPx = h,
                         alternateText = token.placeholder.alternateText,
+                        sourceStart = token.sourceStart,
+                        sourceEnd = token.sourceEnd,
                     )
                 )
                 currentWidth += w
@@ -132,13 +137,14 @@ internal fun computeInlineFlowLayout(
 
             is InlineFlowSegment.TextRun -> {
                 var remaining = token.annotated
+                var remainingSourceStart = token.sourceStart
                 while (remaining.isNotEmpty() && lineCount < maxLines) {
                     val measured = measureText(remaining)
                     val w = measured.widthPx
                     val used = currentWidth
                     val available = (maxWidthPx - used).coerceAtLeast(0f)
                     if (w <= available) {
-                        appendTextItem(remaining, measured)
+                        appendTextItem(remaining, measured, sourceStart = remainingSourceStart)
                         break
                     }
 
@@ -170,11 +176,14 @@ internal fun computeInlineFlowLayout(
                             appendTextItem(
                                 text = adjustedFit,
                                 measured = fitMeasured,
+                                sourceStart = remainingSourceStart,
                             )
                             flushLine(force = true)
-                            remaining = remaining
-                                .subSequence(adjustedFit.length, remaining.length)
-                                .trimLeadingSpaces()
+                            val rest = remaining.subSequence(adjustedFit.length, remaining.length)
+                            val leadingSpaces = rest.leadingSpaceCount()
+                            remainingSourceStart = remainingSourceStart
+                                ?.plus(adjustedFit.length + leadingSpaces)
+                            remaining = rest.dropLeadingSpaces(leadingSpaces)
                             continue
                         }
                     }
@@ -190,8 +199,10 @@ internal fun computeInlineFlowLayout(
                     appendTextItem(
                         text = emergencyFit,
                         measured = emergencyMeasured,
+                        sourceStart = remainingSourceStart,
                     )
                     flushLine(force = true)
+                    remainingSourceStart = remainingSourceStart?.plus(cut)
                     remaining = remaining.subSequence(cut, remaining.length)
                 }
             }
@@ -353,11 +364,15 @@ private fun safeBreakIndex(text: String, index: Int): Int {
     return bounded
 }
 
-private fun AnnotatedString.trimLeadingSpaces(): AnnotatedString {
+private fun AnnotatedString.leadingSpaceCount(): Int {
     val s = text
     var i = 0
     while (i < s.length && s[i].isWhitespace() && s[i] != '\n') i++
-    return if (i == 0) this else subSequence(i, s.length)
+    return i
+}
+
+private fun AnnotatedString.dropLeadingSpaces(count: Int): AnnotatedString {
+    return if (count == 0) this else subSequence(count, length)
 }
 
 internal fun textMeasurementStyle(style: TextStyle): TextStyle {

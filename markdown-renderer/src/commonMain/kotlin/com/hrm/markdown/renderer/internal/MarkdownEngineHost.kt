@@ -18,7 +18,9 @@ import com.hrm.markdown.renderer.internal.layout.engine.DefaultMarkdownLayoutEng
 import com.hrm.markdown.renderer.internal.layout.engine.LayoutEnvironment
 import com.hrm.markdown.renderer.internal.layout.engine.MarkdownLayoutEngine
 import com.hrm.markdown.renderer.internal.layout.engine.MarkdownLayoutSession
+import com.hrm.markdown.renderer.internal.layout.engine.MarkdownBlockLayoutCache
 import com.hrm.markdown.renderer.internal.layout.inline.InlineLayoutRuntime
+import com.hrm.markdown.renderer.internal.layout.inline.InlineLayoutMetricsSnapshot
 import com.hrm.markdown.renderer.internal.layout.inline.inlineLayoutEpoch
 import com.hrm.markdown.renderer.internal.layout.model.InternalLayoutDocumentModel
 
@@ -28,6 +30,14 @@ internal class MarkdownEngineHost(
     val composePainter: MarkdownComposePainter = DefaultMarkdownComposePainter,
 ) {
     private val inlineLayoutRuntime = InlineLayoutRuntime()
+    private val blockLayoutCache = MarkdownBlockLayoutCache()
+
+    internal fun inlineLayoutMetrics(): InlineLayoutMetricsSnapshot =
+        inlineLayoutRuntime.metricsSnapshot()
+
+    internal fun resetInlineLayoutMetrics() {
+        inlineLayoutRuntime.resetMetrics()
+    }
 
     fun compile(
         document: Document,
@@ -92,6 +102,7 @@ internal class MarkdownEngineHost(
             diagramHostRegistry = diagramHostRegistry,
         ),
         engine = layoutEngine,
+        sharedBlockCache = blockLayoutCache,
     )
 
     private fun createLayoutEnvironment(

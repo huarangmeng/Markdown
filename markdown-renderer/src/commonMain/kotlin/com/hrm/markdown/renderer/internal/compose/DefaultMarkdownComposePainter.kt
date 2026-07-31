@@ -6,14 +6,18 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.key
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.dp
 import com.hrm.markdown.renderer.LocalMarkdownTheme
 import com.hrm.markdown.renderer.MarkdownRenderMode
@@ -73,6 +77,7 @@ import com.hrm.markdown.renderer.internal.core.model.TableBlockModel
 import com.hrm.markdown.renderer.internal.core.model.ThematicBreakBlockModel
 import com.hrm.markdown.renderer.internal.core.model.TocBlockModel
 import com.hrm.markdown.renderer.internal.layout.engine.MarkdownLayoutSource
+import com.hrm.markdown.renderer.internal.layout.inline.LayoutInlineRunPlacement
 import com.hrm.markdown.renderer.internal.layout.model.LayoutBibliographyBlockModel
 import com.hrm.markdown.renderer.internal.layout.model.LayoutColumnsBlockModel
 import com.hrm.markdown.renderer.internal.layout.model.LayoutDefinitionListBlockModel
@@ -88,6 +93,7 @@ import com.hrm.markdown.renderer.internal.layout.model.LayoutTocBlockModel
 import com.hrm.markdown.renderer.internal.layout.model.LayoutWidgetBlockModel
 import com.hrm.markdown.renderer.internal.selection.LocalMarkdownSelectionController
 import com.hrm.markdown.renderer.internal.selection.selectableBlock
+import kotlinx.coroutines.flow.distinctUntilChanged
 
 internal object DefaultMarkdownComposePainter : MarkdownComposePainter {
     @Composable
@@ -97,8 +103,15 @@ internal object DefaultMarkdownComposePainter : MarkdownComposePainter {
     ) {
         when (environment.renderMode) {
             MarkdownRenderMode.LazyColumn -> {
+                val lazyListState = environment.lazyListState ?: rememberLazyListState()
+                val documentStartIndex = if (environment.header == null) 0 else 1
+                PrefetchNextMarkdownBlock(
+                    document = document,
+                    state = lazyListState,
+                    documentStartIndex = documentStartIndex,
+                )
                 LazyColumn(
-                    state = environment.lazyListState ?: rememberLazyListState(),
+                    state = lazyListState,
                     modifier = environment.modifier.graphicsLayer { },
                     verticalArrangement = Arrangement.spacedBy(LocalMarkdownTheme.current.blockSpacing),
                 ) {
@@ -148,6 +161,28 @@ internal object DefaultMarkdownComposePainter : MarkdownComposePainter {
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun PrefetchNextMarkdownBlock(
+    document: MarkdownLayoutSource,
+    state: LazyListState,
+    documentStartIndex: Int,
+) {
+    LaunchedEffect(document, state, documentStartIndex) {
+        snapshotFlow {
+            state.layoutInfo.visibleItemsInfo
+                .lastOrNull()
+                ?.index
+                ?.minus(documentStartIndex)
+        }
+            .distinctUntilChanged()
+            .collect { lastVisibleDocumentIndex ->
+                if (lastVisibleDocumentIndex != null) {
+                    document.prefetch(lastVisibleDocumentIndex + 1)
+                }
+            }
     }
 }
 
@@ -417,12 +452,28 @@ private fun PaintRenderBlock(block: LayoutRenderBlockModel) {
 
 @Composable
 private fun PaintInlineBlock(block: LayoutInlineBlockModel) {
+    val selectionController = LocalMarkdownSelectionController.current
+    // Keep the normal rendering path callback-free. Starting a selection recreates BasicText
+    // once so its existing layout result can serve all subsequent highlights and handle drags.
+    val onTextItemLayout = if (selectionController?.hasSelection != true) {
+        null
+    } else {
+        remember(block.identity.stableId, selectionController) {
+            { placements: List<LayoutInlineRunPlacement>, result: TextLayoutResult ->
+                selectionController.registerTextLayout(block.identity.stableId, placements, result)
+            }
+        }
+    }
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .selectableBlock(block, LocalMarkdownSelectionController.current)
+            .selectableBlock(block, selectionController)
     ) {
-        PaintInlineLayoutContent(block = block, modifier = Modifier.fillMaxWidth())
+        PaintInlineLayoutContent(
+            block = block,
+            modifier = Modifier.fillMaxWidth(),
+            onTextItemLayout = onTextItemLayout,
+        )
         if (block.showDivider) {
             HorizontalDivider(
                 modifier = Modifier.padding(top = 4.dp),

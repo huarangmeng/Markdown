@@ -14,6 +14,7 @@ import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.unit.Constraints
 import com.hrm.markdown.renderer.internal.core.model.InternalRenderBlockModel
+import com.hrm.markdown.renderer.internal.layout.inline.LayoutInlineRunPlacement
 import com.hrm.markdown.renderer.internal.layout.inline.textMeasurementStyle
 import com.hrm.markdown.renderer.internal.layout.model.InternalLayoutBlockModel
 import com.hrm.markdown.renderer.internal.layout.model.LayoutInlineBlockModel
@@ -38,14 +39,18 @@ internal class MarkdownSelectionController(
     val registry = SelectionCoordinateRegistry()
 
     private var index: SelectionModelIndex = SelectionModelIndex(emptyList())
+    private val incrementalIndexBuilder = IncrementalSelectionIndexBuilder()
     private val visibleLayoutBlocks = mutableMapOf<Long, InternalLayoutBlockModel>()
     private val geometryByStableId = mutableMapOf<Long, SelectionBlockGeometry>()
-    private val textLayoutsByBlock = mutableMapOf<Long, MutableMap<VisibleTextLayoutKey, TextLayoutResult>>()
+    private val textLayoutsByBlock = mutableMapOf<Long, MutableMap<VisibleTextLayoutKey, VisibleRunTextLayout>>()
     private var clipboard: Clipboard? = null
     private var startAnchor: SelectionAnchor? = null
     private var draggedHandleAnchor: SelectionAnchor? by mutableStateOf(null)
     private var fixedHandleAnchor: SelectionAnchor? = null
     private var skipNextTapClear: Boolean = false
+
+    internal var fallbackTextMeasurementCount: Long = 0
+        private set
 
     val hasSelection: Boolean get() = state.hasSelection
 
@@ -55,7 +60,7 @@ internal class MarkdownSelectionController(
 
     /** Refresh the lightweight whole-document index without laying out offscreen blocks. */
     fun updateDocument(blocks: List<InternalRenderBlockModel>) {
-        replaceIndex(buildSelectionIndex(blocks))
+        replaceIndex(incrementalIndexBuilder.build(blocks))
     }
 
     /** Legacy/test entry point for callers that already own an eager layout tree. */
@@ -89,8 +94,15 @@ internal class MarkdownSelectionController(
     }
 
     fun registerVisibleBlock(block: InternalLayoutBlockModel) {
-        visibleLayoutBlocks[block.identity.stableId] = block
-        rebuildGeometry(block.identity.stableId)
+        val stableId = block.identity.stableId
+        val previous = visibleLayoutBlocks.put(stableId, block)
+        if (previous != null &&
+            (previous.identity.contentRevision != block.identity.contentRevision ||
+                previous.identity.layoutRevision != block.identity.layoutRevision)
+        ) {
+            textLayoutsByBlock.remove(stableId)
+        }
+        rebuildGeometry(stableId)
     }
 
     fun unregisterVisibleBlock(stableId: Long) {
@@ -99,10 +111,38 @@ internal class MarkdownSelectionController(
         textLayoutsByBlock.remove(stableId)
     }
 
+    /** Reuse the TextLayoutResult produced by BasicText instead of measuring selected runs again. */
+    fun registerTextLayout(
+        blockStableId: Long,
+        placements: List<LayoutInlineRunPlacement>,
+        result: TextLayoutResult,
+    ) {
+        if (visibleLayoutBlocks[blockStableId] == null) return
+        val textPlacements = placements.filter { it.run is LayoutTextRun }
+        val first = textPlacements.firstOrNull() ?: return
+        val expectedText = buildString {
+            textPlacements.forEach { placement ->
+                append((placement.run as LayoutTextRun).text.text)
+            }
+        }
+        if (result.layoutInput.text.text != expectedText) return
+        val blockCache = textLayoutsByBlock.getOrPut(blockStableId) { mutableMapOf() }
+        var textStart = 0
+        for (placement in textPlacements) {
+            val run = placement.run as LayoutTextRun
+            blockCache[run.visibleTextLayoutKey()] = VisibleRunTextLayout(
+                result = result,
+                textStart = textStart,
+                runX = (placement.x - first.x).toFloat(),
+                runY = (placement.y - first.y).toFloat(),
+            )
+            textStart += run.text.length
+        }
+    }
+
     private fun replaceIndex(newIndex: SelectionModelIndex) {
         index = newIndex
         geometryByStableId.clear()
-        textLayoutsByBlock.clear()
         visibleLayoutBlocks.keys.toList().forEach(::rebuildGeometry)
         val current = state.range ?: return
         val start = index.clampAnchor(current.start)
@@ -114,7 +154,6 @@ internal class MarkdownSelectionController(
         val block = visibleLayoutBlocks[stableId] ?: return
         val entry = index.entryOf(stableId) ?: return
         geometryByStableId[stableId] = buildSelectionGeometry(block, entry)
-        textLayoutsByBlock.remove(stableId)
     }
 
     /** 返回某 block 内字符区间对应的 run 切片，供高亮绘制使用。 */
@@ -160,8 +199,8 @@ internal class MarkdownSelectionController(
                 val layout = textLayoutFor(geometry, slice.span) ?: continue
                 val s = slice.startInRun.coerceIn(0, text.length)
                 val e = slice.endInRun.coerceIn(0, text.length)
-                startX = layout.getHorizontalPosition(s, usePrimaryDirection = true)
-                endX = layout.getHorizontalPosition(e, usePrimaryDirection = true)
+                startX = layout.horizontalPosition(s)
+                endX = layout.horizontalPosition(e)
             }
             val left = runLeft + minOf(startX, endX)
             val right = runLeft + maxOf(startX, endX)
@@ -341,9 +380,8 @@ internal class MarkdownSelectionController(
             val run = span.run
             val runLeft = run.frame.left - inlineBlock.frame.left
             val runTop = run.frame.top - inlineBlock.frame.top
-            val horizontal = textLayoutFor(geometry, span)?.getHorizontalPosition(
-                offset = offsetInRun.coerceIn(0, span.text.length),
-                usePrimaryDirection = true,
+            val horizontal = textLayoutFor(geometry, span)?.horizontalPosition(
+                offsetInRun.coerceIn(0, span.text.length)
             ) ?: if (offsetInRun <= 0) 0f else run.frame.width
             blockLocalPosition = Offset(
                 x = runLeft + horizontal,
@@ -477,7 +515,10 @@ internal class MarkdownSelectionController(
         val text = hit.run.text
         if (text.isEmpty()) return 0
         val layout = textLayoutFor(geometry, span) ?: return 0
-        val raw = layout.getOffsetForPosition(Offset(hit.runLocalX, hit.runLocalY.coerceAtLeast(0f)))
+        val raw = layout.offsetForPosition(
+            x = hit.runLocalX,
+            y = hit.runLocalY.coerceAtLeast(0f),
+        )
         return clampToCharBoundary(text, raw.coerceIn(0, text.length))
     }
 
@@ -515,25 +556,47 @@ internal class MarkdownSelectionController(
     private fun textLayoutFor(
         geometry: SelectionBlockGeometry,
         span: SelectionRunSpan,
-    ): TextLayoutResult? {
+    ): VisibleRunTextLayout? {
         val block = geometry.block as? LayoutInlineBlockModel ?: return null
         val run = span.run as? LayoutTextRun ?: return null
-        val key = VisibleTextLayoutKey(
-            stableId = run.identity.stableId,
-            contentRevision = run.identity.contentRevision,
-            text = run.text.text,
-        )
+        val key = run.visibleTextLayoutKey()
         val blockCache = textLayoutsByBlock.getOrPut(geometry.stableId) { mutableMapOf() }
         return blockCache.getOrPut(key) {
-            textMeasurer.measure(
-                text = run.text,
-                style = textMeasurementStyle(block.style),
-                constraints = Constraints(maxWidth = Int.MAX_VALUE),
-                maxLines = 1,
-                softWrap = false,
+            fallbackTextMeasurementCount++
+            VisibleRunTextLayout(
+                result = textMeasurer.measure(
+                    text = run.text,
+                    style = textMeasurementStyle(block.style),
+                    constraints = Constraints(maxWidth = Int.MAX_VALUE),
+                    maxLines = 1,
+                    softWrap = false,
+                ),
             )
         }
     }
+}
+
+private fun LayoutTextRun.visibleTextLayoutKey(): VisibleTextLayoutKey =
+    VisibleTextLayoutKey(
+        stableId = identity.stableId,
+        contentRevision = identity.contentRevision,
+        text = text.text,
+    )
+
+private data class VisibleRunTextLayout(
+    val result: TextLayoutResult,
+    val textStart: Int = 0,
+    val runX: Float = 0f,
+    val runY: Float = 0f,
+) {
+    fun horizontalPosition(offsetInRun: Int): Float =
+        result.getHorizontalPosition(
+            offset = (textStart + offsetInRun).coerceIn(0, result.layoutInput.text.length),
+            usePrimaryDirection = true,
+        ) - runX
+
+    fun offsetForPosition(x: Float, y: Float): Int =
+        result.getOffsetForPosition(Offset(x + runX, y + runY)) - textStart
 }
 
 private data class VisibleTextLayoutKey(

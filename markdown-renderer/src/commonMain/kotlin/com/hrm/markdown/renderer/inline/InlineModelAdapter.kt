@@ -82,6 +82,7 @@ internal fun buildInlineRenderResultFromModel(
         annotated = annotated,
         paintPayloads = context.paintPayloads,
         flowInput = InlineFlowInput(flowSegments),
+        inlineMathBuildRequests = context.inlineMathBuildRequests,
     )
 }
 
@@ -106,15 +107,15 @@ internal fun AnnotatedString.Builder.renderInlineModel(
                     index = index,
                     atom = atom,
                 )
-                if (normalized.text.isNotEmpty()) {
-                    renderTextAtom(
-                        atom = normalized,
-                        theme = theme,
-                        context = context,
-                        onLinkClick = onLinkClick,
-                        onFootnoteClick = onFootnoteClick,
-                    )
-                }
+                renderTextAtom(
+                    atom = normalized,
+                    theme = theme,
+                    context = context,
+                    onLinkClick = onLinkClick,
+                    onFootnoteClick = onFootnoteClick,
+                    sourceOffset = atom.text.indexOf(normalized.text).coerceAtLeast(0),
+                    sourceLength = atom.text.length,
+                )
             }
 
             is WidgetAtom -> renderWidgetAtom(
@@ -172,6 +173,8 @@ private fun AnnotatedString.Builder.renderTextAtom(
     context: InlineRenderBuildContext,
     onLinkClick: ((String) -> Unit)?,
     onFootnoteClick: ((String) -> Unit)?,
+    sourceOffset: Int,
+    sourceLength: Int,
 ) {
     val clickMark =
         atom.marks.lastOrNull { it.kind == "link" || it.kind == "footnote" || it.kind == "citation" }
@@ -248,7 +251,12 @@ private fun AnnotatedString.Builder.renderTextAtom(
             else -> appendText()
         }
     }
-    context.emitTextAtom(this, segment)
+    context.emitTextAtom(
+        builder = this,
+        segment = segment,
+        sourceOffset = sourceOffset,
+        sourceLength = sourceLength,
+    )
 }
 
 private fun spanStyleForMark(mark: SpanMark, theme: MarkdownTheme): SpanStyle = when (mark.kind) {
@@ -399,6 +407,7 @@ private fun AnnotatedString.Builder.renderInlineMathWidget(
     latexMeasurer: LatexMeasurerState,
     density: Density,
 ) {
+    context.recordInlineMathBuildRequest()
     val trimmedLatex = widget.latex.trim()
     val latexConfig = LatexConfig(
         fontSize = theme.mathFontSize.sp,

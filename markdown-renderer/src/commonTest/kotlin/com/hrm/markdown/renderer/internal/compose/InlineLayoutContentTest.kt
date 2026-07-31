@@ -1,6 +1,8 @@
 package com.hrm.markdown.renderer.internal.compose
 
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.v2.runComposeUiTest
 import androidx.compose.ui.text.AnnotatedString
@@ -15,10 +17,15 @@ import com.hrm.markdown.renderer.internal.layout.inline.InlineFlowSegment
 import com.hrm.markdown.renderer.internal.layout.inline.buildInlineLayoutBlockModel
 import com.hrm.markdown.renderer.internal.layout.inline.computeInlineFlowLayout
 import com.hrm.markdown.renderer.internal.layout.model.LayoutRect
+import com.hrm.markdown.renderer.internal.selection.MarkdownSelectionController
+import com.hrm.markdown.renderer.internal.selection.SelectionAnchor
+import com.hrm.markdown.renderer.internal.selection.SelectionRange
+import com.hrm.markdown.renderer.internal.selection.rememberMarkdownSelectionController
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
+import kotlin.test.assertTrue
 
 @OptIn(ExperimentalTestApi::class)
 class InlineLayoutContentTest {
@@ -63,6 +70,67 @@ class InlineLayoutContentTest {
         val actual = assertNotNull(textLayoutResult)
         assertEquals(TextUnit.Unspecified, actual.layoutInput.style.lineHeight)
         assertFalse(actual.hasVisualOverflow)
+    }
+
+    @Test
+    fun should_reuse_basic_text_layout_for_selection_geometry() = runComposeUiTest {
+        var controller: MarkdownSelectionController? = null
+
+        setContent {
+            val style = TextStyle(fontSize = 16.sp)
+            val density = LocalDensity.current
+            val textMeasurer = rememberTextMeasurer()
+            val flowLayout = computeInlineFlowLayout(
+                input = InlineFlowInput(
+                    listOf(
+                        InlineFlowSegment.TextRun(AnnotatedString("selectable ")),
+                        InlineFlowSegment.TextRun(AnnotatedString("text")),
+                    )
+                ),
+                style = style,
+                density = density,
+                textMeasurer = textMeasurer,
+                maxWidthPx = 320f,
+                maxLines = Int.MAX_VALUE,
+            )
+            val block = buildInlineLayoutBlockModel(
+                identity = renderIdentityForTest,
+                frame = LayoutRect(0f, 0f, 320f, flowLayout.heightPx),
+                contentFrame = LayoutRect(0f, 0f, 320f, flowLayout.heightPx),
+                style = style,
+                layout = flowLayout,
+                inlinePayloads = emptyMap(),
+                widgetById = emptyMap(),
+            )
+            val current = rememberMarkdownSelectionController(
+                coroutineScope = rememberCoroutineScope(),
+                textMeasurer = textMeasurer,
+            )
+            controller = current
+            LaunchedEffect(current, block) {
+                current.updateIndex(listOf(block))
+                current.state.range = SelectionRange(
+                    start = SelectionAnchor(block.identity.stableId, 11),
+                    end = SelectionAnchor(block.identity.stableId, 15),
+                )
+            }
+
+            PaintInlineLayoutContent(
+                block = block,
+                onTextItemLayout = { placements, result ->
+                    current.registerTextLayout(block.identity.stableId, placements, result)
+                },
+            )
+        }
+
+        waitForIdle()
+
+        runOnIdle {
+            val actual = assertNotNull(controller)
+            val highlight = actual.highlightBoxesFor(renderIdentityForTest.stableId).single()
+            assertTrue(highlight.left > 0f)
+            assertEquals(0L, actual.fallbackTextMeasurementCount)
+        }
     }
 
     private companion object {

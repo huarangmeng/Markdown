@@ -8,6 +8,8 @@ import com.hrm.markdown.renderer.internal.core.model.ColumnsLayoutBlockModel
 import com.hrm.markdown.renderer.internal.core.model.MathBlockModel
 import com.hrm.markdown.renderer.internal.core.model.MathBlockWidgetModel
 import com.hrm.markdown.renderer.internal.core.model.ParagraphBlockModel
+import com.hrm.markdown.renderer.internal.core.identity.RenderIdentity
+import com.hrm.markdown.renderer.internal.layout.model.LayoutTextRun
 import com.hrm.markdown.renderer.internal.layout.model.LayoutColumnGroup
 import com.hrm.markdown.renderer.internal.layout.model.LayoutColumnsBlockModel
 import com.hrm.markdown.renderer.internal.layout.model.LayoutRenderBlockModel
@@ -145,5 +147,57 @@ class SelectionModelIndexTest {
         val span = buildSelectionGeometry(block, entry).runs[1]
         assertEquals(3, span.charStart)
         assertEquals(5, span.charEnd)
+    }
+
+    @Test
+    fun should_use_explicit_source_ranges_for_repeated_visible_text() {
+        val original = inlineMultiRunBlock(id = 1, runs = listOf("same", "same"))
+        val block = original.copy(
+            lines = original.lines.mapIndexed { index, line ->
+                val run = line.runs.single() as LayoutTextRun
+                val start = if (index == 0) 0 else 9
+                line.copy(runs = listOf(run.copy(sourceStart = start, sourceEnd = start + 4)))
+            },
+        )
+        val entry = SelectionBlockEntry(
+            stableId = 1,
+            order = 0,
+            totalChars = 13,
+            text = "same gap same",
+        )
+
+        val spans = buildSelectionGeometry(block, entry).runs
+
+        assertEquals(listOf(0, 9), spans.map { it.charStart })
+        assertEquals(listOf(4, 13), spans.map { it.charEnd })
+    }
+
+    @Test
+    fun should_reuse_unchanged_top_level_selection_fragments_during_streaming_updates() {
+        fun paragraph(id: Long, revision: Long, text: String): ParagraphBlockModel {
+            val identity = RenderIdentity(id, revision, revision, 0)
+            return ParagraphBlockModel(
+                identity = identity,
+                inline = inlineModelText(id * 10, text).copy(identity = identity),
+            )
+        }
+
+        val builder = IncrementalSelectionIndexBuilder()
+        builder.build(
+            listOf(
+                paragraph(id = 1, revision = 10, text = "stable"),
+                paragraph(id = 2, revision = 20, text = "tail"),
+            )
+        )
+        val updated = builder.build(
+            listOf(
+                paragraph(id = 1, revision = 10, text = "stable"),
+                paragraph(id = 2, revision = 21, text = "tail updated"),
+            )
+        )
+
+        assertEquals(1, builder.lastMetrics.reusedTopLevelBlocks)
+        assertEquals(1, builder.lastMetrics.computedTopLevelBlocks)
+        assertEquals(listOf("stable", "tail updated"), updated.entries.map { it.text })
     }
 }

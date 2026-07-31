@@ -56,6 +56,8 @@ internal fun buildInlineLayoutLines(
                         ),
                         frame = LayoutRect(cursorX, runTop, item.widthPx, item.heightPx),
                         text = item.text,
+                        sourceStart = item.sourceStart,
+                        sourceEnd = item.sourceEnd,
                     )
                     cursorX += item.widthPx
                     run
@@ -72,6 +74,8 @@ internal fun buildInlineLayoutLines(
                         widget = widget
                             ?: throw IllegalStateException("Missing inline widget for placeholder ${item.id}"),
                         alternateText = item.alternateText,
+                        sourceStart = item.sourceStart,
+                        sourceEnd = item.sourceEnd,
                     )
                     cursorX += item.widthPx
                     run

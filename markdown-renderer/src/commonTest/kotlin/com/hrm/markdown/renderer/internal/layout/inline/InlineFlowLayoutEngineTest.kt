@@ -214,6 +214,42 @@ class InlineFlowLayoutEngineTest {
         }
     }
 
+    @Test
+    fun should_preserve_explicit_source_ranges_when_text_wraps() = runComposeUiTest {
+        var flowLayout: InlineFlowLayout? = null
+
+        setContent {
+            flowLayout = computeInlineFlowLayout(
+                input = InlineFlowInput(
+                    listOf(
+                        InlineFlowSegment.TextRun(
+                            annotated = AnnotatedString("alpha beta gamma"),
+                            sourceStart = 7,
+                            sourceEnd = 23,
+                        ),
+                    )
+                ),
+                style = TextStyle(fontSize = 16.sp),
+                density = LocalDensity.current,
+                textMeasurer = rememberTextMeasurer(),
+                maxWidthPx = 55f,
+                maxLines = Int.MAX_VALUE,
+            )
+        }
+
+        waitForIdle()
+
+        val items = assertNotNull(flowLayout).lines
+            .flatMap { it.items }
+            .filterIsInstance<LineItem.TextItem>()
+        assertTrue(items.size > 1)
+        items.forEach { item ->
+            assertEquals(item.text.length, checkNotNull(item.sourceEnd) - checkNotNull(item.sourceStart))
+        }
+        assertEquals(7, items.first().sourceStart)
+        assertEquals(23, items.last().sourceEnd)
+    }
+
     private fun InlineFlowLayout.assertNoLineOrRunExceeds(maxWidthPx: Float) {
         val epsilon = 0.5f
         lines.forEachIndexed { lineIndex, line ->

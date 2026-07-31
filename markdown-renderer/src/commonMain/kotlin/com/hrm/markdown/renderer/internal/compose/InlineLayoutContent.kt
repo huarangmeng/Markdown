@@ -28,6 +28,7 @@ internal fun PaintInlineLayoutContent(
     block: LayoutInlineBlockModel,
     modifier: Modifier = Modifier,
     onTextLayout: ((TextLayoutResult) -> Unit)? = null,
+    onTextItemLayout: ((List<LayoutInlineRunPlacement>, TextLayoutResult) -> Unit)? = null,
 ) {
     val textMeasurer = rememberTextMeasurer()
     val textPaintStyle = remember(block.style) {
@@ -49,7 +50,10 @@ internal fun PaintInlineLayoutContent(
         content = {
             for (item in paintItems) {
                 when (item) {
-                    is InlineTextPaintItem -> key(item.stableKey) {
+                    is InlineTextPaintItem -> key(
+                        item.stableKey,
+                        onTextLayout != null || onTextItemLayout != null,
+                    ) {
                         BasicText(
                             text = item.text,
                             modifier = Modifier.clipToBounds(),
@@ -58,7 +62,14 @@ internal fun PaintInlineLayoutContent(
                             style = textPaintStyle,
                             maxLines = 1,
                             softWrap = false,
-                            onTextLayout = onTextLayout,
+                            onTextLayout = if (onTextLayout != null || onTextItemLayout != null) {
+                                { result ->
+                                    onTextLayout?.invoke(result)
+                                    onTextItemLayout?.invoke(item.placements, result)
+                                }
+                            } else {
+                                null
+                            },
                         )
                     }
 
@@ -119,8 +130,6 @@ private data class InlineTextPaintItem(
     override val y: Int,
     override val width: Int,
     override val height: Int,
-    val measuredWidth: Int,
-    val measuredHeight: Int,
 ) : InlinePaintItem {
     val stableKey: Long = placements.fold(0L) { acc, placement ->
         acc * 31 + placement.run.identity.stableId
@@ -192,30 +201,28 @@ private fun buildInlineTextPaintItems(
     style: TextStyle,
     textMeasurer: androidx.compose.ui.text.TextMeasurer,
 ): List<InlineTextPaintItem> {
-    val merged = buildInlineTextPaintItem(
-        placements = placements,
-        style = style,
-        textMeasurer = textMeasurer,
-    )
-    if (merged.measuredWidth <= merged.width + 1 && merged.measuredHeight <= merged.height + 1) {
-        return listOf(merged)
-    }
+    val merged = buildInlineTextPaintItem(placements)
     if (placements.size == 1) {
         return listOf(merged)
     }
-    return placements.map { placement ->
-        buildInlineTextPaintItem(
-            placements = listOf(placement),
-            style = style,
-            textMeasurer = textMeasurer,
-        )
+
+    // A single run was already measured by InlineFlow. Only merged runs need this guard because
+    // shaping across their boundary can produce a different width from the sum of both runs.
+    val measured = textMeasurer.measure(
+        text = merged.text,
+        style = textMeasurementStyle(style),
+        constraints = Constraints(maxWidth = Int.MAX_VALUE),
+        maxLines = 1,
+        softWrap = false,
+    )
+    if (measured.size.width <= merged.width + 1 && measured.size.height <= merged.height + 1) {
+        return listOf(merged)
     }
+    return placements.map { placement -> buildInlineTextPaintItem(listOf(placement)) }
 }
 
 private fun buildInlineTextPaintItem(
     placements: List<LayoutInlineRunPlacement>,
-    style: TextStyle,
-    textMeasurer: androidx.compose.ui.text.TextMeasurer,
 ): InlineTextPaintItem {
     val first = placements.first()
     val mergedText = placements.joinText()
@@ -226,13 +233,6 @@ private fun buildInlineTextPaintItem(
         right = maxOf(right, placement.x + placement.width)
         bottom = maxOf(bottom, placement.y + placement.height)
     }
-    val measured = textMeasurer.measure(
-        text = mergedText,
-        style = textMeasurementStyle(style),
-        constraints = Constraints(maxWidth = Int.MAX_VALUE),
-        maxLines = 1,
-        softWrap = false,
-    )
     return InlineTextPaintItem(
         placements = placements.toList(),
         text = mergedText,
@@ -240,8 +240,6 @@ private fun buildInlineTextPaintItem(
         y = first.y,
         width = (right - first.x).coerceAtLeast(0),
         height = (bottom - first.y).coerceAtLeast(0),
-        measuredWidth = measured.size.width,
-        measuredHeight = measured.size.height,
     )
 }
 
