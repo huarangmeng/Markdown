@@ -94,12 +94,16 @@ tasks.register<JavaExec>("coldStartBenchmark") {
 
 val performanceGateResults = layout.buildDirectory.file("reports/performance-gate/results.json")
 val performanceGateBaseline = layout.projectDirectory.file("performance-baseline.json")
+val performanceGateJmhJar =
+    layout.buildDirectory.file("benchmarks/main/jars/markdown-benchmark-main-jmh-JMH.jar")
 
 val runPerformanceGateBenchmarks by tasks.registering(JavaExec::class) {
     group = "verification"
     description = "Runs forked parser benchmarks with allocation and peak-heap profilers."
     dependsOn("mainBenchmarkJar")
-    classpath = files(layout.buildDirectory.file("benchmarks/main/jars/markdown-benchmark-main-jmh-JMH.jar"))
+    // Keep the generated JMH metadata JAR and the project runtime output on the system classpath.
+    // Some CI JDKs do not expose application-defined profilers from the fat JAR's loader.
+    classpath = files(performanceGateJmhJar) + sourceSets["main"].runtimeClasspath
     mainClass.set("org.openjdk.jmh.Main")
     args(
         "com.hrm.markdown.benchmark.ParserMicrobenchmark.*",
