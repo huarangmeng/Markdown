@@ -10,7 +10,7 @@ Run the same forked JMH workload used by pull-request CI:
 ./gradlew :markdown-benchmark:performanceGate
 ```
 
-The task runs `ParserMicrobenchmark` in fresh JVM forks, records a JSON report at
+The task runs `ParserMicrobenchmark` in a fresh JVM fork, records a JSON report at
 `markdown-benchmark/build/reports/performance-gate/results.json`, and fails when any scenario
 exceeds the checked-in budgets in `performance-baseline.json`.
 
