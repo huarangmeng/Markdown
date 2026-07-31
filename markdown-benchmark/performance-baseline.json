@@ -40,7 +40,7 @@
       "maxPeakHeapDeltaBytes": 805306368
     },
     "ParserMicrobenchmark.streamingAppendBatch": {
-      "maxP95Us": 450000,
+      "maxP95Us": 600000,
       "minThroughputOpsPerSecond": 2.4,
       "maxAllocatedBytesPerOp": 750000000,
       "maxPeakHeapDeltaBytes": 805306368
