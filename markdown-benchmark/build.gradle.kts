@@ -96,21 +96,27 @@ val performanceGateResults = layout.buildDirectory.file("reports/performance-gat
 val performanceGateBaseline = layout.projectDirectory.file("performance-baseline.json")
 val performanceGateJmhJar =
     layout.buildDirectory.file("benchmarks/main/jars/markdown-benchmark-main-jmh-JMH.jar")
+val performanceProfilerJar by tasks.registering(Jar::class) {
+    archiveClassifier.set("performance-profiler")
+    from(sourceSets["main"].output) {
+        include("com/hrm/markdown/benchmark/PeakHeapProfiler.class")
+    }
+}
 
 val runPerformanceGateBenchmarks by tasks.registering(JavaExec::class) {
     group = "verification"
     description = "Runs forked parser benchmarks with allocation and peak-heap profilers."
-    dependsOn("mainBenchmarkJar")
-    // Keep the generated JMH metadata JAR and the project runtime output on the system classpath.
-    // Some CI JDKs do not expose application-defined profilers from the fat JAR's loader.
-    classpath = files(performanceGateJmhJar) + sourceSets["main"].runtimeClasspath
+    dependsOn("mainBenchmarkJar", performanceProfilerJar)
+    // Keep the profiler in its own system-classpath entry. This avoids both the CI fat-JAR
+    // classloader issue and duplicate benchmark classes from the full project runtime classpath.
+    classpath = files(performanceGateJmhJar, performanceProfilerJar.flatMap { it.archiveFile })
     mainClass.set("org.openjdk.jmh.Main")
     args(
         "com.hrm.markdown.benchmark.ParserMicrobenchmark.*",
-        "-wi", "3",
-        "-i", "5",
-        "-w", "300ms",
-        "-r", "300ms",
+        "-wi", "5",
+        "-i", "10",
+        "-w", "500ms",
+        "-r", "500ms",
         "-f", "1",
         "-tu", "us",
         "-bm", "avgt",
