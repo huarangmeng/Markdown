@@ -114,9 +114,9 @@ val runPerformanceGateBenchmarks by tasks.registering(JavaExec::class) {
     args(
         "com.hrm.markdown.benchmark.ParserMicrobenchmark.*",
         "-wi", "5",
-        "-i", "10",
+        "-i", "20",
         "-w", "500ms",
-        "-r", "500ms",
+        "-r", "300ms",
         "-f", "1",
         "-tu", "us",
         "-bm", "avgt",
