@@ -94,17 +94,18 @@ tasks.register<JavaExec>("coldStartBenchmark") {
 
 val performanceGateResults = layout.buildDirectory.file("reports/performance-gate/results.json")
 val performanceGateBaseline = layout.projectDirectory.file("performance-baseline.json")
-val performanceGateJmhJar =
-    layout.buildDirectory.file("benchmarks/main/jars/markdown-benchmark-main-jmh-JMH.jar")
+val performanceGateGeneratedClasses = layout.buildDirectory.dir("benchmarks/main/classes")
+val performanceGateGeneratedResources = layout.buildDirectory.dir("benchmarks/main/resources")
 
 val runPerformanceGateBenchmarks by tasks.registering(JavaExec::class) {
     group = "verification"
     description = "Runs forked parser benchmarks with allocation and peak-heap profilers."
-    dependsOn("mainBenchmarkJar", tasks.named("classes"))
-    // kotlinx-benchmark's fat JAR contains dependencies and generated JMH classes, but not the
-    // original benchmark class. Add the project's compiled output as a separate classpath entry;
-    // this also makes the custom profiler visible to both the runner and its forked JVM.
-    classpath = files(performanceGateJmhJar, sourceSets["main"].output)
+    dependsOn("mainBenchmarkCompile", tasks.named("classes"))
+    // Compose the fork classpath from the normal runtime plus generated JMH output. Relying on the
+    // kotlinx-benchmark fat JAR is unstable across clean CI builds: it can omit either the original
+    // benchmark classes or project dependencies such as MarkdownParser.
+    classpath = sourceSets["main"].runtimeClasspath +
+        files(performanceGateGeneratedClasses, performanceGateGeneratedResources)
     mainClass.set("org.openjdk.jmh.Main")
     args(
         "com.hrm.markdown.benchmark.ParserMicrobenchmark.*",
