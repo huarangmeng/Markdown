@@ -1,6 +1,7 @@
 plugins {
     id("org.jetbrains.kotlin.jvm")
     application
+    alias(libs.plugins.kotlinxBenchmark)
 }
 
 repositories {
@@ -9,8 +10,9 @@ repositories {
 }
 
 dependencies {
-    implementation(project(":markdown-renderer"))
     implementation(project(":markdown-parser"))
+    implementation(libs.kotlinx.benchmark.runtime)
+    implementation(libs.kotlinx.serialization.json)
 }
 
 kotlin {
@@ -19,6 +21,33 @@ kotlin {
 
 application {
     mainClass.set("com.hrm.markdown.benchmark.StreamingRenderBenchmarkKt")
+}
+
+benchmark {
+    targets {
+        register("main")
+    }
+    configurations {
+        named("main") {
+            warmups = 5
+            iterations = 8
+            iterationTime = 500
+            iterationTimeUnit = "ms"
+            outputTimeUnit = "us"
+            reportFormat = "json"
+            advanced("jvmForks", "2")
+        }
+        register("ci") {
+            include("com.hrm.markdown.benchmark.ParserMicrobenchmark")
+            warmups = 2
+            iterations = 4
+            iterationTime = 300
+            iterationTimeUnit = "ms"
+            outputTimeUnit = "us"
+            reportFormat = "json"
+            advanced("jvmForks", "1")
+        }
+    }
 }
 
 tasks.register<JavaExec>("inlineParseHeavyBenchmark") {
@@ -61,4 +90,53 @@ tasks.register<JavaExec>("coldStartBenchmark") {
     description = "Measures cold-start cost of HtmlEntities init, MarkdownParser construction, and first parse. Use --args='--isolate <stage>' for reliable numbers."
     classpath = sourceSets["main"].runtimeClasspath
     mainClass.set("com.hrm.markdown.benchmark.ColdStartBenchmarkKt")
+}
+
+val performanceGateResults = layout.buildDirectory.file("reports/performance-gate/results.json")
+val performanceGateBaseline = layout.projectDirectory.file("performance-baseline.json")
+val performanceGateGeneratedClasses = layout.buildDirectory.dir("benchmarks/main/classes")
+val performanceGateGeneratedResources = layout.buildDirectory.dir("benchmarks/main/resources")
+
+val runPerformanceGateBenchmarks by tasks.registering(JavaExec::class) {
+    group = "verification"
+    description = "Runs forked parser benchmarks with allocation and peak-heap profilers."
+    dependsOn("mainBenchmarkCompile", tasks.named("classes"))
+    // Compose the fork classpath from the normal runtime plus generated JMH output. Relying on the
+    // kotlinx-benchmark fat JAR is unstable across clean CI builds: it can omit either the original
+    // benchmark classes or project dependencies such as MarkdownParser.
+    classpath = sourceSets["main"].runtimeClasspath +
+        files(performanceGateGeneratedClasses, performanceGateGeneratedResources)
+    mainClass.set("org.openjdk.jmh.Main")
+    args(
+        "com.hrm.markdown.benchmark.ParserMicrobenchmark.*",
+        "-wi", "5",
+        "-i", "20",
+        "-w", "500ms",
+        "-r", "300ms",
+        "-f", "1",
+        "-tu", "us",
+        "-bm", "avgt",
+        "-prof", "gc",
+        "-prof", "com.hrm.markdown.benchmark.PeakHeapProfiler",
+        "-rf", "json",
+        "-rff", performanceGateResults.get().asFile.absolutePath,
+    )
+    outputs.file(performanceGateResults)
+    doFirst {
+        outputs.files.singleFile.parentFile.mkdirs()
+    }
+}
+
+tasks.register<JavaExec>("performanceGate") {
+    group = "verification"
+    description = "Fails when parser latency, throughput, allocation, or peak heap exceed baseline budgets."
+    dependsOn(runPerformanceGateBenchmarks)
+    classpath = sourceSets["main"].runtimeClasspath
+    mainClass.set("com.hrm.markdown.benchmark.PerformanceGateMainKt")
+    args(
+        performanceGateBaseline.asFile.absolutePath,
+        performanceGateResults.get().asFile.absolutePath,
+    )
+    inputs.file(performanceGateBaseline)
+    inputs.file(performanceGateResults)
 }

@@ -63,132 +63,132 @@ data class PreviewItem(
 /**
  * 所有预览分类的汇总入口
  */
+private fun consolidatedPreviewGroup(
+    id: String,
+    title: String,
+    description: String,
+    sourceGroups: List<PreviewGroup>,
+): PreviewGroup = PreviewGroup(
+    id = id,
+    title = title,
+    description = description,
+    items = sourceGroups.flatMap { sourceGroup ->
+        sourceGroup.items.map { item ->
+            item.copy(
+                title = if (item.title == sourceGroup.title) {
+                    item.title
+                } else {
+                    "${sourceGroup.title} · ${item.title}"
+                },
+            )
+        }
+    },
+)
+
 val previewCategories: List<PreviewCategory> = listOf(
     PreviewCategory(
-        id = "appearance",
-        title = "主题/外观",
-        description = "强制暗色模式等主题展示",
-        icon = "🌙",
-        groups = themePreviewGroups
+        id = "basics",
+        title = "基础语法",
+        description = "文本、标题、列表、引用、表格、链接与图片",
+        icon = "📝",
+        groups = listOf(
+            consolidatedPreviewGroup(
+                id = "text_and_headings",
+                title = "文本与标题",
+                description = "行内样式、标题层级、目录与编号",
+                sourceGroups = textStylePreviewGroups + headingPreviewGroups,
+            ),
+            consolidatedPreviewGroup(
+                id = "structured_content",
+                title = "结构化内容",
+                description = "列表、引用、Admonition 与表格",
+                sourceGroups = listPreviewGroups + blockquotePreviewGroups + tablePreviewGroups,
+            ),
+            consolidatedPreviewGroup(
+                id = "links_and_media",
+                title = "链接与媒体",
+                description = "普通链接、自动链接、Wiki 链接、图片与 Figure",
+                sourceGroups = linkImagePreviewGroups,
+            ),
+        ),
     ),
     PreviewCategory(
-        id = "streaming",
-        title = "流式渲染",
-        description = "模拟 LLM 逐 token 输出的流式增量解析与渲染",
-        icon = "⚡",
-        groups = streamingPreviewGroups
+        id = "rich_content",
+        title = "富内容",
+        description = "代码高亮、数学公式和图表渲染",
+        icon = "🧮",
+        groups = listOf(
+            consolidatedPreviewGroup(
+                id = "code_and_highlighting",
+                title = "代码与高亮",
+                description = "行内代码、围栏代码块、多语言高亮与代码属性",
+                sourceGroups = codeBlockPreviewGroups,
+            ),
+            consolidatedPreviewGroup(
+                id = "math_and_diagrams",
+                title = "数学与图表",
+                description = "LaTeX 公式、Mermaid 与 PlantUML",
+                sourceGroups = mathPreviewGroups + diagramPreviewGroups,
+            ),
+        ),
     ),
     PreviewCategory(
-        id = "text_styles",
-        title = "文本样式",
-        description = "粗体、斜体、删除线、高亮、上下标等行内样式",
-        icon = "✏️",
-        groups = textStylePreviewGroups
-    ),
-    PreviewCategory(
-        id = "inline_layout",
-        title = "行内排版回归",
-        description = "窄容器内长中文、混合标点和嵌套列表的换行边界",
-        icon = "↔️",
-        groups = inlineLayoutPreviewGroups
-    ),
-    PreviewCategory(
-        id = "headings",
-        title = "标题",
-        description = "ATX 标题（1-6 级）、目录自动编号",
-        icon = "📑",
-        groups = headingPreviewGroups
-    ),
-    PreviewCategory(
-        id = "lists",
-        title = "列表",
-        description = "无序列表、有序列表、任务列表、嵌套列表",
-        icon = "📋",
-        groups = listPreviewGroups
-    ),
-    PreviewCategory(
-        id = "code",
-        title = "代码块",
-        description = "围栏代码块、语法高亮（Kotlin/Python/JSON 等）",
-        icon = "💻",
-        groups = codeBlockPreviewGroups
-    ),
-    PreviewCategory(
-        id = "table",
-        title = "表格",
-        description = "GFM 表格、对齐方式",
-        icon = "📊",
-        groups = tablePreviewGroups
-    ),
-    PreviewCategory(
-        id = "blockquote",
-        title = "引用与 Admonition",
-        description = "引用块、嵌套引用、NOTE/WARNING/TIP 提示框",
-        icon = "💬",
-        groups = blockquotePreviewGroups
-    ),
-    PreviewCategory(
-        id = "math",
-        title = "数学公式",
-        description = "行内公式与块级公式",
-        icon = "🔢",
-        groups = mathPreviewGroups
-    ),
-    PreviewCategory(
-        id = "links_images",
-        title = "链接与图片",
-        description = "链接、自动链接、Wiki 链接、图片、Figure 图片标题",
-        icon = "🔗",
-        groups = linkImagePreviewGroups
-    ),
-    PreviewCategory(
-        id = "extended",
-        title = "扩展语法",
-        description = "脚注、定义列表、Emoji、键盘按键、缩写、自定义容器",
+        id = "extensions",
+        title = "扩展与配置",
+        description = "扩展语法、本地化、指令插件和方言配置",
         icon = "🧩",
-        groups = extendedPreviewGroups
+        groups = listOf(
+            consolidatedPreviewGroup(
+                id = "extended_and_cjk",
+                title = "扩展语法与本地化",
+                description = "脚注、定义列表、Emoji、容器、CJK 强调与 Ruby 注音",
+                sourceGroups = extendedPreviewGroups + cjkPreviewGroups,
+            ),
+            consolidatedPreviewGroup(
+                id = "directives_and_plugins",
+                title = "指令与插件",
+                description = "块级/行内指令、输入转换与自定义渲染",
+                sourceGroups = directivePreviewGroups + directivePluginPreviewGroups,
+            ),
+            consolidatedPreviewGroup(
+                id = "flavour_configuration",
+                title = "方言配置",
+                description = "CommonMark、GFM、Extended 与自定义 Emoji 对比",
+                sourceGroups = flavourConfigPreviewGroups,
+            ),
+        ),
     ),
     PreviewCategory(
-        id = "directives",
-        title = "指令",
-        description = "块级/行内指令：{% tag args %}...{% endtag %}",
-        icon = "🔧",
-        groups = directivePreviewGroups
-    ),
-    PreviewCategory(
-        id = "plugins",
-        title = "插件扩展",
-        description = "外部特殊语法转换 + directive 原生渲染",
-        icon = "🔌",
-        groups = directivePluginPreviewGroups
-    ),
-    PreviewCategory(
-        id = "diagram",
-        title = "图表",
-        description = "Mermaid 流程图、PlantUML 时序图",
-        icon = "📈",
-        groups = diagramPreviewGroups
-    ),
-    PreviewCategory(
-        id = "linting",
-        title = "语法验证/Linting",
-        description = "解析时检测无效语法并返回诊断信息：标题层级跳跃、重复标题 ID、无效脚注引用等",
-        icon = "🔍",
-        groups = lintingPreviewGroups
-    ),
-    PreviewCategory(
-        id = "cjk",
-        title = "中文本地化优化",
-        description = "全角标点定界符识别、CJK 强调解析优化、Ruby 注音标注",
-        icon = "🇨🇳",
-        groups = cjkPreviewGroups
-    ),
-    PreviewCategory(
-        id = "flavour_config",
-        title = "方言配置",
-        description = "通过 MarkdownConfig 切换不同 Flavour（CommonMark / GFM / Extended），对比渲染差异",
-        icon = "🎛️",
-        groups = flavourConfigPreviewGroups
+        id = "rendering",
+        title = "渲染与质量",
+        description = "主题排版、流式更新、性能压测和语法诊断",
+        icon = "⚙️",
+        groups = listOf(
+            consolidatedPreviewGroup(
+                id = "appearance_and_layout",
+                title = "主题与排版",
+                description = "主题模式、窄容器换行与复杂行内布局回归",
+                sourceGroups = themePreviewGroups + inlineLayoutPreviewGroups,
+            ),
+            consolidatedPreviewGroup(
+                id = "streaming_rendering",
+                title = "流式渲染",
+                description = "LLM 增量输出、列表稳定性与大量图表更新",
+                sourceGroups = streamingPreviewGroups,
+            ),
+            consolidatedPreviewGroup(
+                id = "performance_validation",
+                title = "性能压测",
+                description = "超长 Markdown 的解析、渲染、滚动与内存验证",
+                sourceGroups = performancePreviewGroups,
+            ),
+            consolidatedPreviewGroup(
+                id = "syntax_diagnostics",
+                title = "语法校验",
+                description = "标题层级、脚注引用和重复标题 ID 诊断",
+                sourceGroups = lintingPreviewGroups,
+            ),
+        ),
     ),
 )
 

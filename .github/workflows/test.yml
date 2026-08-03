@@ -33,3 +33,31 @@ jobs:
 
       - name: Run runtime JVM tests
         run: ./gradlew :markdown-runtime:jvmTest
+
+  performance-gate:
+    name: JVM Performance Gate
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: 21
+          cache: 'gradle'
+
+      - name: Grant execute permission for Gradle
+        run: chmod +x ./gradlew
+
+      - name: Check parser performance budgets
+        run: ./gradlew :markdown-benchmark:performanceGate
+
+      - name: Upload benchmark report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: parser-performance-report
+          path: markdown-benchmark/build/reports/performance-gate/results.json

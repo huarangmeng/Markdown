@@ -493,7 +493,18 @@ Supports size specification in Markdown:
 ./gradlew :markdown-parser:jvmTest      # Parser tests
 ./gradlew :markdown-renderer:jvmTest     # Renderer tests
 ./gradlew jvmTest                        # All tests
+
+# Forked parser performance gate (p95, throughput, allocation, peak heap)
+./gradlew :markdown-benchmark:performanceGate
+
+# Real Compose startup, long-document scrolling, and cross-block selection
+# Run on a physical Android device with the benchmark build variant.
+./gradlew :macrobenchmark:connectedBenchmarkAndroidTest
 ```
+
+Performance budgets live in `markdown-benchmark/performance-baseline.json`. See
+[`markdown-benchmark/README.md`](markdown-benchmark/README.md) for reproducible runs and baseline
+update rules.
 
 ---
 

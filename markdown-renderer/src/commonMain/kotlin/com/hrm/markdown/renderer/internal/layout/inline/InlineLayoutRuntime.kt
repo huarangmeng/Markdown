@@ -20,9 +20,16 @@ internal class InlineLayoutRuntime {
     private val flowLayoutCache = InlineFlowLayoutCache()
     private val metrics = InlineLayoutMetrics()
 
-    fun metricsSnapshot(): InlineLayoutMetricsSnapshot = metrics.snapshot()
+    fun metricsSnapshot(): InlineLayoutMetricsSnapshot = metrics.snapshot(
+        renderResultCache = renderResultCache.metricsSnapshot(),
+        flowLayoutCache = flowLayoutCache.metricsSnapshot(),
+    )
 
-    fun resetMetrics() = metrics.reset()
+    fun resetMetrics() {
+        metrics.reset()
+        renderResultCache.resetStatistics()
+        flowLayoutCache.resetStatistics()
+    }
 
     fun renderResult(
         model: InlineModel,

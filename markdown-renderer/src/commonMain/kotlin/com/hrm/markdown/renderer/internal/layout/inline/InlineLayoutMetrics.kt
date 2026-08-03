@@ -6,9 +6,11 @@ internal data class InlineLayoutMetricsSnapshot(
     val inlineMathBuildRequests: Long,
     val flowLayoutRequests: Long,
     val flowLayoutComputations: Long,
+    val renderResultCache: LruCacheMetricsSnapshot,
+    val flowLayoutCache: LruCacheMetricsSnapshot,
 ) {
-    val renderResultCacheHits: Long get() = renderResultRequests - renderResultComputations
-    val flowLayoutCacheHits: Long get() = flowLayoutRequests - flowLayoutComputations
+    val renderResultCacheHits: Long get() = renderResultCache.hits
+    val flowLayoutCacheHits: Long get() = flowLayoutCache.hits
 }
 
 internal class InlineLayoutMetrics {
@@ -18,12 +20,17 @@ internal class InlineLayoutMetrics {
     var flowLayoutRequests: Long = 0
     var flowLayoutComputations: Long = 0
 
-    fun snapshot(): InlineLayoutMetricsSnapshot = InlineLayoutMetricsSnapshot(
+    fun snapshot(
+        renderResultCache: LruCacheMetricsSnapshot,
+        flowLayoutCache: LruCacheMetricsSnapshot,
+    ): InlineLayoutMetricsSnapshot = InlineLayoutMetricsSnapshot(
         renderResultRequests = renderResultRequests,
         renderResultComputations = renderResultComputations,
         inlineMathBuildRequests = inlineMathBuildRequests,
         flowLayoutRequests = flowLayoutRequests,
         flowLayoutComputations = flowLayoutComputations,
+        renderResultCache = renderResultCache,
+        flowLayoutCache = flowLayoutCache,
     )
 
     fun reset() {

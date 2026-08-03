@@ -5,9 +5,13 @@ import com.hrm.markdown.renderer.inline.InlineRenderResult
 
 internal class InlineRenderResultCache(
     private val maxEntries: Int = DefaultMaxEntries,
+    private val maxEstimatedBytes: Long = DefaultMaxEstimatedBytes,
 ) {
-    private val entries = mutableMapOf<InlineRenderResultCacheKey, InlineRenderResult>()
-    private val accessOrder = ArrayList<InlineRenderResultCacheKey>(maxEntries)
+    private val cache = WeightedLruCache<InlineRenderResultCacheKey, InlineRenderResult>(
+        maxEntries = maxEntries,
+        maxEstimatedBytes = maxEstimatedBytes,
+        estimateValueBytes = ::estimateInlineRenderResultBytes,
+    )
 
     fun getOrPut(
         epoch: InlineLayoutEpoch,
@@ -22,33 +26,16 @@ internal class InlineRenderResultCache(
             contentRevision = contentRevision,
             styleHash = style.hashCode(),
         )
-        entries[key]?.let { result ->
-            touch(key)
-            return result
-        }
-        if (entries.size >= maxEntries) {
-            evictEldest()
-        }
-        return compute().also { result ->
-            entries[key] = result
-            accessOrder += key
-        }
+        return cache.getOrPut(key, compute)
     }
 
     fun clear() {
-        entries.clear()
-        accessOrder.clear()
+        cache.clear()
     }
 
-    private fun touch(key: InlineRenderResultCacheKey) {
-        accessOrder.remove(key)
-        accessOrder += key
-    }
+    fun metricsSnapshot(): LruCacheMetricsSnapshot = cache.snapshot()
 
-    private fun evictEldest() {
-        val eldest = accessOrder.removeFirstOrNull() ?: entries.keys.firstOrNull() ?: return
-        entries.remove(eldest)
-    }
+    fun resetStatistics() = cache.resetStatistics()
 
     private data class InlineRenderResultCacheKey(
         val epoch: InlineLayoutEpoch,
@@ -59,5 +46,21 @@ internal class InlineRenderResultCache(
 
     private companion object {
         const val DefaultMaxEntries = 2048
+        const val DefaultMaxEstimatedBytes = 24L * 1024L * 1024L
     }
+}
+
+private fun estimateInlineRenderResultBytes(result: InlineRenderResult): Long {
+    var bytes = 96L + result.annotated.length * 2L
+    for ((_, payload) in result.paintPayloads) {
+        bytes += 96L + payload.alternateText.length * 2L
+    }
+    for (segment in result.flowInput.segments) {
+        bytes += when (segment) {
+            is InlineFlowSegment.TextRun -> 64L + segment.annotated.length * 2L
+            is InlineFlowSegment.InlineRun -> 64L + segment.placeholder.alternateText.length * 2L
+            InlineFlowSegment.Newline -> 16L
+        }
+    }
+    return bytes
 }

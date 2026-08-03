@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "description": "GitHub ubuntu-latest/Zulu 21 budgets with approximately 30% shared-runner headroom. Update only after reviewing reproducible reports.",
+  "referenceEnvironment": {
+    "runner": "GitHub-hosted ubuntu-latest",
+    "java": "Zulu JDK 21",
+    "source": "worst observation across the first two pull-request performance-gate runs"
+  },
+  "referenceMeasurements": {
+    "ParserMicrobenchmark.fullParse": {
+      "p95Us": 7905.30,
+      "throughputOpsPerSecond": 222.13,
+      "allocatedBytesPerOp": 3463422,
+      "peakHeapDeltaBytes": 144703488
+    },
+    "ParserMicrobenchmark.inlineHeavyParse": {
+      "p95Us": 1930.50,
+      "throughputOpsPerSecond": 569.99,
+      "allocatedBytesPerOp": 2172739,
+      "peakHeapDeltaBytes": 169869312
+    },
+    "ParserMicrobenchmark.streamingAppendBatch": {
+      "p95Us": 353340.99,
+      "throughputOpsPerSecond": 3.03,
+      "allocatedBytesPerOp": 606578546,
+      "peakHeapDeltaBytes": 227124864
+    }
+  },
+  "benchmarks": {
+    "ParserMicrobenchmark.fullParse": {
+      "maxP95Us": 10000,
+      "minThroughputOpsPerSecond": 175,
+      "maxAllocatedBytesPerOp": 4500000,
+      "maxPeakHeapDeltaBytes": 805306368
+    },
+    "ParserMicrobenchmark.inlineHeavyParse": {
+      "maxP95Us": 2500,
+      "minThroughputOpsPerSecond": 440,
+      "maxAllocatedBytesPerOp": 3000000,
+      "maxPeakHeapDeltaBytes": 805306368
+    },
+    "ParserMicrobenchmark.streamingAppendBatch": {
+      "maxP95Us": 600000,
+      "minThroughputOpsPerSecond": 2.4,
+      "maxAllocatedBytesPerOp": 750000000,
+      "maxPeakHeapDeltaBytes": 805306368
+    }
+  }
+}
