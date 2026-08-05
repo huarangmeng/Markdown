@@ -55,3 +55,21 @@ internal fun computeAutoTableColumnWidths(
         }
     }
 }
+
+internal fun computeTableRowHeights(
+    cellHeights: IntArray,
+    columnCount: Int,
+): IntArray {
+    if (columnCount <= 0 || cellHeights.isEmpty()) return IntArray(0)
+
+    val rowCount = (cellHeights.size + columnCount - 1) / columnCount
+    return IntArray(rowCount) { rowIndex ->
+        val fromIndex = rowIndex * columnCount
+        val toIndex = minOf(fromIndex + columnCount, cellHeights.size)
+        var rowHeight = 0
+        for (index in fromIndex until toIndex) {
+            rowHeight = maxOf(rowHeight, cellHeights[index])
+        }
+        rowHeight
+    }
+}

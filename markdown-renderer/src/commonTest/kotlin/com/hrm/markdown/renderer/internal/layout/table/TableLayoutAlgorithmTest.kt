@@ -1,6 +1,7 @@
 package com.hrm.markdown.renderer.internal.layout.table
 
 import kotlin.test.Test
+import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 
 class TableLayoutAlgorithmTest {
@@ -46,5 +47,19 @@ class TableLayoutAlgorithmTest {
         )
 
         assertEquals(listOf(80f, 120f), widths)
+    }
+
+    @Test
+    fun should_useTallestCellHeight_forEveryTableRow() {
+        val rowHeights = computeTableRowHeights(
+            cellHeights = intArrayOf(
+                48, 48, 48,
+                96, 48, 48,
+                48, 72, 48,
+            ),
+            columnCount = 3,
+        )
+
+        assertContentEquals(intArrayOf(48, 96, 72), rowHeights)
     }
 }

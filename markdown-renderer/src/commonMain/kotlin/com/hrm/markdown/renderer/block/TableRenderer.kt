@@ -31,6 +31,7 @@ import com.hrm.markdown.renderer.internal.core.model.TableCellBlockModel
 import com.hrm.markdown.renderer.internal.core.model.TableRowBlockModel
 import com.hrm.markdown.renderer.internal.layout.model.LayoutTableBlockModel
 import com.hrm.markdown.renderer.internal.layout.table.computeAutoTableColumnWidths
+import com.hrm.markdown.renderer.internal.layout.table.computeTableRowHeights
 import kotlin.math.roundToInt
 
 /**
@@ -103,79 +104,28 @@ private fun TableLayout(
 ) {
     val theme = LocalMarkdownTheme.current
 
-    // 将所有单元格作为 content 传入 Layout
-    Layout(
+    TableGridLayout(
+        rowCount = allRows.size,
+        columnCount = columnCount,
+        availableWidthPx = availableWidthPx,
         modifier = modifier,
-        content = {
-            for ((row, isHeader) in allRows) {
-                val cells = row.children.filterIsInstance<TableCell>()
-                for (colIndex in 0 until columnCount) {
-                    val cell = cells.getOrNull(colIndex)
-                    val alignment = alignments.getOrElse(colIndex) { Table.Alignment.NONE }
-                    TableCellRenderer(
-                        cell = cell,
-                        alignment = alignment,
-                        isHeader = isHeader,
-                        modifier = Modifier
-                            .border(0.5.dp, theme.tableBorderColor)
-                            .let {
-                                if (isHeader) it.background(theme.tableHeaderBackground) else it
-                            }
-                            .padding(theme.tableCellPadding),
-                    )
-                }
-            }
-        },
-    ) { measurables, constraints ->
-        val rowCount = allRows.size
-        if (rowCount == 0 || columnCount == 0) {
-            return@Layout layout(0, 0) {}
-        }
-
-        val minContentWidths = MutableList(columnCount) { 0f }
-        val maxContentWidths = MutableList(columnCount) { 0f }
-        for (index in measurables.indices) {
-            val colIdx = index % columnCount
-            val minIntrinsicWidth = measurables[index].minIntrinsicWidth(Constraints.Infinity)
-            val maxIntrinsicWidth = measurables[index].maxIntrinsicWidth(Constraints.Infinity)
-            minContentWidths[colIdx] = maxOf(minContentWidths[colIdx], minIntrinsicWidth.toFloat())
-            maxContentWidths[colIdx] = maxOf(maxContentWidths[colIdx], maxIntrinsicWidth.toFloat())
-        }
-        val columnWidths = computeColumnWidthsPx(minContentWidths, maxContentWidths, availableWidthPx)
-
-        val placeables = Array(measurables.size) { index ->
-            val colIdx = index % columnCount
-            val fixedWidth = columnWidths[colIdx]
-            measurables[index].measure(
-                Constraints(
-                    minWidth = fixedWidth,
-                    maxWidth = fixedWidth,
+    ) {
+        for ((row, isHeader) in allRows) {
+            val cells = row.children.filterIsInstance<TableCell>()
+            for (colIndex in 0 until columnCount) {
+                val cell = cells.getOrNull(colIndex)
+                val alignment = alignments.getOrElse(colIndex) { Table.Alignment.NONE }
+                TableCellRenderer(
+                    cell = cell,
+                    alignment = alignment,
+                    isHeader = isHeader,
+                    modifier = Modifier
+                        .border(0.5.dp, theme.tableBorderColor)
+                        .let {
+                            if (isHeader) it.background(theme.tableHeaderBackground) else it
+                        }
+                        .padding(theme.tableCellPadding),
                 )
-            )
-        }
-
-        // 计算每行高度
-        val rowHeights = IntArray(rowCount)
-        for (rowIdx in 0 until rowCount) {
-            for (colIdx in 0 until columnCount) {
-                val placeable = placeables[rowIdx * columnCount + colIdx]
-                rowHeights[rowIdx] = maxOf(rowHeights[rowIdx], placeable.height)
-            }
-        }
-
-        val totalWidth = columnWidths.sum()
-        val totalHeight = rowHeights.sum()
-
-        layout(totalWidth, totalHeight) {
-            var y = 0
-            for (rowIdx in 0 until rowCount) {
-                var x = 0
-                for (colIdx in 0 until columnCount) {
-                    val placeable = placeables[rowIdx * columnCount + colIdx]
-                    placeable.placeRelative(x, y)
-                    x += columnWidths[colIdx]
-                }
-                y += rowHeights[rowIdx]
             }
         }
     }
@@ -265,29 +215,44 @@ private fun TableBlockModelLayout(
     modifier: Modifier = Modifier,
 ) {
     val theme = LocalMarkdownTheme.current
+    TableGridLayout(
+        rowCount = rows.size,
+        columnCount = columnCount,
+        availableWidthPx = availableWidthPx,
+        modifier = modifier,
+    ) {
+        for (row in rows) {
+            for (colIndex in 0 until columnCount) {
+                val cell = row.cells.getOrNull(colIndex)
+                val alignment = alignments.getOrElse(colIndex) { Table.Alignment.NONE }
+                TableBlockModelCellRenderer(
+                    cell = cell,
+                    alignment = alignment,
+                    isHeader = row.isHeader,
+                    modifier = Modifier
+                        .border(0.5.dp, theme.tableBorderColor)
+                        .let {
+                            if (row.isHeader) it.background(theme.tableHeaderBackground) else it
+                        }
+                        .padding(theme.tableCellPadding),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TableGridLayout(
+    rowCount: Int,
+    columnCount: Int,
+    availableWidthPx: Int?,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
     Layout(
         modifier = modifier,
-        content = {
-            for (row in rows) {
-                for (colIndex in 0 until columnCount) {
-                    val cell = row.cells.getOrNull(colIndex)
-                    val alignment = alignments.getOrElse(colIndex) { Table.Alignment.NONE }
-                    TableBlockModelCellRenderer(
-                        cell = cell,
-                        alignment = alignment,
-                        isHeader = row.isHeader,
-                        modifier = Modifier
-                            .border(0.5.dp, theme.tableBorderColor)
-                            .let {
-                                if (row.isHeader) it.background(theme.tableHeaderBackground) else it
-                            }
-                            .padding(theme.tableCellPadding),
-                    )
-                }
-            }
-        },
-    ) { measurables, constraints ->
-        val rowCount = rows.size
+        content = content,
+    ) { measurables, _ ->
         if (rowCount == 0 || columnCount == 0) {
             return@Layout layout(0, 0) {}
         }
@@ -303,23 +268,27 @@ private fun TableBlockModelLayout(
         }
         val columnWidths = computeColumnWidthsPx(minContentWidths, maxContentWidths, availableWidthPx)
 
+        val intrinsicCellHeights = IntArray(measurables.size) { index ->
+            val colIdx = index % columnCount
+            measurables[index].minIntrinsicHeight(columnWidths[colIdx])
+        }
+        val rowHeights = computeTableRowHeights(
+            cellHeights = intrinsicCellHeights,
+            columnCount = columnCount,
+        )
+
         val placeables = Array(measurables.size) { index ->
             val colIdx = index % columnCount
+            val rowIdx = index / columnCount
             val fixedWidth = columnWidths[colIdx]
             measurables[index].measure(
                 Constraints(
                     minWidth = fixedWidth,
                     maxWidth = fixedWidth,
+                    minHeight = rowHeights[rowIdx],
+                    maxHeight = rowHeights[rowIdx],
                 )
             )
-        }
-
-        val rowHeights = IntArray(rowCount)
-        for (rowIdx in 0 until rowCount) {
-            for (colIdx in 0 until columnCount) {
-                val placeable = placeables[rowIdx * columnCount + colIdx]
-                rowHeights[rowIdx] = maxOf(rowHeights[rowIdx], placeable.height)
-            }
         }
 
         val totalWidth = columnWidths.sum()
