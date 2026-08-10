@@ -181,11 +181,13 @@ class VideoSyntaxTransformer : MarkdownInputTransformer {
 }
 ```
 
-Input transformers are conservative by default: requesting `isStreaming = true` falls back to
-isolated full parses and emits a warning. A transformer may opt into incremental streaming with
-`streamingSupport = MarkdownTransformerStreamingSupport.AppendSafe` only when transforming a
-longer append-only input always preserves the complete previous transformed prefix. The active
-mapping back to original source offsets is available through `LocalMarkdownSourceMap`.
+Input transformers stream by default with
+`MarkdownTransformerStreamingSupport.RestartOnRewrite`. Each transformed revision is checked
+against the previous transformed prefix; if existing output changed, the parser session restarts
+atomically from the complete transformed snapshot. A transformer should declare `AppendSafe` only
+when a longer append-only input always preserves the complete previous transformed prefix, and may
+declare `Unsupported` to explicitly require isolated full parses. The active mapping back to
+original source offsets is available through `LocalMarkdownSourceMap`.
 
 `DirectiveBlockRenderScope` and `DirectiveInlineRenderScope` are snapshot-based.
 Use `scope.directive` as the single structured entry point for directive data.

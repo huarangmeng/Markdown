@@ -181,10 +181,11 @@ class VideoSyntaxTransformer : MarkdownInputTransformer {
 }
 ```
 
-输入转换器默认采用保守策略：即使传入 `isStreaming = true`，也会回退到彼此隔离的全量解析并输出警告。
-只有在“更长的 append-only 输入经过转换后，必定完整保留上一次转换结果前缀”时，转换器才应声明
-`streamingSupport = MarkdownTransformerStreamingSupport.AppendSafe` 以启用增量流式路径。当前转换结果到
-原始输入的源码映射可通过 `LocalMarkdownSourceMap` 获取。
+输入转换器默认使用 `MarkdownTransformerStreamingSupport.RestartOnRewrite` 参与流式解析。运行时会逐次
+验证新的转换结果是否完整保留上一次前缀；如果既有输出被重写，则原子重启 Parser 会话并从完整转换快照
+继续。只有在“更长的 append-only 输入经过转换后，必定完整保留上一次转换结果前缀”时，转换器才应声明
+`AppendSafe`；需要强制隔离全量解析时可显式声明 `Unsupported`。当前转换结果到原始输入的源码映射可通过
+`LocalMarkdownSourceMap` 获取。
 
 `DirectiveBlockRenderScope` 和 `DirectiveInlineRenderScope` 现在基于 snapshot。
 读取结构化 directive 数据时，请统一使用 `scope.directive` 作为唯一入口。

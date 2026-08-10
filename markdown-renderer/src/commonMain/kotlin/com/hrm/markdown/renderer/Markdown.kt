@@ -77,12 +77,12 @@ fun Markdown(
 ) {
     val directiveRegistry = remember(directivePlugins) { MarkdownDirectiveRegistry(directivePlugins) }
     val runtimePipeline = remember(directiveRegistry) { MarkdownDirectivePipeline(directiveRegistry) }
-    val effectiveStreaming = isStreaming && runtimePipeline.supportsStreamingFastPath
+    val effectiveStreaming = isStreaming && runtimePipeline.supportsStreaming
     LaunchedEffect(isStreaming, effectiveStreaming, runtimePipeline) {
         if (isStreaming && !effectiveStreaming) {
             HLog.w("Markdown") {
-                "Streaming requested, but at least one input transformer is not append-safe; " +
-                    "falling back to isolated full parses."
+                "Streaming requested, but at least one input transformer explicitly declares " +
+                    "streaming unsupported; falling back to isolated full parses."
             }
         }
     }

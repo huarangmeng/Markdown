@@ -6,6 +6,12 @@ package com.hrm.markdown.runtime
 class MarkdownDirectivePipeline(
     private val registry: MarkdownDirectiveRegistry,
 ) {
+    val streamingSupport: MarkdownTransformerStreamingSupport
+        get() = registry.streamingSupport
+
+    val supportsStreaming: Boolean
+        get() = registry.supportsStreaming
+
     val supportsStreamingFastPath: Boolean
         get() = registry.supportsStreamingFastPath
 

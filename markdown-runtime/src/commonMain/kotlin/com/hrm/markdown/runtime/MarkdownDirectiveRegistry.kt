@@ -17,11 +17,25 @@ class MarkdownDirectiveRegistry(
     private val htmlInlineFallbacks = LinkedHashMap<String, HtmlInlineDirectiveFallback>()
     private val transformers = mutableListOf<MarkdownInputTransformer>()
 
-    /** Whether every registered transformer preserves append-only transformed prefixes. */
-    val supportsStreamingFastPath: Boolean
-        get() = transformers.all {
-            it.streamingSupport == MarkdownTransformerStreamingSupport.AppendSafe
+    /** Aggregate streaming contract for the complete transformer pipeline. */
+    val streamingSupport: MarkdownTransformerStreamingSupport
+        get() = when {
+            transformers.any {
+                it.streamingSupport == MarkdownTransformerStreamingSupport.Unsupported
+            } -> MarkdownTransformerStreamingSupport.Unsupported
+            transformers.all {
+                it.streamingSupport == MarkdownTransformerStreamingSupport.AppendSafe
+            } -> MarkdownTransformerStreamingSupport.AppendSafe
+            else -> MarkdownTransformerStreamingSupport.RestartOnRewrite
         }
+
+    /** Whether transformed revisions may use the stateful streaming parser. */
+    val supportsStreaming: Boolean
+        get() = streamingSupport != MarkdownTransformerStreamingSupport.Unsupported
+
+    /** Whether every transformer proves that parser session restarts are unnecessary. */
+    val supportsStreamingFastPath: Boolean
+        get() = streamingSupport == MarkdownTransformerStreamingSupport.AppendSafe
 
     val hasTransformers: Boolean
         get() = transformers.isNotEmpty()

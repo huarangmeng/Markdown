@@ -1,5 +1,11 @@
 package com.hrm.markdown.renderer
 
+import com.hrm.markdown.runtime.MarkdownDirectivePipeline
+import com.hrm.markdown.runtime.MarkdownDirectivePlugin
+import com.hrm.markdown.runtime.MarkdownDirectiveRegistry
+import com.hrm.markdown.runtime.MarkdownInputTransformer
+import com.hrm.markdown.runtime.MarkdownTransformResult
+import com.hrm.markdown.runtime.MarkdownTransformerStreamingSupport
 import kotlinx.coroutines.runBlocking
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -7,6 +13,62 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class StreamingDocumentStateTest {
+
+    @Test
+    fun should_restartStream_when_defaultTransformerRewritesPreviousOutput() = runBlocking {
+        val transformer = object : MarkdownInputTransformer {
+            override val id: String = "default-rewrite"
+
+            override fun transform(input: String): MarkdownTransformResult =
+                MarkdownTransformResult(
+                    if (input.endsWith("}")) "{% normalized %}" else input
+                )
+        }
+        val plugin = object : MarkdownDirectivePlugin {
+            override val id: String = "default-rewrite"
+            override val inputTransformers: List<MarkdownInputTransformer> = listOf(transformer)
+        }
+        val pipeline = MarkdownDirectivePipeline(MarkdownDirectiveRegistry(listOf(plugin)))
+        val calls = mutableListOf<String>()
+        val partial = pipeline.transform("custom{").markdown
+        val initial = updateStreamingDocumentState(
+            markdown = partial,
+            isStreaming = true,
+            state = StreamingDocumentState(),
+            beginStream = { calls += "begin" },
+            append = { chunk ->
+                calls += "append:$chunk"
+                chunk
+            },
+            endStream = { "end" },
+            parse = { it },
+        )
+        val completed = pipeline.transform("custom{}").markdown
+        val restarted = updateStreamingDocumentState(
+            markdown = completed,
+            isStreaming = true,
+            state = initial,
+            beginStream = { calls += "begin" },
+            append = { chunk ->
+                calls += "append:$chunk"
+                chunk
+            },
+            endStream = { "end" },
+            parse = { it },
+        )
+
+        assertEquals(
+            MarkdownTransformerStreamingSupport.RestartOnRewrite,
+            pipeline.streamingSupport,
+        )
+        assertTrue(pipeline.supportsStreaming)
+        assertEquals(
+            listOf("begin", "append:custom{", "begin", "append:{% normalized %}"),
+            calls,
+        )
+        assertEquals("{% normalized %}", restarted.streamedMarkdown)
+        assertTrue(restarted.wasStreaming)
+    }
 
     @Test
     fun should_parse_initial_empty_non_streaming_document() = runBlocking {

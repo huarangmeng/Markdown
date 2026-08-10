@@ -39,8 +39,8 @@ class MarkdownDirectivePipelineTest {
     }
 
     @Test
-    fun registry_should_enable_streaming_only_when_all_transformers_are_append_safe() {
-        val unsafe = MarkdownDirectiveRegistry(listOf(VideoDirectivePlugin))
+    fun registry_should_select_strongestSafePipelineStreamingMode() {
+        val restartOnRewrite = MarkdownDirectiveRegistry(listOf(VideoDirectivePlugin))
         val safe = MarkdownDirectiveRegistry(
             listOf(
                 object : MarkdownDirectivePlugin {
@@ -57,9 +57,36 @@ class MarkdownDirectivePipelineTest {
                 }
             )
         )
+        val unsupported = MarkdownDirectiveRegistry(
+            listOf(
+                object : MarkdownDirectivePlugin {
+                    override val id: String = "unsupported"
+                    override val inputTransformers = listOf(
+                        object : MarkdownInputTransformer {
+                            override val id: String = "unsupported"
+                            override val streamingSupport =
+                                MarkdownTransformerStreamingSupport.Unsupported
 
-        assertFalse(unsafe.supportsStreamingFastPath)
+                            override fun transform(input: String) = MarkdownTransformResult(input)
+                        }
+                    )
+                }
+            )
+        )
+
+        assertEquals(
+            MarkdownTransformerStreamingSupport.RestartOnRewrite,
+            restartOnRewrite.streamingSupport,
+        )
+        assertTrue(restartOnRewrite.supportsStreaming)
+        assertFalse(restartOnRewrite.supportsStreamingFastPath)
+        assertEquals(MarkdownTransformerStreamingSupport.AppendSafe, safe.streamingSupport)
+        assertTrue(safe.supportsStreaming)
         assertTrue(safe.supportsStreamingFastPath)
+        assertEquals(MarkdownTransformerStreamingSupport.Unsupported, unsupported.streamingSupport)
+        assertFalse(unsupported.supportsStreaming)
+        assertFalse(unsupported.supportsStreamingFastPath)
+        assertTrue(MarkdownDirectiveRegistry.Empty.supportsStreaming)
         assertTrue(MarkdownDirectiveRegistry.Empty.supportsStreamingFastPath)
     }
 
