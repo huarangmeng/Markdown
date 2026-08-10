@@ -21,6 +21,8 @@ import com.hrm.markdown.renderer.internal.core.model.FigureBlockModel
 import com.hrm.markdown.renderer.internal.core.model.FootnoteDefinitionBlockModel
 import com.hrm.markdown.renderer.internal.core.model.HeadingBlockModel
 import com.hrm.markdown.renderer.internal.core.model.HtmlBlockModel
+import com.hrm.markdown.renderer.internal.core.model.HtmlContainerBlockModel
+import com.hrm.markdown.renderer.internal.core.model.HtmlParagraphBlockModel
 import com.hrm.markdown.renderer.internal.core.model.InlineModel
 import com.hrm.markdown.renderer.internal.core.model.InternalRenderBlockModel
 import com.hrm.markdown.renderer.internal.core.model.InternalRenderDocumentModel
@@ -241,6 +243,16 @@ private fun layoutBlockInternal(
             environment
         )
 
+        is HtmlContainerBlockModel -> layoutContainerBlock(
+            block,
+            block.children,
+            left,
+            top,
+            width,
+            insets,
+            environment,
+        )
+
         is ColumnsLayoutBlockModel -> {
             val columnCount = block.columns.size.coerceAtLeast(1)
             val spacing = 8f
@@ -411,6 +423,17 @@ private fun layoutBlockInternal(
             identity = block.identity,
             model = block.inline,
             style = environment.markdownTheme.bodyStyle,
+            left = left,
+            top = top,
+            width = width,
+            insets = insets,
+            environment = environment,
+        )
+
+        is HtmlParagraphBlockModel -> layoutInlineBlock(
+            identity = block.identity,
+            model = block.inline,
+            style = environment.markdownTheme.bodyStyle.withBlockTextAlignment(block.textAlignment),
             left = left,
             top = top,
             width = width,

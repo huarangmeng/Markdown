@@ -617,8 +617,38 @@ kmp2024: JetBrains. "Kotlin Multiplatform Handbook". 2024
     PreviewGroup(
         id = "html_renderer",
         title = "HTML 渲染器",
-        description = "HtmlRenderer 将 AST 输出为标准 HTML",
+        description = "安全行内 HTML 与 HtmlRenderer 标准 HTML 输出",
         items = listOf(
+            PreviewItem(
+                id = "safe_inline_html",
+                title = "Compose 安全行内 HTML",
+                content = {
+                    Markdown(
+                        markdown = """
+普通 Markdown 可以和 <strong>粗体 HTML</strong>、<em>斜体 HTML</em> 混排。
+
+<span style="color:#ff0000; font-weight:bold">受限 style 属性</span>，以及 <code>inline code</code>。<br>这里从新的一行继续。
+
+嵌套语义也会保留：<strong>HTML 中的 *Markdown 斜体*</strong>。
+                        """.trimIndent()
+                    )
+                }
+            ),
+            PreviewItem(
+                id = "safe_block_html",
+                title = "Compose 安全块级 HTML",
+                content = {
+                    Markdown(
+                        markdown = """
+<p align="center">Rohan 与团队</p>
+
+<div style="text-align:center"><strong>[-NH-(CH2)6-NH-CO-(CH2)4-CO-]n</strong></div>
+
+<section align="right"><em>容器对齐可以被内部段落继承</em></section>
+                        """.trimIndent()
+                    )
+                }
+            ),
             PreviewItem(
                 id = "html_basic",
                 title = "基础 HTML 输出示例",

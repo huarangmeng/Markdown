@@ -8,12 +8,19 @@ import com.hrm.markdown.parser.ast.Text
 import com.hrm.markdown.renderer.inline.InlinePlaceholderId
 import com.hrm.markdown.renderer.internal.core.model.FallbackContainerBlockModel
 import com.hrm.markdown.renderer.internal.core.model.FallbackLeafBlockModel
+import com.hrm.markdown.renderer.internal.core.model.BlockTextAlignment
+import com.hrm.markdown.renderer.internal.core.model.HtmlBlockModel
+import com.hrm.markdown.renderer.internal.core.model.HtmlContainerBlockModel
+import com.hrm.markdown.renderer.internal.core.model.HtmlParagraphBlockModel
+import com.hrm.markdown.renderer.internal.core.model.ImageWidgetModel
 import com.hrm.markdown.renderer.internal.core.model.InlineMathWidgetModel
 import com.hrm.markdown.renderer.internal.core.model.ParagraphBlockModel
+import com.hrm.markdown.renderer.internal.core.model.TextAtom
 import com.hrm.markdown.renderer.internal.core.model.WidgetAtom
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertTrue
 
 class DefaultRenderModelCompilerTest {
     @Test
@@ -81,4 +88,178 @@ class DefaultRenderModelCompilerTest {
         assertIs<InlineMathWidgetModel>(widget)
         assertEquals("12\\text{ C}", widget.latex)
     }
+
+    @Test
+    fun should_apply_nested_html_marks_when_tags_are_balanced() {
+        val paragraph = compileParagraph("A <strong>bold <em>italic</em></strong>.")
+        val textAtoms = paragraph.inline.atoms.filterIsInstance<TextAtom>()
+
+        val bold = textAtoms.single { it.text == "bold " }
+        val italic = textAtoms.single { it.text == "italic" }
+
+        assertEquals(listOf("strong"), bold.marks.map { it.kind })
+        assertEquals(listOf("strong", "emphasis"), italic.marks.map { it.kind })
+    }
+
+    @Test
+    fun should_preserve_markdown_marks_when_nested_inside_html() {
+        val paragraph = compileParagraph("<strong>*both*</strong>")
+        val atom = paragraph.inline.atoms.filterIsInstance<TextAtom>().single()
+
+        assertEquals("both", atom.text)
+        assertEquals(listOf("strong", "emphasis"), atom.marks.map { it.kind })
+    }
+
+    @Test
+    fun should_map_safe_span_and_anchor_attributes_when_supported() {
+        val paragraph = compileParagraph(
+            "<span style=\"color:red\" class='hero'>red</span> " +
+                "<a href=\"https://example.com/path\">link</a>"
+        )
+        val textAtoms = paragraph.inline.atoms.filterIsInstance<TextAtom>()
+
+        val styledMark = textAtoms.single { it.text == "red" }.marks.single()
+        val linkMark = textAtoms.single { it.text == "link" }.marks.single()
+
+        assertEquals("styled", styledMark.kind)
+        assertEquals(mapOf("style" to "color:red", "class" to "hero"), styledMark.payload)
+        assertEquals("link", linkMark.kind)
+        assertEquals("https://example.com/path", linkMark.payload["target"])
+    }
+
+    @Test
+    fun should_compile_html_break_comment_and_image_when_safe() {
+        val paragraph = compileParagraph(
+            "before<!-- hidden --><br><img src=\"https://example.com/a.png\" " +
+                "alt='A' title='T' width=24 height=12 onerror='ignored'>after"
+        )
+        val textAtoms = paragraph.inline.atoms.filterIsInstance<TextAtom>()
+        val image = paragraph.inline.atoms
+            .filterIsInstance<WidgetAtom>()
+            .map { it.widget }
+            .single()
+
+        assertEquals(listOf("before", "\n", "after"), textAtoms.map { it.text })
+        assertIs<ImageWidgetModel>(image)
+        assertEquals("https://example.com/a.png", image.url)
+        assertEquals("A", image.altText)
+        assertEquals("T", image.title)
+        assertEquals(24, image.width)
+        assertEquals(12, image.height)
+        assertTrue("onerror" !in image.attributes)
+    }
+
+    @Test
+    fun should_keep_source_when_html_is_unclosed_unknown_or_unsafe() {
+        val inputs = listOf(
+            "before <strong>unclosed",
+            "<strong><em>nested unclosed</em>",
+            "<strong><em>mismatched</strong></em>",
+            "<custom>value</custom>",
+            "<a href=\"javascript:alert(1)\">unsafe</a>",
+            "<a href=\"jav&#x61;script:alert(1)\">encoded unsafe</a>",
+        )
+
+        for (input in inputs) {
+            val paragraph = compileParagraph(input)
+            val renderedText = paragraph.inline.atoms.filterIsInstance<TextAtom>().joinToString("") { it.text }
+            assertEquals(input, renderedText)
+            assertTrue(paragraph.inline.atoms.none { it is WidgetAtom })
+        }
+    }
+
+    @Test
+    fun should_map_supported_html_aliases_when_balanced() {
+        val cases = mapOf(
+            "<b>x</b>" to "strong",
+            "<i>x</i>" to "emphasis",
+            "<s>x</s>" to "strikethrough",
+            "<mark>x</mark>" to "highlight",
+            "<sup>x</sup>" to "superscript",
+            "<sub>x</sub>" to "subscript",
+            "<ins>x</ins>" to "inserted",
+            "<u>x</u>" to "underline",
+            "<code>x</code>" to "html_code",
+        )
+
+        for ((input, expectedMark) in cases) {
+            val atom = compileParagraph(input).inline.atoms.filterIsInstance<TextAtom>().single()
+            assertEquals(expectedMark, atom.marks.single().kind, input)
+        }
+    }
+
+    @Test
+    fun should_compile_centered_html_div_when_fragment_is_safe() {
+        val block = compileSingleBlock(
+            "<div align=\"center\"><strong>[-NH-(CH2)6-NH-]</strong></div>"
+        )
+        val root = assertIs<HtmlContainerBlockModel>(block)
+        val div = assertIs<HtmlContainerBlockModel>(root.children.single())
+        val paragraph = assertIs<HtmlParagraphBlockModel>(div.children.single())
+        val atom = paragraph.inline.atoms.filterIsInstance<TextAtom>().single()
+
+        assertEquals(BlockTextAlignment.CENTER, paragraph.textAlignment)
+        assertEquals("[-NH-(CH2)6-NH-]", atom.text)
+        assertEquals("strong", atom.marks.single().kind)
+    }
+
+    @Test
+    fun should_decode_entities_and_align_end_when_html_paragraph_is_safe() {
+        val block = compileSingleBlock("<p align='right'>Rohan &amp; team</p>")
+        val root = assertIs<HtmlContainerBlockModel>(block)
+        val paragraph = assertIs<HtmlParagraphBlockModel>(root.children.single())
+
+        assertEquals(BlockTextAlignment.END, paragraph.textAlignment)
+        assertEquals("Rohan & team", paragraph.inline.atoms.filterIsInstance<TextAtom>().single().text)
+    }
+
+    @Test
+    fun should_inherit_and_override_alignment_when_html_containers_are_nested() {
+        val block = compileSingleBlock(
+            "<div style=\"text-align:center\"><p>One</p><p align='left'>Two</p></div>"
+        )
+        val root = assertIs<HtmlContainerBlockModel>(block)
+        val div = assertIs<HtmlContainerBlockModel>(root.children.single())
+        val paragraphs = div.children.filterIsInstance<HtmlParagraphBlockModel>()
+
+        assertEquals(listOf(BlockTextAlignment.CENTER, BlockTextAlignment.START), paragraphs.map { it.textAlignment })
+        assertEquals(listOf("One", "Two"), paragraphs.map { paragraph ->
+            paragraph.inline.atoms.filterIsInstance<TextAtom>().joinToString("") { it.text }
+        })
+    }
+
+    @Test
+    fun should_not_parse_markdown_when_text_is_inside_html_block() {
+        val block = compileSingleBlock("<div>**literal** <em>HTML emphasis</em></div>")
+        val root = assertIs<HtmlContainerBlockModel>(block)
+        val div = assertIs<HtmlContainerBlockModel>(root.children.single())
+        val atoms = assertIs<HtmlParagraphBlockModel>(div.children.single()).inline.atoms.filterIsInstance<TextAtom>()
+
+        assertEquals("**literal** HTML emphasis", atoms.joinToString("") { it.text })
+        assertEquals("**literal**", atoms.first().text)
+        assertTrue(atoms.first().marks.isEmpty())
+        assertEquals("emphasis", atoms.last().marks.single().kind)
+    }
+
+    @Test
+    fun should_keep_raw_html_block_when_fragment_is_malformed_or_unsupported() {
+        val inputs = listOf(
+            "<div><strong>broken</div>",
+            "<table><tr><td>unsupported</td></tr></table>",
+        )
+
+        for (input in inputs) {
+            val block = compileSingleBlock(input)
+            assertEquals(input, assertIs<HtmlBlockModel>(block).html)
+        }
+    }
+
+    private fun compileParagraph(markdown: String): ParagraphBlockModel {
+        return assertIs<ParagraphBlockModel>(compileSingleBlock(markdown))
+    }
+
+    private fun compileSingleBlock(markdown: String) = DefaultRenderModelCompiler.compile(
+        document = MarkdownParser().parse(markdown),
+        environment = RenderCompileEnvironment(),
+    ).blocks.single()
 }
