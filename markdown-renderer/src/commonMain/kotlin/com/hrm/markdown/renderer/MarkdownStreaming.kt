@@ -5,15 +5,12 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.withFrameNanos
 import com.hrm.markdown.parser.MarkdownParser
 import com.hrm.markdown.parser.ast.Document
 import com.hrm.markdown.runtime.MarkdownDirectivePipeline
 import com.hrm.markdown.runtime.MarkdownDirectiveRegistry
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
 /**
@@ -56,35 +53,6 @@ internal fun rememberStreamingDocument(
     }
 
     return state.document
-}
-
-@Composable
-internal fun rememberRenderDocument(
-    document: Document,
-    isStreaming: Boolean,
-): Document {
-    val latestDocument by rememberUpdatedState(document)
-    var throttledDocument by remember { mutableStateOf(document) }
-
-    LaunchedEffect(isStreaming) {
-        if (!isStreaming) {
-            throttledDocument = latestDocument
-            return@LaunchedEffect
-        }
-
-        while (true) {
-            withFrameNanos { }
-            delay(16L)
-            val upstream = latestDocument
-            if (upstream !== throttledDocument) {
-                throttledDocument = upstream
-            }
-        }
-    }
-
-    // 仅在流式期间使用节流后的 document；流结束后直接消费最终 document，
-    // 避免 endStream() 后 renderer 仍停留在旧的流式快照。
-    return if (isStreaming) throttledDocument else document
 }
 
 internal data class StreamingDocumentState<T>(

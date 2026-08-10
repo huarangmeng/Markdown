@@ -15,7 +15,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import com.hrm.markdown.parser.ast.Table
@@ -32,7 +31,8 @@ import com.hrm.markdown.renderer.internal.core.model.TableRowBlockModel
 import com.hrm.markdown.renderer.internal.layout.model.LayoutTableBlockModel
 import com.hrm.markdown.renderer.internal.layout.table.computeAutoTableColumnWidths
 import com.hrm.markdown.renderer.internal.layout.table.computeTableRowHeights
-import kotlin.math.roundToInt
+import com.hrm.markdown.renderer.internal.layout.table.roundTableDimensionsPx
+import com.hrm.markdown.renderer.internal.layout.table.tableTextAlign
 
 /**
  * GFM 表格渲染器。
@@ -140,12 +140,7 @@ private fun TableCellRenderer(
 ) {
     val theme = LocalMarkdownTheme.current
 
-    val textAlign = when (alignment) {
-        Table.Alignment.LEFT -> TextAlign.Start
-        Table.Alignment.CENTER -> TextAlign.Center
-        Table.Alignment.RIGHT -> TextAlign.End
-        Table.Alignment.NONE -> TextAlign.Start
-    }
+    val textAlign = tableTextAlign(alignment)
 
     val style = if (isHeader) {
         theme.bodyStyle.copy(fontWeight = FontWeight.Bold, textAlign = textAlign)
@@ -193,16 +188,36 @@ internal fun RenderTableLayoutBlockModel(
     modifier: Modifier = Modifier,
 ) {
     val theme = LocalMarkdownTheme.current
-    AutoTableViewport(modifier) { availableWidthPx ->
-        TableBlockModelLayout(
-            rows = model.block.rows,
-            alignments = model.block.columnAlignments,
-            columnCount = model.columnWidths.size
-                .coerceAtLeast(model.block.rows.maxOfOrNull { it.cells.size } ?: 1)
-                .coerceAtLeast(1),
-            availableWidthPx = availableWidthPx,
+    val columnWidthsPx = roundTableDimensionsPx(model.columnWidths)
+    val rowHeightsPx = roundTableDimensionsPx(model.rows.map { it.frame.height })
+    AutoTableViewport(modifier) { _ ->
+        TableGridLayout(
+            rowCount = model.rows.size,
+            columnCount = columnWidthsPx.size,
+            availableWidthPx = null,
+            fixedColumnWidthsPx = columnWidthsPx,
+            fixedRowHeightsPx = rowHeightsPx,
             modifier = Modifier.border(width = 1.dp, color = theme.tableBorderColor),
-        )
+        ) {
+            for (row in model.rows) {
+                for (cell in row.cells) {
+                    val alignment = Table.Alignment.entries.getOrElse(cell.alignmentOrdinal) {
+                        Table.Alignment.NONE
+                    }
+                    TableBlockModelCellRenderer(
+                        cell = cell.cell,
+                        alignment = alignment,
+                        isHeader = cell.isHeader,
+                        modifier = Modifier
+                            .border(0.5.dp, theme.tableBorderColor)
+                            .let {
+                                if (cell.isHeader) it.background(theme.tableHeaderBackground) else it
+                            }
+                            .padding(theme.tableCellPadding),
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -242,10 +257,12 @@ private fun TableBlockModelLayout(
 }
 
 @Composable
-private fun TableGridLayout(
+internal fun TableGridLayout(
     rowCount: Int,
     columnCount: Int,
     availableWidthPx: Int?,
+    fixedColumnWidthsPx: IntArray? = null,
+    fixedRowHeightsPx: IntArray? = null,
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
@@ -257,25 +274,40 @@ private fun TableGridLayout(
             return@Layout layout(0, 0) {}
         }
 
-        val minContentWidths = MutableList(columnCount) { 0f }
-        val maxContentWidths = MutableList(columnCount) { 0f }
-        for (index in measurables.indices) {
-            val colIdx = index % columnCount
-            val minIntrinsicWidth = measurables[index].minIntrinsicWidth(Constraints.Infinity)
-            val maxIntrinsicWidth = measurables[index].maxIntrinsicWidth(Constraints.Infinity)
-            minContentWidths[colIdx] = maxOf(minContentWidths[colIdx], minIntrinsicWidth.toFloat())
-            maxContentWidths[colIdx] = maxOf(maxContentWidths[colIdx], maxIntrinsicWidth.toFloat())
+        check(measurables.size == rowCount * columnCount) {
+            "Table grid expected ${rowCount * columnCount} cells, got ${measurables.size}"
         }
-        val columnWidths = computeColumnWidthsPx(minContentWidths, maxContentWidths, availableWidthPx)
+        val columnWidths = fixedColumnWidthsPx?.also {
+            check(it.size == columnCount) {
+                "Table grid expected $columnCount fixed column widths, got ${it.size}"
+            }
+        } ?: run {
+            val minContentWidths = MutableList(columnCount) { 0f }
+            val maxContentWidths = MutableList(columnCount) { 0f }
+            for (index in measurables.indices) {
+                val colIdx = index % columnCount
+                val minIntrinsicWidth = measurables[index].minIntrinsicWidth(Constraints.Infinity)
+                val maxIntrinsicWidth = measurables[index].maxIntrinsicWidth(Constraints.Infinity)
+                minContentWidths[colIdx] = maxOf(minContentWidths[colIdx], minIntrinsicWidth.toFloat())
+                maxContentWidths[colIdx] = maxOf(maxContentWidths[colIdx], maxIntrinsicWidth.toFloat())
+            }
+            computeColumnWidthsPx(minContentWidths, maxContentWidths, availableWidthPx)
+        }
 
-        val intrinsicCellHeights = IntArray(measurables.size) { index ->
-            val colIdx = index % columnCount
-            measurables[index].minIntrinsicHeight(columnWidths[colIdx])
+        val rowHeights = fixedRowHeightsPx?.also {
+            check(it.size == rowCount) {
+                "Table grid expected $rowCount fixed row heights, got ${it.size}"
+            }
+        } ?: run {
+            val intrinsicCellHeights = IntArray(measurables.size) { index ->
+                val colIdx = index % columnCount
+                measurables[index].minIntrinsicHeight(columnWidths[colIdx])
+            }
+            computeTableRowHeights(
+                cellHeights = intrinsicCellHeights,
+                columnCount = columnCount,
+            )
         }
-        val rowHeights = computeTableRowHeights(
-            cellHeights = intrinsicCellHeights,
-            columnCount = columnCount,
-        )
 
         val placeables = Array(measurables.size) { index ->
             val colIdx = index % columnCount
@@ -299,7 +331,8 @@ private fun TableGridLayout(
                 var x = 0
                 for (colIdx in 0 until columnCount) {
                     val placeable = placeables[rowIdx * columnCount + colIdx]
-                    placeable.placeRelative(x, y)
+                    // Source column order is physical and must not reverse in RTL.
+                    placeable.place(x, y)
                     x += columnWidths[colIdx]
                 }
                 y += rowHeights[rowIdx]
@@ -316,12 +349,7 @@ private fun TableBlockModelCellRenderer(
     modifier: Modifier = Modifier,
 ) {
     val theme = LocalMarkdownTheme.current
-    val textAlign = when (alignment) {
-        Table.Alignment.LEFT -> TextAlign.Start
-        Table.Alignment.CENTER -> TextAlign.Center
-        Table.Alignment.RIGHT -> TextAlign.End
-        Table.Alignment.NONE -> TextAlign.Start
-    }
+    val textAlign = tableTextAlign(alignment)
     val style = if (isHeader) {
         theme.bodyStyle.copy(fontWeight = FontWeight.Bold, textAlign = textAlign)
     } else {
@@ -349,11 +377,5 @@ private fun computeColumnWidthsPx(
         maxContentWidths = maxContentWidths,
         availableWidth = availableWidthPx?.toFloat(),
     )
-    val rounded = IntArray(widths.size) { index -> widths[index].roundToInt().coerceAtLeast(0) }
-    val target = widths.sum().roundToInt()
-    val delta = target - rounded.sum()
-    if (delta != 0 && rounded.isNotEmpty()) {
-        rounded[rounded.lastIndex] = (rounded.last() + delta).coerceAtLeast(0)
-    }
-    return rounded
+    return roundTableDimensionsPx(widths)
 }

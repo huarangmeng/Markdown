@@ -5,9 +5,9 @@ import com.hrm.markdown.parser.flavour.ExtendedFlavour
 import com.hrm.markdown.parser.flavour.MarkdownFlavour
 
 /**
- * Markdown 渲染器的解析配置。
+ * Markdown 渲染器配置。
  *
- * 将解析器的配置选项暴露给渲染层，允许外部控制使用的 Markdown 方言和解析行为。
+ * 汇总 Markdown 方言与解析行为。
  *
  * ## 使用示例
  *
@@ -70,8 +70,8 @@ data class MarkdownConfig(
         val Default = MarkdownConfig()
 
         /**
-         * 面向 LLM 流式展示场景的推荐配置：开启 append 节流（合并阈值 16），
-         * 在保证 UI 可见性的前提下大幅降低总流式耗时。
+         * 面向 LLM 流式展示场景的推荐配置：开启 append 合并（阈值 16），
+         * 在保证 UI 可见性的前提下降低解析总耗时。
          */
         val LlmStreaming = MarkdownConfig(appendCoalesceThreshold = 16)
     }

@@ -12,7 +12,8 @@ import com.hrm.markdown.renderer.internal.core.identity.renderIdentitySeed
  * A document-scoped source of render identities.
  *
  * Stable identity and semantic revision deliberately have different inputs:
- * - parsed nodes use their source range as stable identity;
+ * - parsed nodes use their source start and structural parent as stable identity, so an active
+ *   streaming tail keeps its identity while its end range grows;
  * - synthetic/custom nodes without a source range use their deterministic tree path;
  * - semantic revision covers every rendered field and the complete child subtree.
  */
@@ -56,11 +57,10 @@ internal class RenderIdentityProvider(document: Document) {
         val stableId = when {
             node is Document -> renderIdentityFromValues(parentStableId, typeId)
             range != SourceRange.EMPTY -> renderIdentityFromValues(
+                parentStableId,
                 typeId,
                 range.start.offset.toLong(),
-                range.end.offset.toLong(),
                 node.lineRange.startLine.toLong(),
-                node.lineRange.endLine.toLong(),
             )
             else -> renderIdentityFromValues(parentStableId, typeId, siblingIndex.toLong())
         }

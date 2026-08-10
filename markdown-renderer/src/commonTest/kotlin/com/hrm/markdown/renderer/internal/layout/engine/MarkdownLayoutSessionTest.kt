@@ -93,6 +93,8 @@ class MarkdownLayoutSessionTest {
             val second = checkNotNull(secondSession)
             assertEquals(first.stableIdAt(0), second.stableIdAt(0))
             assertSame(first.blockAt(0), second.blockAt(0))
+            assertEquals(first.stableIdAt(1), second.stableIdAt(1))
+            assertTrue(first.blockAt(1) !== second.blockAt(1))
         }
     }
 

@@ -26,7 +26,7 @@
 | 🚀 | **Blazing Fast** | AST-based recursive descent parser with incremental parsing — only re-parses what changed |
 | 🌍 | **True Cross-Platform** | One codebase renders identically on **Android**, **iOS**, **Desktop (JVM)**, **Web (Wasm/JS)** |
 | 📐 | **100% Coverage** | 413 Markdown features, **652/652 CommonMark Spec** tests passing, plus GFM & 20+ extensions |
-| 🤖 | **LLM-Ready Streaming** | First-class token-by-token rendering with 5fps throttling — zero flicker during AI generation |
+| 🤖 | **LLM-Ready Streaming** | First-class token-by-token rendering with display-frame coalescing — zero flicker during AI generation |
 | 🎨 | **Fully Themeable** | 30+ configurable properties, built-in GitHub light/dark themes, auto system detection |
 | 📊 | **LaTeX Math** | Inline `$...$` and block `$$...$$` formulas via integrated LaTeX rendering engine |
 | 🔍 | **Built-in Linting** | 13+ diagnostic rules including WCAG accessibility checks — catch issues at parse time |
@@ -214,7 +214,8 @@ LaunchedEffect(Unit) {
 
 Markdown(
     markdown = text,
-    isStreaming = isStreaming, // Enables incremental parsing + 5fps throttled rendering
+    isStreaming = isStreaming,
+    config = MarkdownConfig.LlmStreaming, // 16-char parser coalescing + frame-coalesced UI commits
 )
 ```
 
@@ -225,6 +226,7 @@ Markdown(
 - ✅ Auto-closes unclosed fences, math blocks, emphasis during streaming
 - ✅ Lazy inline parsing — block structure first, inline elements on demand
 - ✅ FNV-1a content hashing for O(1) block stability detection
+- ✅ Display-frame coalescing — multiple token updates in one frame commit only the latest document, without an artificial low-fps cap
 
 The `Markdown(document = ...)` overload also supports mutable custom ASTs: nodes without source
 ranges receive deterministic tree-path identities, and rendered semantic fields participate in

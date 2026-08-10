@@ -2,12 +2,12 @@ package com.hrm.markdown.renderer.internal.layout.engine
 
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import com.hrm.markdown.parser.ast.Table
 import com.hrm.markdown.renderer.internal.core.model.TableBlockModel
 import com.hrm.markdown.renderer.internal.layout.inline.computeMaxIntrinsicWidthPx
 import com.hrm.markdown.renderer.internal.layout.inline.computeMinIntrinsicWidthPx
 import com.hrm.markdown.renderer.internal.layout.table.computeAutoTableColumnWidths
+import com.hrm.markdown.renderer.internal.layout.table.tableTextAlign
 
 internal fun tableColumnCount(block: TableBlockModel): Int =
     block.columnAlignments.size.coerceAtLeast(block.rows.maxOfOrNull { it.cells.size } ?: 1)
@@ -17,12 +17,7 @@ internal fun LayoutEnvironment.tableCellTextStyle(
     alignment: Table.Alignment,
     isHeader: Boolean,
 ): TextStyle {
-    val textAlign = when (alignment) {
-        Table.Alignment.LEFT -> TextAlign.Start
-        Table.Alignment.CENTER -> TextAlign.Center
-        Table.Alignment.RIGHT -> TextAlign.End
-        Table.Alignment.NONE -> TextAlign.Start
-    }
+    val textAlign = tableTextAlign(alignment)
     return if (isHeader) {
         markdownTheme.bodyStyle.copy(fontWeight = FontWeight.Bold, textAlign = textAlign)
     } else {

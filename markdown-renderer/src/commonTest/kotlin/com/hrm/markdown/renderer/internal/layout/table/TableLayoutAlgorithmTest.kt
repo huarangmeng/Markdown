@@ -62,4 +62,20 @@ class TableLayoutAlgorithmTest {
 
         assertContentEquals(intArrayOf(48, 96, 72), rowHeights)
     }
+
+    @Test
+    fun should_preserveRoundedTotal_when_roundingLayoutDimensions() {
+        val dimensions = roundTableDimensionsPx(listOf(10.6f, 10.6f, 10.6f))
+
+        assertContentEquals(intArrayOf(11, 11, 10), dimensions)
+        assertEquals(32, dimensions.sum())
+    }
+
+    @Test
+    fun should_distributeRounding_withoutLosingNegativeDelta() {
+        val dimensions = roundTableDimensionsPx(listOf(0.6f, 0.6f, 0.1f))
+
+        assertContentEquals(intArrayOf(1, 0, 0), dimensions)
+        assertEquals(1, dimensions.sum())
+    }
 }

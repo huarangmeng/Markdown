@@ -1,5 +1,8 @@
 package com.hrm.markdown.renderer.internal.layout.table
 
+import kotlin.math.floor
+import kotlin.math.roundToInt
+
 internal fun computeAutoTableColumnWidths(
     minContentWidths: List<Float>,
     maxContentWidths: List<Float>,
@@ -72,4 +75,25 @@ internal fun computeTableRowHeights(
         }
         rowHeight
     }
+}
+
+/** Rounds precomputed layout dimensions while preserving their rounded total. */
+internal fun roundTableDimensionsPx(dimensions: List<Float>): IntArray {
+    if (dimensions.isEmpty()) return IntArray(0)
+    val normalized = dimensions.map { dimension ->
+        dimension.takeIf { it.isFinite() }?.coerceAtLeast(0f) ?: 0f
+    }
+    val result = IntArray(normalized.size) { index -> floor(normalized[index]).toInt() }
+    val target = normalized.sum().roundToInt().coerceAtLeast(0)
+    val remainder = target - result.sum()
+    if (remainder > 0) {
+        val largestFractions = normalized.indices.sortedWith(
+            compareByDescending<Int> { index -> normalized[index] - result[index] }
+                .thenBy { it }
+        )
+        repeat(remainder) { offset ->
+            result[largestFractions[offset % largestFractions.size]] += 1
+        }
+    }
+    return result
 }

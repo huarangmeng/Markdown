@@ -74,6 +74,22 @@ class DefaultRenderModelCompilerTest {
     }
 
     @Test
+    fun should_keep_active_streaming_tail_identity_when_only_its_end_grows() {
+        val parser = MarkdownParser()
+        val before = DefaultRenderModelCompiler.compile(
+            parser.parse("stable\n\ntail"),
+            RenderCompileEnvironment(),
+        ).blocks
+        val after = DefaultRenderModelCompiler.compile(
+            parser.parse("stable\n\ntail updated"),
+            RenderCompileEnvironment(),
+        ).blocks
+
+        assertEquals(before[1].identity.stableId, after[1].identity.stableId)
+        assertNotEquals(before[1].identity.contentRevision, after[1].identity.contentRevision)
+    }
+
+    @Test
     fun should_compile_unknown_container_node_into_internal_fallback_container() {
         val document = Document().apply {
             appendChild(

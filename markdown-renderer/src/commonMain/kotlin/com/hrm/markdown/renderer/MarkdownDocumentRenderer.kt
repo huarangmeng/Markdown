@@ -54,17 +54,10 @@ internal fun MarkdownDocumentRenderer(
         resolveMarkdownRenderMode(enableScroll = enableScroll)
     }
     val lazyListState = rememberLazyListState()
-    val renderDocument = rememberRenderDocument(
-        document = document,
-        isStreaming = isStreaming,
-    )
     // Document is a mutable public AST. A caller may update the same root instance, so reference
     // equality alone is not a sufficient remember key.
-    val renderDocumentRevision = if (renderDocument === document) {
-        documentRevision.takeIf { it != 0L } ?: computeSemanticRevision(renderDocument)
-    } else {
-        renderDocument.contentHash.takeIf { it != 0L } ?: computeSemanticRevision(renderDocument)
-    }
+    val renderDocumentRevision =
+        documentRevision.takeIf { it != 0L } ?: computeSemanticRevision(document)
     ProvideMarkdownTheme(theme) {
         val engineHost = remember { MarkdownEngineHost() }
         val facadeState = remember(
@@ -90,7 +83,7 @@ internal fun MarkdownDocumentRenderer(
         }
         val internalRenderDocument = remember(
             engineHost,
-            renderDocument,
+            document,
             renderDocumentRevision,
             theme,
             config,
@@ -98,7 +91,7 @@ internal fun MarkdownDocumentRenderer(
             isStreaming,
         ) {
             engineHost.compile(
-                document = renderDocument,
+                document = document,
                 facadeState = facadeState,
             )
         }
@@ -189,7 +182,7 @@ internal fun MarkdownDocumentRenderer(
                     LocalMarkdownSelectionController provides selectionController,
                 ) {
                     ProvideRendererContext(
-                        document = renderDocument,
+                        document = document,
                         onLinkClick = onLinkClick,
                         onFootnoteClick = navigationController.onFootnoteClick,
                         onFootnoteBackClick = navigationController.onFootnoteBackClick,
