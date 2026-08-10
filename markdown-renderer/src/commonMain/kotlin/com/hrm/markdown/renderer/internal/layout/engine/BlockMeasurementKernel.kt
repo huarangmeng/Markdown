@@ -11,6 +11,7 @@ import com.hrm.markdown.renderer.internal.core.model.FallbackLeafBlockModel
 import com.hrm.markdown.renderer.internal.core.model.FigureBlockModel
 import com.hrm.markdown.renderer.internal.core.model.HeadingBlockModel
 import com.hrm.markdown.renderer.internal.core.model.HtmlBlockModel
+import com.hrm.markdown.renderer.internal.core.model.HtmlParagraphBlockModel
 import com.hrm.markdown.renderer.internal.core.model.InlineModel
 import com.hrm.markdown.renderer.internal.core.model.InternalRenderBlockModel
 import com.hrm.markdown.renderer.internal.core.model.PageBreakBlockModel
@@ -55,7 +56,17 @@ internal fun LayoutEnvironment.measureLeafBlockContentHeight(
     block: InternalRenderBlockModel,
     widthPx: Float,
 ): Float = when (block) {
-    is ParagraphBlockModel -> measureInlineBlock(block.inline, markdownTheme.bodyStyle, widthPx)
+    is ParagraphBlockModel -> measureInlineBlock(
+        block.inline,
+        markdownTheme.bodyStyle,
+        widthPx,
+    )
+
+    is HtmlParagraphBlockModel -> measureInlineBlock(
+        block.inline,
+        markdownTheme.bodyStyle.withBlockTextAlignment(block.textAlignment),
+        widthPx,
+    )
 
     is HeadingBlockModel -> {
         val style = markdownTheme.headingStyles[(block.level - 1).coerceIn(

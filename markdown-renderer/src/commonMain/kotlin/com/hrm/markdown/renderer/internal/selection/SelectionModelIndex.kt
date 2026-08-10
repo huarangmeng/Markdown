@@ -16,6 +16,8 @@ import com.hrm.markdown.renderer.internal.core.model.FigureBlockModel
 import com.hrm.markdown.renderer.internal.core.model.FootnoteDefinitionBlockModel
 import com.hrm.markdown.renderer.internal.core.model.HeadingBlockModel
 import com.hrm.markdown.renderer.internal.core.model.HtmlBlockModel
+import com.hrm.markdown.renderer.internal.core.model.HtmlContainerBlockModel
+import com.hrm.markdown.renderer.internal.core.model.HtmlParagraphBlockModel
 import com.hrm.markdown.renderer.internal.core.model.ImageWidgetModel
 import com.hrm.markdown.renderer.internal.core.model.InlineCodeWidgetModel
 import com.hrm.markdown.renderer.internal.core.model.InlineMathWidgetModel
@@ -190,6 +192,7 @@ internal class IncrementalSelectionIndexBuilder {
         fun visit(current: InternalRenderBlockModel) {
             when (current) {
                 is ParagraphBlockModel -> add(current.identity.stableId, current.inline.plainText())
+                is HtmlParagraphBlockModel -> add(current.identity.stableId, current.inline.plainText())
                 is HeadingBlockModel -> add(
                     current.identity.stableId,
                     buildString {
@@ -206,6 +209,7 @@ internal class IncrementalSelectionIndexBuilder {
                 is AdmonitionBlockModel -> current.children.forEach(::visit)
                 is CustomContainerBlockModel -> current.children.forEach(::visit)
                 is DirectiveBlockModel -> current.children.forEach(::visit)
+                is HtmlContainerBlockModel -> current.children.forEach(::visit)
                 is FallbackContainerBlockModel -> current.children.forEach(::visit)
                 is ListBlockModel -> current.items.forEach { item -> item.children.forEach(::visit) }
                 is ColumnsLayoutBlockModel -> current.columns.forEach { column -> column.children.forEach(::visit) }

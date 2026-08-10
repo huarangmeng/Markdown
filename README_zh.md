@@ -25,7 +25,7 @@
 |--|------|------|
 | 🚀 | **极速解析** | 基于 AST 的递归下降解析器，支持增量解析 — 仅重新解析变更部分 |
 | 🌍 | **真正跨平台** | 一套代码，在 **Android**、**iOS**、**Desktop (JVM)**、**Web (Wasm/JS)** 上实现一致渲染 |
-| 📐 | **100% 覆盖** | 372 项 Markdown 功能，**652/652 CommonMark 规范测试**全部通过，另支持 GFM 及 20+ 扩展 |
+| 📐 | **100% 覆盖** | 413 项 Markdown 功能，**652/652 CommonMark 规范测试**全部通过，另支持 GFM 及 20+ 扩展 |
 | 🤖 | **LLM 流式渲染** | 一等公民级别的逐 token 渲染，5fps 节流刷新 — AI 生成过程中零闪烁 |
 | 🎨 | **完整主题系统** | 30+ 可配置属性，内置 GitHub 亮色/暗色主题，自动跟随系统模式 |
 | 📊 | **LaTeX 数学公式** | 支持行内 `$...$` 和块级 `$$...$$` 数学公式，集成 LaTeX 渲染引擎 |
@@ -55,7 +55,7 @@
 
 ### 🌐 丰富的 HTML 与扩展语法支持
 
-完整的 HTML 块级/行内支持，GFM 表格、告示块、数学公式、代码高亮等 20+ 扩展语法。
+完整的 CommonMark HTML 解析与导出、常用行内及容器 HTML 的 Compose 安全渲染，以及 GFM 表格、告示块、数学公式、代码高亮等 20+ 扩展语法。
 
 <p align="center">
   <img src="./images/html_support.png" width="260" alt="HTML 与扩展语法支持" />
@@ -281,7 +281,7 @@ CompositionLocalProvider(
 
 ---
 
-## 📐 全面的语法支持（372 项功能）
+## 📐 全面的语法支持（413 项功能）
 
 <details>
 <summary><b>📦 块级元素</b> — 结构化内容所需的一切</summary>
@@ -295,7 +295,7 @@ CompositionLocalProvider(
 | **列表** | 无序/有序/任务列表、嵌套、紧凑/松散区分 |
 | **表格 (GFM)** | 列对齐、单元格内行内格式、管道符转义 |
 | **分隔线** | `---`、`***`、`___` |
-| **HTML 块** | 所有 7 种 CommonMark 类型 |
+| **HTML 块** | 所有 7 种 CommonMark 类型；常用容器及文字对齐的 Compose 安全片段渲染 |
 | **链接引用定义** | 完整支持各种标题格式 |
 
 </details>
@@ -310,7 +310,7 @@ CompositionLocalProvider(
 | **行内代码** | 单/多反引号、空格剥离 |
 | **链接** | 行内链接、引用链接（完整/折叠/简写）、自动链接、GFM 裸 URL、属性块 |
 | **图片** | 行内图片、引用图片、`=WxH` 尺寸指定、属性块、自动 Figure 转换 |
-| **行内 HTML** | 标签、注释、CDATA、处理指令 |
+| **行内 HTML** | CommonMark 标签、注释、CDATA、处理指令；常用格式、链接、换行和图片的 Compose 安全语义渲染 |
 | **转义与实体** | 32 个可转义字符、命名/数字 HTML 实体 |
 | **换行** | 硬换行（空格/反斜杠）、软换行 |
 
@@ -441,6 +441,30 @@ val doc = MarkdownParser().parse(input)
 val html = HtmlRenderer.renderMarkdown(input, flavour = CommonMarkFlavour)
 ```
 
+### Compose 安全 HTML
+
+`Markdown()` 无需 WebView，即可跨平台渲染一组安全的行内 HTML 子集：
+
+```markdown
+普通文本与 <strong>粗体</strong>、<em>斜体</em>、
+<span style="color:red">样式文本</span>、<a href="https://example.com">链接</a> 混排。<br>
+下一行还可以包含 <img src="https://example.com/icon.png" alt="图标">。
+```
+
+当前支持 `strong`/`b`、`em`/`i`、`del`/`s`/`strike`、`mark`、`sup`、`sub`、
+`ins`、`u`、`code`、`kbd`、`span`、`a`、`br` 和 `img`。行内 HTML 注释不显示；
+`span` 只接受有限的 CSS 属性，事件属性及可执行 URL scheme 不会执行。未知、危险、
+错配或未闭合的标签会保留为源码文本，不会静默丢失内容。
+
+块级安全片段支持 `p`、`div`、`center`、`article`、`section`、`main`、`header` 和
+`footer`，容器内可以使用上述安全行内标签，并通过 `align` 或受限的
+`style="text-align:..."` 设置起始、居中和末端对齐。格式错误的片段，或表格、表单、
+脚本、任意 CSS 等未支持的块级结构，会整体回退为可见的原始 HTML，不进行半截渲染。
+
+按照 CommonMark 规则，块级标签必须独占行首。`文本 <p>块</p> 文本` 不是合法的块级
+写法，会保留为行内源码；应将 `p` 独立成行。通过 `HtmlRenderer`/`MarkdownHtml`
+导出 HTML 时，所有原始 HTML 仍会继续透传。
+
 ---
 
 ## 🖼️ 自定义图片渲染
@@ -518,7 +542,7 @@ Markdown(
 | 5 | 列表 | 20/20 (100%) |
 | 6 | 分隔线 | 6/6 (100%) |
 | 7 | 表格 (GFM) | 11/11 (100%) |
-| 8 | HTML 块 | 10/10 (100%) |
+| 8 | HTML 块 | 12/12 (100%) |
 | 9 | 链接引用定义 | 12/12 (100%) |
 | 10 | 块级扩展 | 85/85 (100%) |
 | 11 | 强调 | 13/13 (100%) |
@@ -526,7 +550,7 @@ Markdown(
 | 13 | 行内代码 | 8/8 (100%) |
 | 14 | 链接 | 27/27 (100%) |
 | 15 | 图片 | 17/17 (100%) |
-| 16 | 行内 HTML | 8/8 (100%) |
+| 16 | 行内 HTML | 10/10 (100%) |
 | 17 | 转义与实体 | 10/10 (100%) |
 | 18 | 换行 | 5/5 (100%) |
 | 19 | 行内扩展 | 50/50 (100%) |
@@ -535,7 +559,7 @@ Markdown(
 | 22 | HTML 生成器 | 12/12 (100%) |
 | 23 | 诊断 / WCAG | 19/19 (100%) |
 | 24 | 指令 | 8/8 (100%) |
-| | **总计** | **372/372 (100%)** |
+| | **总计** | **413/413 (100%)** |
 
 > 📖 完整详情：[PARSER_COVERAGE_ANALYSIS.md](./markdown-parser/PARSER_COVERAGE_ANALYSIS.md)
 

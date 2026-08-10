@@ -66,6 +66,8 @@ import com.hrm.markdown.renderer.internal.core.model.FigureBlockModel
 import com.hrm.markdown.renderer.internal.core.model.FootnoteDefinitionBlockModel
 import com.hrm.markdown.renderer.internal.core.model.HeadingBlockModel
 import com.hrm.markdown.renderer.internal.core.model.HtmlBlockModel
+import com.hrm.markdown.renderer.internal.core.model.HtmlContainerBlockModel
+import com.hrm.markdown.renderer.internal.core.model.HtmlParagraphBlockModel
 import com.hrm.markdown.renderer.internal.core.model.InternalRenderBlockModel
 import com.hrm.markdown.renderer.internal.core.model.ListBlockModel
 import com.hrm.markdown.renderer.internal.core.model.MathBlockModel
@@ -444,8 +446,20 @@ private fun PaintRenderBlock(block: LayoutRenderBlockModel) {
             }
         }
 
+        is HtmlContainerBlockModel -> {
+            if (block.children.isNotEmpty()) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(LocalMarkdownTheme.current.blockSpacing),
+                ) {
+                    PaintLayoutBlockChildren(block.children)
+                }
+            }
+        }
+
         is FallbackLeafBlockModel -> Unit
         is ParagraphBlockModel,
+        is HtmlParagraphBlockModel,
         is HeadingBlockModel -> Unit
     }
 }

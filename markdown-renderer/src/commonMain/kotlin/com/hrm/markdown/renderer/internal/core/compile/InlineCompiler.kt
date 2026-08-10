@@ -77,13 +77,51 @@ private fun compileInlineNodes(
     sink: MutableList<InlineAtom>,
     parentStableId: Long,
 ) {
-    nodes.forEachIndexed { index, node ->
-        compileInlineNode(
-            node = node,
-            activeMarks = activeMarks,
-            sink = sink,
-            stableId = stableInlineNodeId(node, parentStableId, index),
-        )
+    compileNormalizedInlineSources(
+        sources = InlineHtmlNormalizer.normalize(nodes),
+        activeMarks = activeMarks,
+        sink = sink,
+        parentStableId = parentStableId,
+    )
+}
+
+private fun compileNormalizedInlineSources(
+    sources: List<NormalizedInlineSource>,
+    activeMarks: List<SpanMark>,
+    sink: MutableList<InlineAtom>,
+    parentStableId: Long,
+) {
+    sources.forEachIndexed { index, source ->
+        val stableId = stableInlineNodeId(source.anchor, parentStableId, index)
+        val identity = nodeIdentity(source.anchor, stableId)
+        when (source) {
+            is AstInlineSource -> compileInlineNode(
+                node = source.anchor,
+                activeMarks = activeMarks,
+                sink = sink,
+                stableId = stableId,
+            )
+            is HtmlSpanInlineSource -> compileNormalizedInlineSources(
+                sources = source.children,
+                activeMarks = activeMarks + source.marks,
+                sink = sink,
+                parentStableId = stableId,
+            )
+            is HtmlLineBreakInlineSource -> sink += TextAtom(identity, "\n", activeMarks)
+            is HtmlImageInlineSource -> sink += WidgetAtom(
+                identity = identity,
+                widget = ImageWidgetModel(
+                    identity = identity,
+                    url = source.source,
+                    altText = source.altText,
+                    title = source.title,
+                    width = source.width,
+                    height = source.height,
+                    attributes = source.attributes,
+                ),
+            )
+            is HiddenHtmlInlineSource -> Unit
+        }
     }
 }
 

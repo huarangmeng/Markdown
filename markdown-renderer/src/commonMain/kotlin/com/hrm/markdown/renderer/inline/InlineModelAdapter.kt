@@ -275,6 +275,8 @@ private fun spanStyleForMark(mark: SpanMark, theme: MarkdownTheme): SpanStyle = 
 
     "abbreviation" -> theme.abbreviationStyle
     "kbd" -> theme.kbdStyle
+    "underline" -> SpanStyle(textDecoration = TextDecoration.Underline)
+    "html_code" -> theme.inlineCodeStyle.copy(background = theme.inlineCodeBackground)
     "inline_html" -> SpanStyle(
         color = Color.Gray,
         fontFamily = FontFamily.Monospace,

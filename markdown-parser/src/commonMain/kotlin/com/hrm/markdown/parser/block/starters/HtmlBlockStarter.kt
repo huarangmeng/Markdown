@@ -4,6 +4,7 @@ import com.hrm.markdown.parser.LineRange
 import com.hrm.markdown.parser.ast.HtmlBlock
 import com.hrm.markdown.parser.block.OpenBlock
 import com.hrm.markdown.parser.core.LineCursor
+import com.hrm.markdown.parser.html.HtmlTagCategories
 
 /**
  * HTML 块开启器（CommonMark 规范中的类型 1-7）。
@@ -44,17 +45,6 @@ internal class HtmlBlockStarter : BlockStarter {
             """^</[a-zA-Z][a-zA-Z0-9-]*\s*>[ \t]*$"""
         )
 
-        private val BLOCK_TAGS = setOf(
-            "address", "article", "aside", "base", "basefont", "blockquote", "body",
-            "caption", "center", "col", "colgroup", "dd", "details", "dialog", "dir",
-            "div", "dl", "dt", "fieldset", "figcaption", "figure", "footer", "form",
-            "frame", "frameset", "h1", "h2", "h3", "h4", "h5", "h6", "head", "header",
-            "hr", "html", "iframe", "legend", "li", "link", "main", "menu", "menuitem",
-            "nav", "noframes", "ol", "optgroup", "option", "p", "param", "search",
-            "section", "summary", "table", "tbody", "td", "template", "tfoot", "th",
-            "thead", "title", "tr", "track", "ul"
-        )
-
         fun detectHtmlBlockType(line: String): Int? {
             val lower = line.lowercase()
             if (HTML_TYPE1_REGEX.containsMatchIn(line)) return 1
@@ -63,7 +53,7 @@ internal class HtmlBlockStarter : BlockStarter {
             if (HTML_TYPE4_REGEX.containsMatchIn(line)) return 4
             if (lower.startsWith("<![cdata[")) return 5
             val tagMatch = HTML_TYPE6_TAG_REGEX.find(line)
-            if (tagMatch != null && tagMatch.groupValues[1].lowercase() in BLOCK_TAGS) return 6
+            if (tagMatch != null && HtmlTagCategories.isBlockTag(tagMatch.groupValues[1])) return 6
             if (HTML_TYPE7_OPEN_REGEX.containsMatchIn(line) || HTML_TYPE7_CLOSE_REGEX.containsMatchIn(line)) return 7
             return null
         }

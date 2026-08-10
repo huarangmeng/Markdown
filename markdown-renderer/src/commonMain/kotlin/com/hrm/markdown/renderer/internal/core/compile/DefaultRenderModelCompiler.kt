@@ -236,7 +236,7 @@ private fun compileBlock(
             ),
         )
 
-        is HtmlBlock -> HtmlBlockModel(
+        is HtmlBlock -> HtmlBlockModelCompiler.compile(node, identity) ?: HtmlBlockModel(
             identity = identity,
             html = node.literal,
         )

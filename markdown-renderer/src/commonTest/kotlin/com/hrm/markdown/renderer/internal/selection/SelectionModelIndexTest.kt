@@ -7,6 +7,9 @@ import com.hrm.markdown.renderer.internal.core.model.ColumnBlockModel
 import com.hrm.markdown.renderer.internal.core.model.ColumnsLayoutBlockModel
 import com.hrm.markdown.renderer.internal.core.model.MathBlockModel
 import com.hrm.markdown.renderer.internal.core.model.MathBlockWidgetModel
+import com.hrm.markdown.renderer.internal.core.model.HtmlContainerBlockModel
+import com.hrm.markdown.renderer.internal.core.model.HtmlParagraphBlockModel
+import com.hrm.markdown.renderer.internal.core.model.BlockTextAlignment
 import com.hrm.markdown.renderer.internal.core.model.ParagraphBlockModel
 import com.hrm.markdown.renderer.internal.core.identity.RenderIdentity
 import com.hrm.markdown.renderer.internal.layout.model.LayoutTextRun
@@ -41,6 +44,30 @@ class SelectionModelIndexTest {
 
         assertEquals(listOf(1L, 2L, 3L), index.entries.map { it.stableId })
         assertEquals(listOf("before", "H1\tH2\nA1\tA2", "x^2 + y^2"), index.entries.map { it.text })
+    }
+
+    @Test
+    fun should_flatten_html_container_children_when_building_selection_index() {
+        val container = HtmlContainerBlockModel(
+            identity = selIdentity(1),
+            children = listOf(
+                HtmlParagraphBlockModel(
+                    selIdentity(2),
+                    inlineModelText(id = 20, text = "first"),
+                    BlockTextAlignment.CENTER,
+                ),
+                HtmlParagraphBlockModel(
+                    selIdentity(3),
+                    inlineModelText(id = 30, text = "second"),
+                    BlockTextAlignment.END,
+                ),
+            ),
+        )
+
+        val index = buildSelectionIndex(listOf(container))
+
+        assertEquals(listOf(2L, 3L), index.entries.map { it.stableId })
+        assertEquals(listOf("first", "second"), index.entries.map { it.text })
     }
 
     @Test

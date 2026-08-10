@@ -7,9 +7,22 @@ sealed interface InternalRenderBlockModel {
     val identity: RenderIdentity
 }
 
+enum class BlockTextAlignment {
+    INHERIT,
+    START,
+    CENTER,
+    END,
+}
+
 data class ParagraphBlockModel(
     override val identity: RenderIdentity,
     val inline: InlineModel,
+) : InternalRenderBlockModel
+
+data class HtmlParagraphBlockModel(
+    override val identity: RenderIdentity,
+    val inline: InlineModel,
+    val textAlignment: BlockTextAlignment,
 ) : InternalRenderBlockModel
 
 data class HeadingBlockModel(
@@ -87,6 +100,11 @@ data class AdmonitionBlockModel(
 data class HtmlBlockModel(
     override val identity: RenderIdentity,
     val html: String,
+) : InternalRenderBlockModel
+
+data class HtmlContainerBlockModel(
+    override val identity: RenderIdentity,
+    val children: List<InternalRenderBlockModel>,
 ) : InternalRenderBlockModel
 
 data class CustomContainerBlockModel(

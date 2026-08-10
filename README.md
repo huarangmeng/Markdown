@@ -25,7 +25,7 @@
 |--|---------|-------------|
 | 🚀 | **Blazing Fast** | AST-based recursive descent parser with incremental parsing — only re-parses what changed |
 | 🌍 | **True Cross-Platform** | One codebase renders identically on **Android**, **iOS**, **Desktop (JVM)**, **Web (Wasm/JS)** |
-| 📐 | **100% Coverage** | 372 Markdown features, **652/652 CommonMark Spec** tests passing, plus GFM & 20+ extensions |
+| 📐 | **100% Coverage** | 413 Markdown features, **652/652 CommonMark Spec** tests passing, plus GFM & 20+ extensions |
 | 🤖 | **LLM-Ready Streaming** | First-class token-by-token rendering with 5fps throttling — zero flicker during AI generation |
 | 🎨 | **Fully Themeable** | 30+ configurable properties, built-in GitHub light/dark themes, auto system detection |
 | 📊 | **LaTeX Math** | Inline `$...$` and block `$$...$$` formulas via integrated LaTeX rendering engine |
@@ -55,7 +55,7 @@ Built-in linting with WCAG accessibility checks — heading jumps, broken footno
 
 ### 🌐 Rich HTML & Extension Support
 
-Full HTML block/inline support, GFM tables, admonitions, math, code highlighting, and 20+ extensions.
+Full CommonMark HTML parsing/export, safe Compose rendering for common inline and container HTML tags, GFM tables, admonitions, math, code highlighting, and 20+ extensions.
 
 <p align="center">
   <img src="./images/html_support.png" width="260" alt="HTML & Extension Support" />
@@ -281,7 +281,7 @@ CompositionLocalProvider(
 
 ---
 
-## 📐 Comprehensive Syntax Support (372 Features)
+## 📐 Comprehensive Syntax Support (413 Features)
 
 <details>
 <summary><b>📦 Block Elements</b> — Everything you need for structured content</summary>
@@ -295,7 +295,7 @@ CompositionLocalProvider(
 | **Lists** | Unordered/ordered/task lists, nested, tight/loose distinction |
 | **Tables (GFM)** | Column alignment, inline formatting in cells, escaped pipes |
 | **Thematic Breaks** | `---`, `***`, `___` |
-| **HTML Blocks** | All 7 CommonMark types |
+| **HTML Blocks** | All 7 CommonMark types; safe Compose fragments for common containers and text alignment |
 | **Link Reference Definitions** | Full support with title variants |
 
 </details>
@@ -310,7 +310,7 @@ CompositionLocalProvider(
 | **Inline Code** | Single/multi backtick, space stripping |
 | **Links** | Inline, reference (full/collapsed/shortcut), autolinks, GFM bare URLs, attribute blocks |
 | **Images** | Inline, reference, `=WxH` size specification, attribute blocks, auto Figure conversion |
-| **Inline HTML** | Tags, comments, CDATA, processing instructions |
+| **Inline HTML** | CommonMark tags/comments/CDATA/processing instructions; safe Compose semantics for common formatting, links, breaks, and images |
 | **Escapes & Entities** | 32 escapable characters, named/numeric HTML entities |
 | **Line Breaks** | Hard (spaces/backslash), soft |
 
@@ -441,6 +441,32 @@ val doc = MarkdownParser().parse(input)
 val html = HtmlRenderer.renderMarkdown(input, flavour = CommonMarkFlavour)
 ```
 
+### Safe HTML in Compose
+
+`Markdown()` renders a safe, cross-platform subset of inline HTML without a WebView:
+
+```markdown
+Text with <strong>bold</strong>, <em>italic</em>,
+<span style="color:red">styled text</span>, and <a href="https://example.com">a link</a>.<br>
+The next line can also contain an <img src="https://example.com/icon.png" alt="icon">.
+```
+
+Supported semantic tags are `strong`/`b`, `em`/`i`, `del`/`s`/`strike`, `mark`,
+`sup`, `sub`, `ins`, `u`, `code`, `kbd`, `span`, `a`, `br`, and `img`. Inline HTML
+comments are hidden. Only a small CSS property subset is accepted for `span`; event
+attributes and executable URL schemes are never executed. Unknown, unsafe, mismatched,
+or unclosed tags remain visible as source text instead of silently losing content.
+
+Safe block fragments are supported for `p`, `div`, `center`, `article`, `section`, `main`,
+`header`, and `footer`. They can contain the safe inline tags above and use `align` or the
+limited `style="text-align:..."` form for start, center, and end alignment. Malformed fragments
+or unsupported block structures such as tables, forms, scripts, and arbitrary CSS fall back to
+visible raw HTML instead of partial rendering.
+
+A block tag must start on its own line according to CommonMark rules. In particular,
+`text <p>block</p> text` is invalid block markup and remains inline source; put the `p` element
+on its own line. `HtmlRenderer`/`MarkdownHtml` continue to pass all raw HTML through when exporting HTML.
+
 ---
 
 ## 🖼️ Custom Image Rendering
@@ -519,7 +545,7 @@ update rules.
 | 5 | Lists | 20/20 (100%) |
 | 6 | Thematic Breaks | 6/6 (100%) |
 | 7 | Tables (GFM) | 11/11 (100%) |
-| 8 | HTML Blocks | 10/10 (100%) |
+| 8 | HTML Blocks | 12/12 (100%) |
 | 9 | Link References | 12/12 (100%) |
 | 10 | Block Extensions | 85/85 (100%) |
 | 11 | Emphasis | 13/13 (100%) |
@@ -527,7 +553,7 @@ update rules.
 | 13 | Inline Code | 8/8 (100%) |
 | 14 | Links | 27/27 (100%) |
 | 15 | Images | 17/17 (100%) |
-| 16 | Inline HTML | 8/8 (100%) |
+| 16 | Inline HTML | 10/10 (100%) |
 | 17 | Escapes & Entities | 10/10 (100%) |
 | 18 | Line Breaks | 5/5 (100%) |
 | 19 | Inline Extensions | 50/50 (100%) |
@@ -536,7 +562,7 @@ update rules.
 | 22 | HTML Generator | 12/12 (100%) |
 | 23 | Linting / WCAG | 19/19 (100%) |
 | 24 | Directives | 8/8 (100%) |
-| | **Total** | **372/372 (100%)** |
+| | **Total** | **413/413 (100%)** |
 
 > 📖 Full details: [PARSER_COVERAGE_ANALYSIS.md](./markdown-parser/PARSER_COVERAGE_ANALYSIS.md)
 
