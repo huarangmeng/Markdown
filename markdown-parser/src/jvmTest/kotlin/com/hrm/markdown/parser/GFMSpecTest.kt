@@ -131,5 +131,6 @@ class GFMSpecTest {
         }
         java.io.File("/tmp/gfm-results.txt").writeText(report)
         System.err.println(report)
+        check(failed == 0) { report }
     }
 }

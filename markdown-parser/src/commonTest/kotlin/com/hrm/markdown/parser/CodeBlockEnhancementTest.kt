@@ -143,7 +143,7 @@ class CodeBlockEnhancementTest {
     fun should_not_render_default_attributes() {
         val html = renderHtml("```python\ncode\n```")
         assertFalse(html.contains("data-hl-lines"), "should not have data-hl-lines when not set")
-        assertTrue(html.contains("data-linenums=\"true\""), "should have data-linenums when line numbers default to true")
+        assertFalse(html.contains("data-linenums"), "standard HTML should not expose Compose defaults")
         assertFalse(html.contains("data-startline"), "should not have data-startline when 1")
     }
 

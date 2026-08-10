@@ -284,7 +284,7 @@ private fun compileInlineNode(
                 identity = identity,
                 widget = SpoilerWidgetModel(
                     identity = identity,
-                    content = compileInlineModel(node.children, node.contentHash),
+                    content = compileInlineModel(node.children, computeSemanticRevision(node)),
                     alternateText = extractPlainText(node),
                 ),
             )
@@ -360,31 +360,7 @@ private fun stableInlineNodeId(node: Node, parentStableId: Long, siblingIndex: I
 }
 
 private fun inlineContentFingerprint(node: Node): Long {
-    var acc = renderIdentityFromText(node::class.simpleName ?: "inline")
-    when (node) {
-        is Autolink -> acc = renderIdentityFromText(node.destination, acc)
-        is WikiLink -> {
-            acc = renderIdentityFromText(node.target, acc)
-            acc = renderIdentityFromText(node.label.orEmpty(), acc)
-        }
-        is LeafNode -> acc = renderIdentityFromText(node.literal, acc)
-        is Link -> {
-            acc = renderIdentityFromText(node.destination, acc)
-            acc = renderIdentityFromText(node.title.orEmpty(), acc)
-        }
-        is Image -> {
-            acc = renderIdentityFromText(node.destination, acc)
-            acc = renderIdentityFromText(node.title.orEmpty(), acc)
-            acc = renderIdentityMix(acc, node.imageWidth?.toLong() ?: 0L)
-            acc = renderIdentityMix(acc, node.imageHeight?.toLong() ?: 0L)
-        }
-        is ContainerNode -> {
-            for (child in node.children) {
-                acc = renderIdentityMix(acc, inlineContentFingerprint(child))
-            }
-        }
-    }
-    return acc
+    return computeSemanticRevision(node)
 }
 
 private fun buildInlineDirectiveFallbackText(node: DirectiveInline): String {

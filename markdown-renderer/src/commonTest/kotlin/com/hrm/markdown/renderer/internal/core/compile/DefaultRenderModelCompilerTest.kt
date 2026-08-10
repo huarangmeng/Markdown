@@ -4,6 +4,7 @@ import com.hrm.markdown.parser.MarkdownParser
 import com.hrm.markdown.parser.ast.Document
 import com.hrm.markdown.parser.ast.HtmlBlock
 import com.hrm.markdown.parser.ast.Paragraph
+import com.hrm.markdown.parser.ast.StyledText
 import com.hrm.markdown.parser.ast.TableHead
 import com.hrm.markdown.parser.ast.Text
 import com.hrm.markdown.renderer.inline.InlinePlaceholderId
@@ -21,9 +22,57 @@ import com.hrm.markdown.renderer.internal.core.model.WidgetAtom
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 
 class DefaultRenderModelCompilerTest {
+    @Test
+    fun should_assign_unique_stable_ids_to_custom_ast_blocks_without_source_ranges() {
+        val document = Document().apply {
+            appendChild(Paragraph().apply { appendChild(Text("first")) })
+            appendChild(Paragraph().apply { appendChild(Text("second")) })
+        }
+
+        val renderDocument = DefaultRenderModelCompiler.compile(document, RenderCompileEnvironment())
+
+        assertEquals(2, renderDocument.blocks.map { it.identity.stableId }.toSet().size)
+    }
+
+    @Test
+    fun should_keep_custom_ast_identity_stable_and_invalidate_semantic_changes() {
+        fun document(text: String, color: String) = Document().apply {
+            appendChild(
+                Paragraph().apply {
+                    appendChild(
+                        StyledText(attributes = mapOf("style" to "color:$color")).apply {
+                            appendChild(Text(text))
+                        }
+                    )
+                }
+            )
+        }
+
+        val before = DefaultRenderModelCompiler.compile(
+            document("value", "red"),
+            RenderCompileEnvironment(),
+        ).blocks.single() as ParagraphBlockModel
+        val afterStyle = DefaultRenderModelCompiler.compile(
+            document("value", "blue"),
+            RenderCompileEnvironment(),
+        ).blocks.single() as ParagraphBlockModel
+        val afterText = DefaultRenderModelCompiler.compile(
+            document("updated", "red"),
+            RenderCompileEnvironment(),
+        ).blocks.single() as ParagraphBlockModel
+
+        assertEquals(before.identity.stableId, afterStyle.identity.stableId)
+        assertEquals(before.identity.stableId, afterText.identity.stableId)
+        assertNotEquals(before.identity.contentRevision, afterStyle.identity.contentRevision)
+        assertNotEquals(before.identity.contentRevision, afterText.identity.contentRevision)
+        assertNotEquals(before.inline.identity.contentRevision, afterStyle.inline.identity.contentRevision)
+        assertNotEquals(before.inline.identity.contentRevision, afterText.inline.identity.contentRevision)
+    }
+
     @Test
     fun should_compile_unknown_container_node_into_internal_fallback_container() {
         val document = Document().apply {

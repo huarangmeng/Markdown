@@ -117,5 +117,6 @@ class CommonMarkSpecTest {
         }
         java.io.File("/tmp/commonmark-results.txt").writeText(report)
         System.err.println(report)
+        check(failed == 0) { report }
     }
 }

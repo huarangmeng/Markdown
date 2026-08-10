@@ -23,6 +23,7 @@ import com.hrm.markdown.parser.ast.Document
 import com.hrm.markdown.renderer.internal.MarkdownEngineHost
 import com.hrm.markdown.renderer.internal.RendererFacadeState
 import com.hrm.markdown.renderer.internal.compose.ComposeRenderEnvironment
+import com.hrm.markdown.renderer.internal.core.compile.computeSemanticRevision
 import com.hrm.markdown.renderer.internal.layout.engine.EagerMarkdownLayoutSource
 import com.hrm.markdown.renderer.internal.selection.LocalMarkdownSelectionController
 import com.hrm.markdown.renderer.internal.selection.SelectionHandlesHost
@@ -47,6 +48,7 @@ internal fun MarkdownDocumentRenderer(
     imageContent: MarkdownImageRenderer? = null,
     onLinkClick: ((String) -> Unit)? = null,
     directiveRegistry: MarkdownDirectiveRegistry = MarkdownDirectiveRegistry.Empty,
+    documentRevision: Long = document.contentHash,
 ) {
     val renderMode = remember(enableScroll) {
         resolveMarkdownRenderMode(enableScroll = enableScroll)
@@ -56,6 +58,13 @@ internal fun MarkdownDocumentRenderer(
         document = document,
         isStreaming = isStreaming,
     )
+    // Document is a mutable public AST. A caller may update the same root instance, so reference
+    // equality alone is not a sufficient remember key.
+    val renderDocumentRevision = if (renderDocument === document) {
+        documentRevision.takeIf { it != 0L } ?: computeSemanticRevision(renderDocument)
+    } else {
+        renderDocument.contentHash.takeIf { it != 0L } ?: computeSemanticRevision(renderDocument)
+    }
     ProvideMarkdownTheme(theme) {
         val engineHost = remember { MarkdownEngineHost() }
         val facadeState = remember(
@@ -82,6 +91,7 @@ internal fun MarkdownDocumentRenderer(
         val internalRenderDocument = remember(
             engineHost,
             renderDocument,
+            renderDocumentRevision,
             theme,
             config,
             directiveRegistry,

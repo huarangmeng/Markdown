@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.NonSkippableComposable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -14,6 +15,7 @@ import com.hrm.markdown.parser.ast.Document
 import com.hrm.markdown.runtime.MarkdownDirectivePlugin
 import com.hrm.markdown.runtime.MarkdownDirectiveRegistry
 import com.hrm.markdown.runtime.MarkdownDirectivePipeline
+import com.hrm.markdown.renderer.internal.core.compile.computeSemanticRevision
 
 /**
  * Markdown 渲染器的顶层 Composable 入口。
@@ -120,6 +122,7 @@ fun Markdown(
  * @param directivePlugins Markdown 指令插件列表，用于接入 directive 自定义渲染器
  */
 @Composable
+@NonSkippableComposable
 fun Markdown(
     document: Document,
     modifier: Modifier = Modifier,
@@ -152,6 +155,7 @@ fun Markdown(
         imageContent = imageContent,
         onLinkClick = onLinkClick,
         directiveRegistry = directiveRegistry,
+        documentRevision = computeSemanticRevision(document),
     )
 }
 

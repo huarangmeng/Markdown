@@ -644,7 +644,7 @@
 - ✅ `beginStream()` 开始流式输入
 - ✅ `append(chunk)` 追加文本块
 - ✅ `endStream()` 结束流式输入（最终全量解析，无修复）
-- ✅ `abort()` 中止流式输入
+- ✅ `abort()` 中止流式输入，并提交 coalesce 缓冲中的当前可显示快照
 - ✅ `fullParse(input)` 非流式完整解析（向后兼容）
 
 #### Append-Only 增量解析
@@ -652,6 +652,8 @@
 - ✅ 稳定前缀块直接复用（不重新解析）
 - ✅ 块稳定性分类（最后一个块始终视为"仍在构建中"）
 - ✅ contentHash 比对优化（FNV-1a 哈希）
+- ✅ 跨 chunk 的 CRLF 状态化归一化（`\r` / `\n` 分包仍只产生一个换行）
+- ✅ `sourceText` 按需同步，读取时始终覆盖全部已接收输入
 
 #### 按需内联解析（Lazy Inline）
 - ✅ `ContainerNode` 扩展懒加载机制，块级解析完成后内联元素延迟到首次访问 `children` 时才解析
@@ -878,6 +880,8 @@ Run tests:
 ```
 
 Results are written to `/tmp/commonmark-results.txt`.
+Any mismatch fails the test task after the diagnostic report is written, so the compliance number
+is enforced by CI rather than being report-only.
 
 ---
 

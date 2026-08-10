@@ -42,11 +42,8 @@ import com.hrm.markdown.parser.ast.TableRow
 import com.hrm.markdown.parser.ast.Text
 import com.hrm.markdown.parser.ast.ThematicBreak
 import com.hrm.markdown.parser.ast.TocPlaceholder
-import com.hrm.markdown.renderer.internal.core.identity.RenderIdentity
 import com.hrm.markdown.renderer.internal.core.identity.renderIdentityFromText
 import com.hrm.markdown.renderer.internal.core.identity.renderIdentityFromValues
-import com.hrm.markdown.renderer.internal.core.identity.renderIdentityMix
-import com.hrm.markdown.renderer.internal.core.identity.renderIdentitySeed
 import com.hrm.markdown.renderer.internal.core.model.AdmonitionBlockModel
 import com.hrm.markdown.renderer.internal.core.model.AbbreviationMetadata
 import com.hrm.markdown.renderer.internal.core.model.BibliographyDefinitionBlockModel
@@ -91,6 +88,7 @@ import com.hrm.markdown.renderer.internal.core.model.TocBlockModel
 import com.hrm.markdown.renderer.internal.core.model.TocEntryBlockModel
 
 private data class CompileContext(
+    val identities: RenderIdentityProvider,
     val headingNumbers: Map<Node, String>,
     val tocEntries: List<TocEntryBlockModel>,
 )
@@ -102,6 +100,7 @@ object DefaultRenderModelCompiler : RenderModelCompiler {
     ): InternalRenderDocumentModel {
         val blockNodes = document.children.filter { it !is BlankLine }
         val context = CompileContext(
+            identities = RenderIdentityProvider(document),
             headingNumbers = if (environment.config.enableHeadingNumbering) {
                 computeHeadingNumbers(blockNodes)
             } else {
@@ -111,7 +110,7 @@ object DefaultRenderModelCompiler : RenderModelCompiler {
         )
         val blocks = compileBlocks(blockNodes, context)
         return InternalRenderDocumentModel(
-            identity = blockIdentity(document),
+            identity = context.identities.identity(document),
             blocks = blocks,
             metadata = InternalRenderDocumentMetadata(
                 footnotes = blocks.mapNotNull { block ->
@@ -163,25 +162,25 @@ private fun compileBlock(
     node: Node,
     context: CompileContext,
 ): InternalRenderBlockModel? {
-    val identity = blockIdentity(node)
+    val identity = context.identities.identity(node)
     return when (node) {
         is Paragraph -> ParagraphBlockModel(
             identity = identity,
-            inline = compileInlineModel(node.children, inlineRevision(node)),
+            inline = compileInlineModel(node.children, context.identities.semanticRevision(node)),
         )
 
         is Heading -> HeadingBlockModel(
             identity = identity,
             level = node.level,
             numbering = context.headingNumbers[node],
-            inline = compileInlineModel(node.children, inlineRevision(node)),
+            inline = compileInlineModel(node.children, context.identities.semanticRevision(node)),
         )
 
         is SetextHeading -> HeadingBlockModel(
             identity = identity,
             level = node.level,
             numbering = context.headingNumbers[node],
-            inline = compileInlineModel(node.children, inlineRevision(node)),
+            inline = compileInlineModel(node.children, context.identities.semanticRevision(node)),
         )
 
         is ThematicBreak -> ThematicBreakBlockModel(identity)
@@ -230,7 +229,7 @@ private fun compileBlock(
             code = node.literal,
             widget = DiagramBlockWidgetModel(
                 identity = identity,
-                hostKey = diagramHostKey(node),
+                hostKey = diagramHostKey(node, identity.stableId),
                 diagramType = node.diagramType,
                 code = node.literal,
             ),
@@ -262,10 +261,10 @@ private fun compileBlock(
             rows = buildList {
                 node.children.filterIsInstance<TableHead>().firstOrNull()
                     ?.children?.filterIsInstance<TableRow>()
-                    ?.forEach { add(compileTableRow(it, true)) }
+                    ?.forEach { add(compileTableRow(it, true, context)) }
                 node.children.filterIsInstance<TableBody>().firstOrNull()
                     ?.children?.filterIsInstance<TableRow>()
-                    ?.forEach { add(compileTableRow(it, false)) }
+                    ?.forEach { add(compileTableRow(it, false, context)) }
             },
         )
 
@@ -289,7 +288,7 @@ private fun compileBlock(
             identity = identity,
             columns = node.children.filterIsInstance<ColumnItem>().map { column ->
                 ColumnBlockModel(
-                    identity = blockIdentity(column),
+                    identity = context.identities.identity(column),
                     width = column.width,
                     children = compileBlocks(column.children, context),
                 )
@@ -301,11 +300,11 @@ private fun compileBlock(
             items = node.children.mapNotNull { child ->
                 when (child) {
                     is DefinitionTerm -> DefinitionTermBlockModel(
-                        identity = blockIdentity(child),
-                        inline = compileInlineModel(child.children, inlineRevision(child)),
+                        identity = context.identities.identity(child),
+                        inline = compileInlineModel(child.children, context.identities.semanticRevision(child)),
                     )
                     is DefinitionDescription -> DefinitionDescriptionBlockModel(
-                        identity = blockIdentity(child),
+                        identity = context.identities.identity(child),
                         children = compileBlocks(child.children, context),
                     )
                     else -> null
@@ -341,7 +340,7 @@ private fun compileBlock(
             identity = identity,
             items = node.children.filterIsInstance<TabItem>().map { tab ->
                 TabItemBlockModel(
-                    identity = blockIdentity(tab),
+                    identity = context.identities.identity(tab),
                     title = tab.title,
                     children = compileBlocks(tab.children, context),
                 )
@@ -386,7 +385,7 @@ private fun compileListItem(
     context: CompileContext,
 ): ListItemBlockModel {
     return ListItemBlockModel(
-        identity = blockIdentity(node),
+        identity = context.identities.identity(node),
         taskListItem = node.taskListItem,
         checked = node.checked,
         children = compileBlocks(node.children, context),
@@ -396,16 +395,17 @@ private fun compileListItem(
 private fun compileTableRow(
     row: TableRow,
     isHeader: Boolean,
+    context: CompileContext,
 ): TableRowBlockModel {
     return TableRowBlockModel(
-        identity = blockIdentity(row),
+        identity = context.identities.identity(row),
         isHeader = isHeader,
         cells = row.children.filterIsInstance<TableCell>().map { cell ->
             TableCellBlockModel(
-                identity = blockIdentity(cell),
+                identity = context.identities.identity(cell),
                 alignment = cell.alignment,
                 isHeader = isHeader || cell.isHeader,
-                inline = compileInlineModel(cell.children, inlineRevision(cell)),
+                inline = compileInlineModel(cell.children, context.identities.semanticRevision(cell)),
             )
         },
     )
@@ -439,83 +439,12 @@ private fun collectHeadingEntriesRecursive(
     }
 }
 
-private fun inlineRevision(node: Node): Long {
-    val children = (node as? ContainerNode)?.children ?: return node.contentHash
-    if (children.isEmpty()) return node.contentHash
-    var acc = if (node.contentHash != 0L) node.contentHash else renderIdentitySeed()
-    for (child in children) {
-        acc = renderIdentityMix(acc, blockStableId(child))
-        acc = renderIdentityMix(acc, child.contentHash)
-    }
-    return acc
-}
-
-private fun blockIdentity(node: Node): RenderIdentity {
-    val stableId = blockStableId(node)
-    val contentRevision = blockContentRevision(node, stableId)
-    return RenderIdentity(
-        stableId = stableId,
-        contentRevision = contentRevision,
-        layoutRevision = contentRevision,
-        paintRevision = 0L,
-    )
-}
-
-private fun blockStableId(node: Node): Long {
-    val typeId = renderIdentityFromText(node::class.simpleName ?: "block")
-    return renderIdentityFromValues(
-        typeId,
-        node.sourceRange.start.offset.toLong(),
-        node.sourceRange.end.offset.toLong(),
-        node.lineRange.startLine.toLong(),
-        node.lineRange.endLine.toLong(),
-    )
-}
-
-private fun diagramHostKey(node: DiagramBlock): Long {
+private fun diagramHostKey(node: DiagramBlock, stableId: Long): Long {
     return renderIdentityFromValues(
         renderIdentityFromText("DiagramHost"),
         renderIdentityFromText(node.diagramType.lowercase()),
-        node.lineRange.startLine.toLong(),
+        stableId,
     )
-}
-
-private fun blockContentRevision(node: Node, stableId: Long): Long {
-    return when (node) {
-        is Paragraph,
-        is Heading,
-        is SetextHeading,
-        is FencedCodeBlock,
-        is IndentedCodeBlock,
-        is MathBlock,
-        is DiagramBlock,
-        is HtmlBlock,
-        is BlockQuote,
-        is ListBlock,
-        is ListItem,
-        is Table,
-        is TableRow,
-        is TableCell,
-        is Admonition,
-        is CustomContainer,
-        is ColumnsLayout,
-        is ColumnItem,
-        is DefinitionList,
-        is DefinitionTerm,
-        is DefinitionDescription,
-        is FootnoteDefinition,
-        is DirectiveBlock,
-        is TabBlock,
-        is TabItem,
-        is BibliographyDefinition,
-        is Figure,
-        is TocPlaceholder -> renderIdentityFromValues(
-            stableId,
-            node.contentHash,
-            inlineRevision(node),
-        )
-        else -> renderIdentityFromValues(stableId, node.contentHash)
-    }
 }
 
 private fun List<IntRange>.flattenLineNumbers(): Set<Int> = buildSet {

@@ -220,9 +220,15 @@ Markdown(
 
 **What happens under the hood:**
 - ✅ Only re-parses the "dirty" tail region — stable blocks are reused
+- ✅ Validates the append-only prefix — retry, clear, or replacement updates restart atomically
+- ✅ Normalizes CRLF across token/chunk boundaries and flushes buffered tails on cancellation
 - ✅ Auto-closes unclosed fences, math blocks, emphasis during streaming
 - ✅ Lazy inline parsing — block structure first, inline elements on demand
 - ✅ FNV-1a content hashing for O(1) block stability detection
+
+The `Markdown(document = ...)` overload also supports mutable custom ASTs: nodes without source
+ranges receive deterministic tree-path identities, and rendered semantic fields participate in
+cache invalidation.
 
 ---
 

@@ -221,7 +221,13 @@ class HtmlRenderer(
                 else "${range.first}-${range.last}"
             }
         }
-        if (node.showLineNumbers) {
+        // `showLineNumbers` defaults to true for the Compose renderer, but CommonMark HTML
+        // must stay byte-for-byte conformant unless the source explicitly opts in.
+        val hasExplicitLineNumbers = node.attributes.classes.contains("line-numbers") ||
+            node.attributes.pairs.keys.any { key ->
+                key == "linenums" || key == "linenos" || key == "lineNumbers"
+            }
+        if (node.showLineNumbers && hasExplicitLineNumbers) {
             preAttrs["data-linenums"] = "true"
         }
         if (node.startLineNumber != 1) {

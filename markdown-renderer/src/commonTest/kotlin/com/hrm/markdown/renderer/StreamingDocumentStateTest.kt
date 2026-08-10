@@ -35,7 +35,7 @@ class StreamingDocumentStateTest {
 
         assertEquals(listOf("begin", "append:abcd"), calls)
         assertEquals("append:abcd", state.document)
-        assertEquals(4, state.lastParsedLength)
+        assertEquals("abcd", state.streamedMarkdown)
         assertTrue(state.wasStreaming)
     }
 
@@ -47,7 +47,7 @@ class StreamingDocumentStateTest {
             markdown = "abcd",
             isStreaming = false,
             state = StreamingDocumentState(
-                lastParsedLength = 3,
+                streamedMarkdown = "abc",
                 document = "append:abc",
                 wasStreaming = true,
             ),
@@ -70,7 +70,7 @@ class StreamingDocumentStateTest {
 
         assertEquals(listOf("append:d", "end"), calls)
         assertEquals("end", state.document)
-        assertEquals(4, state.lastParsedLength)
+        assertEquals("", state.streamedMarkdown)
         assertFalse(state.wasStreaming)
         assertEquals("abcd", state.lastNonStreamingMarkdown)
     }
@@ -83,7 +83,7 @@ class StreamingDocumentStateTest {
             markdown = "abc",
             isStreaming = false,
             state = StreamingDocumentState(
-                lastParsedLength = 3,
+                streamedMarkdown = "abc",
                 document = "append:abc",
                 wasStreaming = true,
             ),
@@ -134,8 +134,74 @@ class StreamingDocumentStateTest {
 
         assertEquals(listOf("parse:abc"), calls)
         assertEquals("parse:abc", state.document)
-        assertEquals(3, state.lastParsedLength)
+        assertEquals("", state.streamedMarkdown)
         assertFalse(state.wasStreaming)
         assertEquals("abc", state.lastNonStreamingMarkdown)
+    }
+
+    @Test
+    fun should_restart_stream_when_markdown_is_replaced() = runBlocking {
+        val calls = mutableListOf<String>()
+
+        val state = updateStreamingDocumentState(
+            markdown = "new",
+            isStreaming = true,
+            state = StreamingDocumentState(
+                streamedMarkdown = "old content",
+                document = "append:old content",
+                wasStreaming = true,
+            ),
+            beginStream = { calls += "begin" },
+            append = { chunk ->
+                calls += "append:$chunk"
+                "append:$chunk"
+            },
+            endStream = {
+                calls += "end"
+                "end"
+            },
+            parse = { value ->
+                calls += "parse:$value"
+                "parse:$value"
+            },
+        )
+
+        assertEquals(listOf("begin", "append:new"), calls)
+        assertEquals("append:new", state.document)
+        assertEquals("new", state.streamedMarkdown)
+        assertTrue(state.wasStreaming)
+    }
+
+    @Test
+    fun should_parse_replaced_final_markdown_instead_of_ending_old_stream() = runBlocking {
+        val calls = mutableListOf<String>()
+
+        val state = updateStreamingDocumentState(
+            markdown = "replacement",
+            isStreaming = false,
+            state = StreamingDocumentState(
+                streamedMarkdown = "old content",
+                document = "append:old content",
+                wasStreaming = true,
+            ),
+            beginStream = { calls += "begin" },
+            append = { chunk ->
+                calls += "append:$chunk"
+                "append:$chunk"
+            },
+            endStream = {
+                calls += "end"
+                "end"
+            },
+            parse = { value ->
+                calls += "parse:$value"
+                "parse:$value"
+            },
+        )
+
+        assertEquals(listOf("parse:replacement"), calls)
+        assertEquals("parse:replacement", state.document)
+        assertEquals("replacement", state.lastNonStreamingMarkdown)
+        assertFalse(state.wasStreaming)
     }
 }

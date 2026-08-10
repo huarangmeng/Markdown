@@ -90,6 +90,7 @@ class BlockParser(
                 source.length
             )
         )
+        document.contentHash = source.contentHash(document.lineRange)
 
         // 解析行内内容
         parseInlineContent(document)

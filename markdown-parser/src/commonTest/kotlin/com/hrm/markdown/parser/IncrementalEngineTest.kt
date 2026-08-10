@@ -110,6 +110,34 @@ class IncrementalEngineTest {
     }
 
     @Test
+    fun should_flush_coalesced_tail_when_source_is_read_and_stream_is_aborted() {
+        val parser = MarkdownParser(appendCoalesceThreshold = 16)
+        parser.beginStream()
+
+        parser.append("buffered")
+
+        assertEquals("buffered", parser.currentText())
+        assertEquals("buffered", parser.sourceText.content)
+        val doc = parser.abort()
+        assertEquals("buffered", extractPlainText(doc))
+    }
+
+    @Test
+    fun should_normalize_crlf_once_when_pair_is_split_across_chunks() {
+        val parser = MarkdownParser()
+        parser.beginStream()
+
+        parser.append("first\r")
+        parser.append("\nsecond\r")
+        parser.append("\nthird")
+
+        assertEquals("first\nsecond\nthird", parser.currentText())
+        assertEquals("first\nsecond\nthird", parser.sourceText.content)
+        parser.endStream()
+        assertEquals("first\nsecond\nthird", parser.currentText())
+    }
+
+    @Test
     fun should_not_drop_previous_list_items_when_streaming_nested_list_marker() {
         val parser = MarkdownParser()
         parser.beginStream()

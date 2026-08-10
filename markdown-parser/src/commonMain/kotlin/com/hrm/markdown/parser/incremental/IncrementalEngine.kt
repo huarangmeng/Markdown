@@ -84,13 +84,24 @@ class IncrementalEngine(
     private var _isStreaming: Boolean = false
     /** 自上次 doIncrementalAppend 以来积压的、尚未触发解析的字符数。 */
     private var pendingAppendChars: Int = 0
+    /** fullText 已前进、但 _sourceText 尚未按需同步。 */
+    private var sourceTextDirty: Boolean = false
+    /** 跨 chunk 识别 CRLF，避免 `\r` / `\n` 分包后被规范化成两个换行。 */
+    private var previousRawChunkEndedWithCarriageReturn: Boolean = false
 
     private val dirtyTracker = DirtyRegionTracker()
     private val nodeReuser = NodeReuser()
 
     // ────── 公开属性 ──────
     val document: Document get() = _document
-    val sourceText: SourceText get() = _sourceText
+    val sourceText: SourceText
+        get() {
+            if (sourceTextDirty) {
+                _sourceText = SourceText.of(fullText.toString())
+                sourceTextDirty = false
+            }
+            return _sourceText
+        }
     val isStreaming: Boolean get() = _isStreaming
 
     // ────── 全量解析 ──────
@@ -106,6 +117,9 @@ class IncrementalEngine(
         stableBlockCount = 0
         stableEndLine = 0
         lastParsedLength = 0
+        pendingAppendChars = 0
+        sourceTextDirty = true
+        previousRawChunkEndedWithCarriageReturn = false
         return doFullParse()
     }
 
@@ -120,18 +134,22 @@ class IncrementalEngine(
         stableEndLine = 0
         lastParsedLength = 0
         pendingAppendChars = 0
+        sourceTextDirty = false
+        previousRawChunkEndedWithCarriageReturn = false
         _isStreaming = true
     }
 
     fun append(chunk: String): Document {
         if (chunk.isEmpty()) return _document
-        val normalized = SourceText.normalize(chunk)
+        val normalized = normalizeStreamingChunk(chunk)
+        if (normalized.isEmpty()) return _document
         fullText.append(normalized)
+        sourceTextDirty = true
         if (appendCoalesceThreshold > 0) {
             pendingAppendChars += normalized.length
             val containsNewline = normalized.indexOf('\n') >= 0
             if (!containsNewline && pendingAppendChars < appendCoalesceThreshold) {
-                // Skip incremental parse; fullText is already updated for currentText()/sourceText accessors via flush.
+                // Skip AST parsing. currentText() reads fullText and sourceText is synchronized lazily.
                 return _document
             }
         }
@@ -143,20 +161,36 @@ class IncrementalEngine(
         HLog.d(TAG) { "endStream, totalLength=${fullText.length}" }
         _isStreaming = false
         pendingAppendChars = 0
+        previousRawChunkEndedWithCarriageReturn = false
         return doFullParse()
     }
 
     fun abort(): Document {
         HLog.w(TAG, "abort")
+        // abort 是“当前输入的最终可显示快照”，不能丢掉 coalesce 缓冲中的尾部。
+        if (fullText.length != lastParsedLength) {
+            doIncrementalAppend()
+        }
         _isStreaming = false
         pendingAppendChars = 0
+        previousRawChunkEndedWithCarriageReturn = false
         return _document
     }
 
     fun currentText(): String {
-        // If there are pending un-parsed chars, callers reading sourceText still see them via fullText/_sourceText
-        // because fullText is always kept up-to-date; but the AST may lag. Returning fullText is correct.
         return fullText.toString()
+    }
+
+    private fun normalizeStreamingChunk(chunk: String): String {
+        val removeLeadingLineFeed =
+            previousRawChunkEndedWithCarriageReturn && chunk.firstOrNull() == '\n'
+        previousRawChunkEndedWithCarriageReturn = chunk.lastOrNull() == '\r'
+        val normalized = SourceText.normalize(chunk)
+        return if (removeLeadingLineFeed && normalized.firstOrNull() == '\n') {
+            normalized.substring(1)
+        } else {
+            normalized
+        }
     }
 
     // ────── 编辑 API ──────
@@ -195,6 +229,7 @@ class IncrementalEngine(
             }
         }
         _sourceText = newSource
+        sourceTextDirty = false
 
         if (newSource.lineCount == 0) {
             _document = Document()
@@ -280,6 +315,7 @@ class IncrementalEngine(
     private fun doFullParse(): Document {
         val text = fullText.toString()
         _sourceText = SourceText.of(text)
+        sourceTextDirty = false
         val parser = BlockParser(
             source = _sourceText,
             registry = buildRegistry(_sourceText),
@@ -307,6 +343,7 @@ class IncrementalEngine(
         val text = fullText.toString()
         val newSource = SourceText.of(text)
         _sourceText = newSource
+        sourceTextDirty = false
 
         if (newSource.lineCount == 0) {
             _document = Document()
@@ -797,6 +834,7 @@ class IncrementalEngine(
                     source.length
                 )
             )
+            doc.contentHash = source.contentHash(doc.lineRange)
         }
     }
 

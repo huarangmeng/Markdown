@@ -88,7 +88,8 @@ internal fun rememberRenderDocument(
 }
 
 internal data class StreamingDocumentState<T>(
-    val lastParsedLength: Int = 0,
+    /** 已提交给流式解析器的原始 Markdown，用于验证下一次更新确实是 append-only。 */
+    val streamedMarkdown: String = "",
     val document: T? = null,
     val wasStreaming: Boolean = false,
     val lastNonStreamingMarkdown: String = "",
@@ -108,38 +109,49 @@ internal suspend fun <T> updateStreamingDocumentState(
     if (isStreaming && !nextState.wasStreaming) {
         beginStream()
         nextState = nextState.copy(
-            lastParsedLength = 0,
+            streamedMarkdown = "",
             document = null,
             wasStreaming = true,
         )
     }
 
     if (isStreaming) {
-        if (markdown.length > nextState.lastParsedLength) {
-            val chunk = markdown.substring(nextState.lastParsedLength)
-            if (chunk.isNotEmpty()) {
-                nextState = nextState.copy(
-                    document = append(chunk),
-                    lastParsedLength = markdown.length,
-                )
-            }
+        if (!markdown.startsWith(nextState.streamedMarkdown)) {
+            // retry / clear / replace 不是 append-only；原会话已经不可复用，原子地重启。
+            beginStream()
+            nextState = nextState.copy(
+                streamedMarkdown = "",
+                document = null,
+                wasStreaming = true,
+            )
         }
-        return nextState.copy(wasStreaming = true)
+        val chunk = markdown.substring(nextState.streamedMarkdown.length)
+        if (chunk.isNotEmpty()) {
+            nextState = nextState.copy(document = append(chunk))
+        }
+        return nextState.copy(
+            streamedMarkdown = markdown,
+            wasStreaming = true,
+        )
     }
 
     if (nextState.wasStreaming) {
-        if (markdown.length > nextState.lastParsedLength) {
-            val chunk = markdown.substring(nextState.lastParsedLength)
-            if (chunk.isNotEmpty()) {
-                nextState = nextState.copy(
-                    document = append(chunk),
-                    lastParsedLength = markdown.length,
-                )
-            }
+        if (!markdown.startsWith(nextState.streamedMarkdown)) {
+            // 流结束时上游可能已经用重试结果替换全文；直接全量解析该最终真相。
+            return nextState.copy(
+                streamedMarkdown = "",
+                document = parse(markdown),
+                wasStreaming = false,
+                lastNonStreamingMarkdown = markdown,
+            )
+        }
+        val chunk = markdown.substring(nextState.streamedMarkdown.length)
+        if (chunk.isNotEmpty()) {
+            nextState = nextState.copy(document = append(chunk))
         }
         return nextState.copy(
+            streamedMarkdown = "",
             document = endStream(),
-            lastParsedLength = markdown.length,
             wasStreaming = false,
             lastNonStreamingMarkdown = markdown,
         )
@@ -150,8 +162,8 @@ internal suspend fun <T> updateStreamingDocumentState(
     }
 
     return nextState.copy(
+        streamedMarkdown = "",
         document = parse(markdown),
-        lastParsedLength = markdown.length,
         wasStreaming = false,
         lastNonStreamingMarkdown = markdown,
     )
