@@ -68,7 +68,7 @@ private class VideoSyntaxTransformer : MarkdownInputTransformer {
     override fun transform(input: String): MarkdownTransformResult {
         // Very small demo transformer:
         // !VIDEO[Title](url){poster=posterUrl} -> {% video title="Title" url="..." poster="..." %}
-        val regex = Regex("""!VIDEO\[(.*?)]\((.*?)\)\{poster=(.*?)}""")
+        val regex = Regex("""!VIDEO\[(.*?)\]\((.*?)\)\{poster=(.*?)\}""")
         val output = regex.replace(input) { match ->
             val title = match.groupValues[1]
             val url = match.groupValues[2]

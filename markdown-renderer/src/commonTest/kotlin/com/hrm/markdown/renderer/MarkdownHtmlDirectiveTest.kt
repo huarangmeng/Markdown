@@ -64,7 +64,7 @@ class MarkdownHtmlDirectiveTest {
         override val id: String = "video-syntax"
 
         override fun transform(input: String): MarkdownTransformResult {
-            val regex = Regex("""!VIDEO\[(.*?)]\((.*?)\)\{poster=(.*?)}""")
+            val regex = Regex("""!VIDEO\[(.*?)\]\((.*?)\)\{poster=(.*?)\}""")
             val output = regex.replace(input) { match ->
                 val title = match.groupValues[1]
                 val url = match.groupValues[2]
