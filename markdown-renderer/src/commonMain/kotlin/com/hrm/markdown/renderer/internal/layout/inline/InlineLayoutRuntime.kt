@@ -86,8 +86,6 @@ internal class InlineLayoutRuntime {
             widthPx = widthPx,
             maxLines = maxLines,
             style = style,
-            density = density,
-            textMeasurer = textMeasurer,
         ) {
             metrics.flowLayoutComputations++
             computeInlineFlowLayout(
@@ -146,14 +144,14 @@ internal fun inlineLayoutEpoch(
     textMeasurer: TextMeasurer,
     latexMeasurer: LatexMeasurerState,
 ): InlineLayoutEpoch = InlineLayoutEpoch(
-    themeHash = theme.hashCode(),
-    codeThemeHash = codeTheme.hashCode(),
-    directiveRegistryHash = directiveRegistry.hashCode(),
-    configHash = config.hashCode(),
+    themeIdentity = StructuralIdentity.of(theme),
+    codeThemeIdentity = StructuralIdentity.of(codeTheme),
+    directiveRegistryIdentity = ReferentialIdentity.of(directiveRegistry),
+    configIdentity = StructuralIdentity.of(config),
     densityBits = density.density.toBits(),
     fontScaleBits = density.fontScale.toBits(),
-    textMeasurerHash = textMeasurer.hashCode(),
-    latexMeasurerHash = latexMeasurer.hashCode(),
-    onLinkClickHash = onLinkClick.hashCode(),
-    onFootnoteClickHash = onFootnoteClick.hashCode(),
+    textMeasurerIdentity = ReferentialIdentity.of(textMeasurer),
+    latexMeasurerIdentity = ReferentialIdentity.of(latexMeasurer),
+    onLinkClickIdentity = ReferentialIdentity.of(onLinkClick),
+    onFootnoteClickIdentity = ReferentialIdentity.of(onFootnoteClick),
 )

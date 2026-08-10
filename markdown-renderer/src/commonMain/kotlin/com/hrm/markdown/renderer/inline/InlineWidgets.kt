@@ -22,7 +22,6 @@ import com.hrm.latex.renderer.measure.LatexMeasurerState
 import com.hrm.markdown.renderer.MarkdownTheme
 import com.hrm.markdown.renderer.internal.core.model.InlineModel
 import com.hrm.markdown.renderer.internal.layout.inline.InlineLayoutRuntime
-import com.hrm.markdown.renderer.internal.layout.inline.inlineLayoutEpoch
 import com.hrm.markdown.runtime.MarkdownDirectiveRegistry
 
 @Composable
@@ -52,7 +51,7 @@ internal fun SpoilerContent(
         }
     }
     val inlineLayoutRuntime = remember { InlineLayoutRuntime() }
-    val inlineLayoutEpoch = inlineLayoutEpoch(
+    val inlineLayoutEpoch = rememberInlineLayoutEpoch(
         theme = theme,
         codeTheme = inlineCodeTheme,
         directiveRegistry = directiveRegistry,

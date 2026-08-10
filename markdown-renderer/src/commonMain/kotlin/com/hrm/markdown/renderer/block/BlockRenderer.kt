@@ -146,7 +146,7 @@ internal fun blockRenderRevision(node: Node): Long = when (node) {
     )
     is MathBlock -> revisionHash(
         node.lineRange.endLine.toLong(),
-        node.literal.hashCode().toLong(),
+        node.contentHash,
         node.literal.length.toLong(),
     )
     is BlockQuote -> revisionHash(

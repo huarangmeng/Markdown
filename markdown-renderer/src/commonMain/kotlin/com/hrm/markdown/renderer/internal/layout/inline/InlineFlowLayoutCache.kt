@@ -1,8 +1,6 @@
 package com.hrm.markdown.renderer.internal.layout.inline
 
-import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.unit.Density
 
 internal class InlineFlowLayoutCache(
     private val maxEntries: Int = DefaultMaxEntries,
@@ -20,8 +18,6 @@ internal class InlineFlowLayoutCache(
         widthPx: Float,
         maxLines: Int,
         style: TextStyle,
-        density: Density,
-        textMeasurer: TextMeasurer,
         compute: () -> InlineFlowLayout,
     ): InlineFlowLayout {
         val key = InlineFlowLayoutCacheKey(
@@ -29,10 +25,7 @@ internal class InlineFlowLayoutCache(
             layoutRevision = layoutRevision,
             widthBits = widthPx.toBits(),
             maxLines = maxLines,
-            styleHash = style.hashCode(),
-            densityBits = density.density.toBits(),
-            fontScaleBits = density.fontScale.toBits(),
-            textMeasurerHash = textMeasurer.hashCode(),
+            styleIdentity = StructuralIdentity.of(style),
         )
         return cache.getOrPut(key, compute)
     }
@@ -50,10 +43,7 @@ internal class InlineFlowLayoutCache(
         val layoutRevision: Long,
         val widthBits: Int,
         val maxLines: Int,
-        val styleHash: Int,
-        val densityBits: Int,
-        val fontScaleBits: Int,
-        val textMeasurerHash: Int,
+        val styleIdentity: StructuralIdentity,
     )
 
     private companion object {

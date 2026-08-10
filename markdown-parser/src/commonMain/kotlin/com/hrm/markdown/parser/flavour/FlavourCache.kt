@@ -4,6 +4,8 @@ import com.hrm.markdown.parser.block.postprocessors.PostProcessor
 import com.hrm.markdown.parser.block.postprocessors.PostProcessorRegistry
 import com.hrm.markdown.parser.block.starters.BlockStarter
 import com.hrm.markdown.parser.block.starters.BlockStarterRegistry
+import kotlin.concurrent.atomics.AtomicReference
+import kotlin.concurrent.atomics.ExperimentalAtomicApi
 
 /**
  * Flavour 配置快照。
@@ -42,8 +44,8 @@ import com.hrm.markdown.parser.block.starters.BlockStarterRegistry
  *
  * ## 线程安全
  * 单个 FlavourCache 实例是不可变的，线程安全。
- * [of] 方法中的全局缓存为非线程安全设计（与 Kotlin/Native 单线程模型一致）。
- * 若需在多线程环境使用 [of]，调用方应自行加锁。
+ * 全局注册表和缓存通过不可变状态 + CAS 原子发布，所有平台均可并发调用 [of]、
+ * [registerSingleton]、[invalidate] 和 [clearAll]。
  */
 class FlavourCache(
     val flavour: MarkdownFlavour,
@@ -89,7 +91,13 @@ class FlavourCache(
         }
     }
 
+    @OptIn(ExperimentalAtomicApi::class)
     companion object {
+        private data class GlobalState(
+            val registeredSingletons: List<MarkdownFlavour>,
+            val singletonCaches: List<FlavourCache>,
+        )
+
         /**
          * `object` 单例方言的全局缓存。
          *
@@ -97,34 +105,36 @@ class FlavourCache(
          * 这些方言的生命周期与应用相同，全局只需一份配置。
          * 条目数量有限（等于已注册单例的个数），不会无序增长。
          */
-        private val singletonCache = mutableMapOf<MarkdownFlavour, FlavourCache>()
-
-        /**
-         * 已注册为"可全局缓存"的单例方言集合。
-         *
-         * 使用显式注册而非反射检测，确保跨平台行为一致。
-         * 内置的 [CommonMarkFlavour]、[GFMFlavour]、[ExtendedFlavour] 默认注册。
-         * 第三方 `object` 方言可通过 [registerSingleton] 注册。
-         */
-        private val registeredSingletons = mutableSetOf<MarkdownFlavour>(
-            CommonMarkFlavour,
-            GFMFlavour,
-            ExtendedFlavour,
-            MarkdownExtraFlavour,
+        private val globalState = AtomicReference(
+            GlobalState(
+                registeredSingletons = listOf(
+                    CommonMarkFlavour,
+                    GFMFlavour,
+                    ExtendedFlavour,
+                    MarkdownExtraFlavour,
+                ),
+                singletonCaches = emptyList(),
+            )
         )
 
         /**
          * 注册一个 `object` 单例方言，使其可被全局缓存。
          *
-         * 适用于第三方库提供的 `object` 方言。注册后，[of] 会为其提供全局缓存。
+         * 使用显式注册而非反射检测，确保跨平台行为一致。内置方言默认注册；
+         * 第三方库提供的 `object` 方言注册后，[of] 会为其提供全局缓存。
          */
         fun registerSingleton(flavour: MarkdownFlavour) {
-            registeredSingletons.add(flavour)
+            updateState { state ->
+                if (state.registeredSingletons.any { it === flavour }) {
+                    state
+                } else {
+                    state.copy(registeredSingletons = state.registeredSingletons + flavour)
+                }
+            }
         }
 
-        private fun isSingleton(flavour: MarkdownFlavour): Boolean {
-            return flavour in registeredSingletons
-        }
+        private fun isSingleton(state: GlobalState, flavour: MarkdownFlavour): Boolean =
+            state.registeredSingletons.any { it === flavour }
 
         /**
          * 获取指定 Flavour 的配置快照。
@@ -134,11 +144,18 @@ class FlavourCache(
          *   返回的实例由调用方持有，随调用方 GC 自动释放，无内存泄漏风险。
          */
         fun of(flavour: MarkdownFlavour): FlavourCache {
-            return if (isSingleton(flavour)) {
-                singletonCache.getOrPut(flavour) { FlavourCache(flavour) }
-            } else {
-                // 自定义方言：直接创建，不缓存。生命周期由调用方管理。
-                FlavourCache(flavour)
+            while (true) {
+                val state = globalState.load()
+                if (!isSingleton(state, flavour)) {
+                    // 自定义方言：直接创建，不缓存。生命周期由调用方管理。
+                    return FlavourCache(flavour)
+                }
+
+                state.singletonCaches.firstOrNull { it.flavour === flavour }?.let { return it }
+
+                val created = FlavourCache(flavour)
+                val updated = state.copy(singletonCaches = state.singletonCaches + created)
+                if (globalState.compareAndSet(state, updated)) return created
             }
         }
 
@@ -147,19 +164,34 @@ class FlavourCache(
          * 下次访问时会重新创建。对自定义方言调用无效果（它们不在全局缓存中）。
          */
         fun invalidate(flavour: MarkdownFlavour) {
-            singletonCache.remove(flavour)
+            updateState { state ->
+                val remaining = state.singletonCaches.filterNot { it.flavour === flavour }
+                if (remaining.size == state.singletonCaches.size) state
+                else state.copy(singletonCaches = remaining)
+            }
         }
 
         /**
          * 清除所有全局缓存。
          */
         fun clearAll() {
-            singletonCache.clear()
+            updateState { state ->
+                if (state.singletonCaches.isEmpty()) state
+                else state.copy(singletonCaches = emptyList())
+            }
         }
 
         /**
          * 当前全局缓存的 Flavour 数量（仅含单例，用于测试/调试）。
          */
-        val cacheSize: Int get() = singletonCache.size
+        val cacheSize: Int get() = globalState.load().singletonCaches.size
+
+        private inline fun updateState(transform: (GlobalState) -> GlobalState) {
+            while (true) {
+                val state = globalState.load()
+                val updated = transform(state)
+                if (updated === state || globalState.compareAndSet(state, updated)) return
+            }
+        }
     }
 }

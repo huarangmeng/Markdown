@@ -24,7 +24,7 @@ internal class InlineRenderResultCache(
             epoch = epoch,
             stableId = stableId,
             contentRevision = contentRevision,
-            styleHash = style.hashCode(),
+            styleIdentity = StructuralIdentity.of(style),
         )
         return cache.getOrPut(key, compute)
     }
@@ -41,7 +41,7 @@ internal class InlineRenderResultCache(
         val epoch: InlineLayoutEpoch,
         val stableId: Long,
         val contentRevision: Long,
-        val styleHash: Int,
+        val styleIdentity: StructuralIdentity,
     )
 
     private companion object {
