@@ -2,6 +2,7 @@ package com.hrm.markdown.renderer.internal.layout.inline
 
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Density
 import com.hrm.codehigh.theme.CodeTheme
 import com.hrm.latex.renderer.measure.LatexMeasurerState
@@ -39,7 +40,15 @@ internal fun buildInlineLayoutLines(
 ): List<LayoutInlineLine> {
     var lineTop = contentTop
     return layout.lines.map { line ->
-        var cursorX = contentLeft
+        val remainingWidth = (layout.widthPx - line.lineWidthPx).coerceAtLeast(0f)
+        val lineOffset = when (line.textAlign) {
+            TextAlign.Center -> remainingWidth / 2f
+            TextAlign.End,
+            TextAlign.Right -> remainingWidth
+            else -> 0f
+        }
+        val lineLeft = contentLeft + lineOffset
+        var cursorX = lineLeft
         val runs = line.items.map { item ->
             when (item) {
                 is LineItem.TextItem -> {
@@ -83,7 +92,7 @@ internal fun buildInlineLayoutLines(
             }
         }
         LayoutInlineLine(
-            frame = LayoutRect(contentLeft, lineTop, line.lineWidthPx, line.lineHeightPx),
+            frame = LayoutRect(lineLeft, lineTop, line.lineWidthPx, line.lineHeightPx),
             baseline = lineTop + line.baselinePx,
             runs = runs,
         ).also {

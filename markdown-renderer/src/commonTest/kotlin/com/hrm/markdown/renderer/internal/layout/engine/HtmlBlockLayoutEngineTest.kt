@@ -15,7 +15,9 @@ import com.hrm.markdown.renderer.internal.RendererFacadeState
 import com.hrm.markdown.renderer.internal.layout.model.InternalLayoutDocumentModel
 import com.hrm.markdown.renderer.internal.layout.model.LayoutInlineBlockModel
 import com.hrm.markdown.renderer.internal.layout.model.LayoutRenderBlockModel
+import com.hrm.markdown.renderer.internal.layout.inline.runPlacements
 import com.hrm.markdown.runtime.MarkdownDirectiveRegistry
+import kotlin.math.floor
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -23,7 +25,7 @@ import kotlin.test.assertNotNull
 @OptIn(ExperimentalTestApi::class)
 class HtmlBlockLayoutEngineTest {
     @Test
-    fun should_apply_center_alignment_when_safe_html_block_reaches_layout_engine() = runComposeUiTest {
+    fun should_apply_html_alignment_to_final_inline_run_geometry() = runComposeUiTest {
         var document: InternalLayoutDocumentModel? = null
 
         setContent {
@@ -42,7 +44,8 @@ class HtmlBlockLayoutEngineTest {
             val host = MarkdownEngineHost()
             val renderDocument = host.compile(
                 document = MarkdownParser().parse(
-                    "<div align=\"center\"><strong>centered</strong></div>"
+                    "<div><p align=\"center\"><strong>centered</strong></p>" +
+                        "<p align=\"right\">ending</p></div>"
                 ),
                 facadeState = facadeState,
             )
@@ -62,7 +65,23 @@ class HtmlBlockLayoutEngineTest {
 
         val root = assertNotNull(document).blocks.single() as LayoutRenderBlockModel
         val div = root.children.single() as LayoutRenderBlockModel
-        val paragraph = div.children.single() as LayoutInlineBlockModel
-        assertEquals(TextAlign.Center, paragraph.style.textAlign)
+        val centered = div.children.first() as LayoutInlineBlockModel
+        val ending = div.children.last() as LayoutInlineBlockModel
+        assertEquals(TextAlign.Center, centered.style.textAlign)
+        assertEquals(TextAlign.End, ending.style.textAlign)
+
+        val centeredPlacement = centered.runPlacements().single()
+        val expectedCenteredX = floor(
+            centered.contentFrame.left - centered.frame.left +
+                (centered.contentFrame.width - centered.lines.single().frame.width) / 2f
+        ).toInt()
+        assertEquals(expectedCenteredX, centeredPlacement.x)
+
+        val endingPlacement = ending.runPlacements().single()
+        val expectedEndingX = floor(
+            ending.contentFrame.left - ending.frame.left +
+                ending.contentFrame.width - ending.lines.single().frame.width
+        ).toInt()
+        assertEquals(expectedEndingX, endingPlacement.x)
     }
 }
