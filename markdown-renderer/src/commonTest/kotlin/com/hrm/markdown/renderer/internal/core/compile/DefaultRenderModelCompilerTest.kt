@@ -2,6 +2,7 @@ package com.hrm.markdown.renderer.internal.core.compile
 
 import com.hrm.markdown.parser.MarkdownParser
 import com.hrm.markdown.parser.ast.Document
+import com.hrm.markdown.parser.ast.HtmlBlock
 import com.hrm.markdown.parser.ast.Paragraph
 import com.hrm.markdown.parser.ast.TableHead
 import com.hrm.markdown.parser.ast.Text
@@ -113,7 +114,7 @@ class DefaultRenderModelCompilerTest {
     @Test
     fun should_map_safe_span_and_anchor_attributes_when_supported() {
         val paragraph = compileParagraph(
-            "<span style=\"color:red\" class='hero'>red</span> " +
+            "<span style=\"color:red\" class='bold'>red</span> " +
                 "<a href=\"https://example.com/path\">link</a>"
         )
         val textAtoms = paragraph.inline.atoms.filterIsInstance<TextAtom>()
@@ -122,7 +123,7 @@ class DefaultRenderModelCompilerTest {
         val linkMark = textAtoms.single { it.text == "link" }.marks.single()
 
         assertEquals("styled", styledMark.kind)
-        assertEquals(mapOf("style" to "color:red", "class" to "hero"), styledMark.payload)
+        assertEquals(mapOf("style" to "color:red", "class" to "bold"), styledMark.payload)
         assertEquals("link", linkMark.kind)
         assertEquals("https://example.com/path", linkMark.payload["target"])
     }
@@ -131,7 +132,7 @@ class DefaultRenderModelCompilerTest {
     fun should_compile_html_break_comment_and_image_when_safe() {
         val paragraph = compileParagraph(
             "before<!-- hidden --><br><img src=\"https://example.com/a.png\" " +
-                "alt='A' title='T' width=24 height=12 onerror='ignored'>after"
+                "alt='A' title='T' width=24 height=12>after"
         )
         val textAtoms = paragraph.inline.atoms.filterIsInstance<TextAtom>()
         val image = paragraph.inline.atoms
@@ -146,7 +147,7 @@ class DefaultRenderModelCompilerTest {
         assertEquals("T", image.title)
         assertEquals(24, image.width)
         assertEquals(12, image.height)
-        assertTrue("onerror" !in image.attributes)
+        assertEquals(setOf("src", "alt", "title", "width", "height"), image.attributes.keys)
     }
 
     @Test
@@ -156,6 +157,12 @@ class DefaultRenderModelCompilerTest {
             "<strong><em>nested unclosed</em>",
             "<strong><em>mismatched</strong></em>",
             "<custom>value</custom>",
+            "<custom><!--visible fallback--><strong>nested</strong></custom>",
+            "<strong onclick=\"alert(1)\">unsafe attribute</strong>",
+            "<span class=\"unknown\">unsupported class</span>",
+            "<span style=\"position:fixed\">unsupported CSS</span>",
+            "before <img src=\"https://example.com/a.png\" onerror=\"alert(1)\">",
+            "before <img src=\"https://example.com/a.png\"></img>",
             "<a href=\"javascript:alert(1)\">unsafe</a>",
             "<a href=\"jav&#x61;script:alert(1)\">encoded unsafe</a>",
         )
@@ -165,6 +172,13 @@ class DefaultRenderModelCompilerTest {
             val renderedText = paragraph.inline.atoms.filterIsInstance<TextAtom>().joinToString("") { it.text }
             assertEquals(input, renderedText)
             assertTrue(paragraph.inline.atoms.none { it is WidgetAtom })
+            assertTrue(
+                paragraph.inline.atoms
+                    .filterIsInstance<TextAtom>()
+                    .flatMap { it.marks }
+                    .all { it.kind == "inline_html" },
+                input,
+            )
         }
     }
 
@@ -209,7 +223,7 @@ class DefaultRenderModelCompilerTest {
         val root = assertIs<HtmlContainerBlockModel>(block)
         val paragraph = assertIs<HtmlParagraphBlockModel>(root.children.single())
 
-        assertEquals(BlockTextAlignment.END, paragraph.textAlignment)
+        assertEquals(BlockTextAlignment.RIGHT, paragraph.textAlignment)
         assertEquals("Rohan & team", paragraph.inline.atoms.filterIsInstance<TextAtom>().single().text)
     }
 
@@ -222,7 +236,7 @@ class DefaultRenderModelCompilerTest {
         val div = assertIs<HtmlContainerBlockModel>(root.children.single())
         val paragraphs = div.children.filterIsInstance<HtmlParagraphBlockModel>()
 
-        assertEquals(listOf(BlockTextAlignment.CENTER, BlockTextAlignment.START), paragraphs.map { it.textAlignment })
+        assertEquals(listOf(BlockTextAlignment.CENTER, BlockTextAlignment.LEFT), paragraphs.map { it.textAlignment })
         assertEquals(listOf("One", "Two"), paragraphs.map { paragraph ->
             paragraph.inline.atoms.filterIsInstance<TextAtom>().joinToString("") { it.text }
         })
@@ -246,12 +260,53 @@ class DefaultRenderModelCompilerTest {
         val inputs = listOf(
             "<div><strong>broken</div>",
             "<table><tr><td>unsupported</td></tr></table>",
+            "<custom>\nunknown type 7 block\n</custom>",
+            "<div style=\"color:red\">unsupported block CSS</div>",
+            "<div onclick=\"alert(1)\">unsupported block attribute</div>",
+            "<div><a href=\"javascript:alert(1)\">unsafe child</a></div>",
+            "<p><div>nested block must survive</div></p>",
         )
 
         for (input in inputs) {
             val block = compileSingleBlock(input)
-            assertEquals(input, assertIs<HtmlBlockModel>(block).html)
+            assertEquals(input, assertIs<HtmlBlockModel>(block, input).html)
         }
+    }
+
+    @Test
+    fun should_route_opaque_commonmark_html_block_types_directly_to_raw_fallback() {
+        val cases = mapOf(
+            1 to "<script><strong>must stay raw</strong>&amp;</script>",
+            3 to "<?processing instruction?>",
+            4 to "<!DECLARATION>",
+            5 to "<![CDATA[<strong>must stay raw</strong>]]>",
+        )
+
+        for ((htmlType, input) in cases) {
+            val document = Document().apply {
+                appendChild(HtmlBlock(htmlType = htmlType, literal = input))
+            }
+            val block = DefaultRenderModelCompiler.compile(
+                document = document,
+                environment = RenderCompileEnvironment(),
+            ).blocks.single()
+
+            assertEquals(input, assertIs<HtmlBlockModel>(block).html, "HTML type $htmlType")
+        }
+    }
+
+    @Test
+    fun should_route_commonmark_html_comment_block_through_safe_hidden_semantics() {
+        val document = Document().apply {
+            appendChild(HtmlBlock(htmlType = 2, literal = "<!-- hidden -->"))
+        }
+
+        val block = DefaultRenderModelCompiler.compile(
+            document = document,
+            environment = RenderCompileEnvironment(),
+        ).blocks.single()
+
+        assertTrue(assertIs<HtmlContainerBlockModel>(block).children.isEmpty())
     }
 
     private fun compileParagraph(markdown: String): ParagraphBlockModel {

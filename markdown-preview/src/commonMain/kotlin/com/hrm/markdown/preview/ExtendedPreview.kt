@@ -650,6 +650,19 @@ kmp2024: JetBrains. "Kotlin Multiplatform Handbook". 2024
                 }
             ),
             PreviewItem(
+                id = "atomic_html_fallback",
+                title = "不支持的 HTML 原子回退",
+                content = {
+                    Markdown(
+                        markdown = """
+<div style="color:red"><strong>未知块级 CSS 会让整个片段保留原文</strong></div>
+
+行内未知属性也会保留：<span onclick="alert(1)">不会只忽略 onclick</span>。
+                        """.trimIndent()
+                    )
+                }
+            ),
+            PreviewItem(
                 id = "html_basic",
                 title = "基础 HTML 输出示例",
                 content = {

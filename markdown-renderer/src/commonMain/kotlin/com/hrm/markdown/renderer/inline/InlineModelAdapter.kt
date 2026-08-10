@@ -259,7 +259,7 @@ private fun AnnotatedString.Builder.renderTextAtom(
     )
 }
 
-private fun spanStyleForMark(mark: SpanMark, theme: MarkdownTheme): SpanStyle = when (mark.kind) {
+internal fun spanStyleForMark(mark: SpanMark, theme: MarkdownTheme): SpanStyle = when (mark.kind) {
     "emphasis" -> SpanStyle(fontStyle = FontStyle.Italic)
     "strong" -> SpanStyle(fontWeight = FontWeight.Bold)
     "strikethrough" -> theme.strikethroughStyle
@@ -269,8 +269,14 @@ private fun spanStyleForMark(mark: SpanMark, theme: MarkdownTheme): SpanStyle = 
     "inserted" -> theme.insertedTextStyle
     "styled" -> {
         val style = mark.payload["style"]?.let(::parseCssStyleToSpanStyle)
-        val classes = mark.payload["class"]?.split(" ")?.filter { it.isNotBlank() }.orEmpty()
-        style ?: inferStyleFromClasses(classes, theme) ?: SpanStyle()
+        val classes = mark.payload["class"]?.let(::styleClassNames).orEmpty()
+        val classStyle = inferStyleFromClasses(classes, theme)
+        when {
+            classStyle != null && style != null -> classStyle.merge(style)
+            style != null -> style
+            classStyle != null -> classStyle
+            else -> SpanStyle()
+        }
     }
 
     "abbreviation" -> theme.abbreviationStyle

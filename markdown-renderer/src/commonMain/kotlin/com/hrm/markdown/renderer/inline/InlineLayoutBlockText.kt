@@ -12,11 +12,13 @@ import androidx.compose.ui.layout.MeasurePolicy
 import androidx.compose.ui.layout.MeasureResult
 import androidx.compose.ui.layout.MeasureScope
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.LayoutDirection
 import com.hrm.codehigh.theme.CodeTheme
 import com.hrm.codehigh.theme.LocalCodeTheme
 import com.hrm.latex.renderer.measure.LatexMeasurerState
@@ -50,6 +52,7 @@ internal fun InlineLayoutBlockText(
     val onFootnoteClick = LocalOnFootnoteClick.current
     val latexMeasurer = rememberLatexMeasurer()
     val density = LocalDensity.current
+    val layoutDirection = LocalLayoutDirection.current
     val textMeasurer = rememberTextMeasurer()
     val inlineCodeTheme = LocalCodeHighlightTheme.current ?: LocalCodeTheme.current
     val inlineLayoutRuntime = remember { InlineLayoutRuntime() }
@@ -117,6 +120,7 @@ internal fun InlineLayoutBlockText(
                 inlineResult = inlineResult,
                 inlineLayoutRuntime = inlineLayoutRuntime,
                 inlineLayoutEpoch = inlineLayoutEpoch,
+                layoutDirection = layoutDirection,
             )
         },
         measurePolicy = measurePolicy,
@@ -139,6 +143,7 @@ private fun InlineLayoutBlockMeasuredContent(
     inlineResult: InlineRenderResult,
     inlineLayoutRuntime: InlineLayoutRuntime,
     inlineLayoutEpoch: InlineLayoutEpoch,
+    layoutDirection: LayoutDirection,
 ) {
     BoxWithConstraints {
         val maxWidthPx = with(density) { maxWidth.toPx() }
@@ -158,6 +163,7 @@ private fun InlineLayoutBlockMeasuredContent(
             inlineResult,
             inlineLayoutRuntime,
             inlineLayoutEpoch,
+            layoutDirection,
         ) {
             buildInlineLayoutBlockFromResult(
                 identity = model.identity,
@@ -173,6 +179,7 @@ private fun InlineLayoutBlockMeasuredContent(
                 inlineLayoutRuntime = inlineLayoutRuntime,
                 inlineLayoutEpoch = inlineLayoutEpoch,
                 maxLines = maxLines,
+                layoutDirection = layoutDirection,
             )
         }
 

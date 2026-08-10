@@ -4,6 +4,7 @@ import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.LayoutDirection
 import com.hrm.codehigh.theme.CodeTheme
 import com.hrm.latex.renderer.measure.LatexMeasurerState
 import com.hrm.markdown.renderer.MarkdownTheme
@@ -37,16 +38,12 @@ internal fun buildInlineLayoutLines(
     contentTop: Float,
     layout: InlineFlowLayout,
     widgetById: Map<InlinePlaceholderId, InlineWidgetModel>,
+    layoutDirection: LayoutDirection = LayoutDirection.Ltr,
 ): List<LayoutInlineLine> {
     var lineTop = contentTop
     return layout.lines.map { line ->
         val remainingWidth = (layout.widthPx - line.lineWidthPx).coerceAtLeast(0f)
-        val lineOffset = when (line.textAlign) {
-            TextAlign.Center -> remainingWidth / 2f
-            TextAlign.End,
-            TextAlign.Right -> remainingWidth
-            else -> 0f
-        }
+        val lineOffset = resolveInlineLineStartOffset(line.textAlign, remainingWidth, layoutDirection)
         val lineLeft = contentLeft + lineOffset
         var cursorX = lineLeft
         val runs = line.items.map { item ->
@@ -110,6 +107,7 @@ internal fun buildInlineLayoutBlockModel(
     inlinePayloads: Map<InlinePlaceholderId, InlineWidgetPaintPayload>,
     widgetById: Map<InlinePlaceholderId, InlineWidgetModel>,
     showDivider: Boolean = false,
+    layoutDirection: LayoutDirection = LayoutDirection.Ltr,
 ): LayoutInlineBlockModel {
     return LayoutInlineBlockModel(
         identity = identity,
@@ -124,6 +122,7 @@ internal fun buildInlineLayoutBlockModel(
             contentTop = contentFrame.top,
             layout = layout,
             widgetById = widgetById,
+            layoutDirection = layoutDirection,
         ),
     )
 }
@@ -148,6 +147,7 @@ internal fun buildInlineLayoutBlockFromModel(
     onFootnoteClick: ((String) -> Unit)? = null,
     maxLines: Int = Int.MAX_VALUE,
     showDivider: Boolean = false,
+    layoutDirection: LayoutDirection = LayoutDirection.Ltr,
 ): LayoutInlineBlockModel {
     val inlineResult = inlineLayoutRuntime.renderResult(
         model = model,
@@ -178,6 +178,7 @@ internal fun buildInlineLayoutBlockFromModel(
         inlineLayoutEpoch = inlineLayoutEpoch,
         maxLines = maxLines,
         showDivider = showDivider,
+        layoutDirection = layoutDirection,
     )
 }
 
@@ -197,6 +198,7 @@ internal fun buildInlineLayoutBlockFromResult(
     inlineLayoutEpoch: InlineLayoutEpoch,
     maxLines: Int = Int.MAX_VALUE,
     showDivider: Boolean = false,
+    layoutDirection: LayoutDirection = LayoutDirection.Ltr,
 ): LayoutInlineBlockModel {
     val contentLeft = left + insets.left
     val contentTop = top + insets.top
@@ -226,5 +228,21 @@ internal fun buildInlineLayoutBlockFromResult(
         inlinePayloads = inlineResult.paintPayloads,
         widgetById = inlineWidgetByPlaceholderId(model),
         showDivider = showDivider,
+        layoutDirection = layoutDirection,
     )
+}
+
+internal fun resolveInlineLineStartOffset(
+    textAlign: TextAlign,
+    remainingWidth: Float,
+    layoutDirection: LayoutDirection,
+): Float = when (textAlign) {
+    TextAlign.Left -> 0f
+    TextAlign.Right -> remainingWidth
+    TextAlign.Center -> remainingWidth / 2f
+    TextAlign.End -> if (layoutDirection == LayoutDirection.Ltr) remainingWidth else 0f
+    TextAlign.Start,
+    TextAlign.Justify,
+    TextAlign.Unspecified -> if (layoutDirection == LayoutDirection.Ltr) 0f else remainingWidth
+    else -> if (layoutDirection == LayoutDirection.Ltr) 0f else remainingWidth
 }

@@ -185,7 +185,9 @@
 - ✅ HTML 块可以打断段落（类型 1-6）
 - ✅ GFM 禁止的原始 HTML 标签过滤（`<title>`, `<textarea>`, `<style>`, `<xmp>`, `<iframe>`, `<noembed>`, `<noframes>`, `<script>`, `<plaintext>`）
 - ✅ `HtmlFragmentTokenizer` 统一拆分多行 fragment 的文本、标签、注释、CDATA 与处理指令
-- ✅ Compose 渲染器安全映射常用容器、行内子树与文字对齐，格式错误或未支持结构整体回退源码
+- ✅ CommonMark 类型 6 标签集合与 HTML 语义块标签集合独立维护，避免语法分类和渲染语义混用
+- ✅ Compose 渲染器按 `HtmlBlock.htmlType` 分流：类型 2、6、7 进入安全策略，类型 1、3、4、5 保持原始 HTML
+- ✅ Compose 渲染器安全映射常用容器、行内子树与物理/逻辑文字对齐；未知标签、属性、CSS 或格式错误会整体回退源码
 
 **覆盖率**: 12/12 (100%)
 
@@ -495,7 +497,8 @@
 - ✅ 行内声明 `<!DECLARATION>`
 - ✅ 单个原始 HTML token 内不解析 Markdown；成对标签之间的普通内容仍按 CommonMark 解析
 - ✅ `HtmlTagParser` 提供统一的标签类型、名称及属性结构化解析
-- ✅ Compose 渲染器安全映射常用行内标签；未知、危险、错配或未闭合标签保留源码
+- ✅ Compose 渲染器通过统一标签/属性策略映射常用行内标签；属性必须完整支持，否则保留源码
+- ✅ `span` 的 `class` 与 `style` 合并，行内 `style` 优先；CSS `#RRGGBBAA` 按标准通道顺序解析
 
 **覆盖率**: 10/10 (100%)
 

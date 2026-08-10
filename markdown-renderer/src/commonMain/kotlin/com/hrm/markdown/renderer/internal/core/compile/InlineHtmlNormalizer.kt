@@ -2,6 +2,7 @@ package com.hrm.markdown.renderer.internal.core.compile
 
 import com.hrm.markdown.parser.ast.InlineHtml
 import com.hrm.markdown.parser.ast.Node
+import com.hrm.markdown.parser.html.HtmlTagCategories
 import com.hrm.markdown.parser.html.HtmlTagKind
 import com.hrm.markdown.parser.html.HtmlTagParser
 import com.hrm.markdown.parser.html.HtmlTagToken
@@ -64,6 +65,7 @@ internal object InlineHtmlNormalizer {
     fun normalize(nodes: List<Node>): List<NormalizedInlineSource> {
         val root = mutableListOf<NormalizedInlineSource>()
         val frames = ArrayDeque<OpenFrame>()
+        var requiresAtomicFallback = false
 
         fun append(source: NormalizedInlineSource) {
             if (frames.isEmpty()) root += source else frames.last().children += source
@@ -103,8 +105,11 @@ internal object InlineHtmlNormalizer {
                             frame.fallbackSources().forEach(::append)
                         }
                     } else {
-                        if (token.name in SAFE_SPAN_TAGS) {
+                        if (SafeHtmlPolicy.isSupportedInlineContainerName(token.name)) {
                             frames.forEach { it.valid = false }
+                        }
+                        if (SafeHtmlPolicy.isSupportedInlineTagName(token.name)) {
+                            requiresAtomicFallback = true
                         }
                         append(AstInlineSource(node))
                     }
@@ -122,7 +127,11 @@ internal object InlineHtmlNormalizer {
             if (frames.isEmpty()) root += fallback else frames.last().children += fallback
         }
 
-        return root
+        return if (requiresAtomicFallback) {
+            root.flatMap { it.fallbackSources() }
+        } else {
+            root
+        }
     }
 
     private fun normalizeOpeningTag(
@@ -131,19 +140,25 @@ internal object InlineHtmlNormalizer {
         frames: ArrayDeque<OpenFrame>,
         append: (NormalizedInlineSource) -> Unit,
     ) {
-        when (token.name) {
-            "br" -> append(HtmlLineBreakInlineSource(node))
-            "img" -> append(imageSourceOrFallback(node, token))
-            else -> {
-                val marks = spanMarks(token)
-                if (marks == null) {
-                    append(AstInlineSource(node))
-                } else {
+        when (val action = SafeHtmlPolicy.inlineAction(token)) {
+            is SafeInlineHtmlAction.Span -> frames += OpenFrame(
+                opening = node,
+                tagName = token.name.orEmpty(),
+                marks = action.marks,
+            )
+            SafeInlineHtmlAction.LineBreak -> append(HtmlLineBreakInlineSource(node))
+            is SafeInlineHtmlAction.Image -> append(action.toSource(node))
+            SafeInlineHtmlAction.Hidden -> append(HiddenHtmlInlineSource(node))
+            null -> {
+                if (!HtmlTagCategories.isVoidTag(token.name.orEmpty())) {
                     frames += OpenFrame(
                         opening = node,
                         tagName = token.name.orEmpty(),
-                        marks = marks,
+                        marks = emptyList(),
+                        valid = false,
                     )
+                } else {
+                    append(AstInlineSource(node))
                 }
             }
         }
@@ -154,103 +169,25 @@ internal object InlineHtmlNormalizer {
         token: HtmlTagToken,
         append: (NormalizedInlineSource) -> Unit,
     ) {
-        when (token.name) {
-            "br" -> append(HtmlLineBreakInlineSource(node))
-            "img" -> append(imageSourceOrFallback(node, token))
-            else -> append(AstInlineSource(node))
+        when (val action = SafeHtmlPolicy.inlineAction(token)) {
+            SafeInlineHtmlAction.LineBreak -> append(HtmlLineBreakInlineSource(node))
+            is SafeInlineHtmlAction.Image -> append(action.toSource(node))
+            SafeInlineHtmlAction.Hidden -> append(HiddenHtmlInlineSource(node))
+            is SafeInlineHtmlAction.Span,
+            null -> append(AstInlineSource(node))
         }
     }
 
-    private fun imageSourceOrFallback(node: InlineHtml, token: HtmlTagToken): NormalizedInlineSource {
-        val source = token.attributes["src"].orEmpty().trim()
-        if (source.isEmpty() || !isSafeUrl(source, IMAGE_SCHEMES)) return AstInlineSource(node)
-        return HtmlImageInlineSource(
+    private fun SafeInlineHtmlAction.Image.toSource(node: InlineHtml): HtmlImageInlineSource =
+        HtmlImageInlineSource(
             anchor = node,
             source = source,
-            altText = token.attributes["alt"].orEmpty(),
-            title = token.attributes["title"],
-            width = token.attributes["width"].toHtmlDimensionOrNull(),
-            height = token.attributes["height"].toHtmlDimensionOrNull(),
-            attributes = token.attributes.filterKeys { it in IMAGE_ATTRIBUTES },
+            altText = altText,
+            title = title,
+            width = width,
+            height = height,
+            attributes = attributes,
         )
-    }
-
-    private fun spanMarks(token: HtmlTagToken): List<SpanMark>? = when (token.name) {
-        "strong", "b" -> listOf(SpanMark("strong"))
-        "em", "i" -> listOf(SpanMark("emphasis"))
-        "del", "s", "strike" -> listOf(SpanMark("strikethrough"))
-        "mark" -> listOf(SpanMark("highlight"))
-        "sup" -> listOf(SpanMark("superscript"))
-        "sub" -> listOf(SpanMark("subscript"))
-        "ins" -> listOf(SpanMark("inserted"))
-        "u" -> listOf(SpanMark("underline"))
-        "code" -> listOf(SpanMark("html_code"))
-        "kbd" -> listOf(SpanMark("kbd"))
-        "span" -> listOf(
-            SpanMark(
-                kind = "styled",
-                payload = buildMap {
-                    token.attributes["style"]?.let { put("style", it) }
-                    token.attributes["class"]?.let { put("class", it) }
-                },
-            )
-        )
-        "a" -> {
-            val target = token.attributes["href"]?.trim()
-            when {
-                target == null -> emptyList()
-                isSafeUrl(target, LINK_SCHEMES) -> listOf(
-                    SpanMark(
-                        kind = "link",
-                        payload = mapOf(
-                            "target" to target,
-                            "tag" to "link",
-                        ),
-                    )
-                )
-                else -> null
-            }
-        }
-        else -> null
-    }
-
-    private fun String?.toHtmlDimensionOrNull(): Int? {
-        val value = this?.trim()?.removeSuffix("px") ?: return null
-        return value.toIntOrNull()?.takeIf { it > 0 }
-    }
-
-    private fun isSafeUrl(value: String, allowedSchemes: Set<String>): Boolean {
-        val target = value.trim()
-        if (target.isEmpty() || target.any { it.code <= 0x20 }) return false
-
-        val colon = target.indexOf(':')
-        val firstPathDelimiter = listOf(target.indexOf('/'), target.indexOf('?'), target.indexOf('#'))
-            .filter { it >= 0 }
-            .minOrNull()
-        if (colon < 0 || (firstPathDelimiter != null && colon > firstPathDelimiter)) return true
-
-        val scheme = target.substring(0, colon)
-        if (!scheme.matches(SCHEME_REGEX)) return false
-        return scheme.lowercase() in allowedSchemes
-    }
-
-    private val SCHEME_REGEX = Regex("[a-zA-Z][a-zA-Z0-9+.-]*")
-    private val SAFE_SPAN_TAGS = setOf(
-        "strong", "b", "em", "i", "del", "s", "strike", "mark", "sup", "sub",
-        "ins", "u", "code", "kbd", "span", "a",
-    )
-    private val LINK_SCHEMES = setOf("http", "https", "mailto", "tel")
-    private val IMAGE_SCHEMES = setOf("http", "https")
-    private val IMAGE_ATTRIBUTES = setOf(
-        "src",
-        "alt",
-        "title",
-        "width",
-        "height",
-        "class",
-        "id",
-        "align",
-    )
 
     private fun OpenFrame.fallbackSources(): List<NormalizedInlineSource> = buildList {
         add(AstInlineSource(opening))

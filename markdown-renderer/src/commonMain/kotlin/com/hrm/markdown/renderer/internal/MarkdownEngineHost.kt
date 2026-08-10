@@ -2,6 +2,7 @@ package com.hrm.markdown.renderer.internal
 
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.graphics.luminance
 import com.hrm.markdown.parser.ast.Document
 import com.hrm.markdown.renderer.DiagramHostRegistry
@@ -60,6 +61,7 @@ internal class MarkdownEngineHost(
         textMeasurer: TextMeasurer,
         latexMeasurer: LatexMeasurerState,
         diagramHostRegistry: DiagramHostRegistry,
+        layoutDirection: LayoutDirection = LayoutDirection.Ltr,
     ): InternalLayoutDocumentModel {
         return layoutEngine.layout(
             document = renderDocument,
@@ -73,6 +75,7 @@ internal class MarkdownEngineHost(
                 textMeasurer = textMeasurer,
                 latexMeasurer = latexMeasurer,
                 diagramHostRegistry = diagramHostRegistry,
+                layoutDirection = layoutDirection,
             ),
         )
     }
@@ -88,6 +91,7 @@ internal class MarkdownEngineHost(
         textMeasurer: TextMeasurer,
         latexMeasurer: LatexMeasurerState,
         diagramHostRegistry: DiagramHostRegistry,
+        layoutDirection: LayoutDirection = LayoutDirection.Ltr,
     ): MarkdownLayoutSession = MarkdownLayoutSession(
         document = renderDocument,
         environment = createLayoutEnvironment(
@@ -100,6 +104,7 @@ internal class MarkdownEngineHost(
             textMeasurer = textMeasurer,
             latexMeasurer = latexMeasurer,
             diagramHostRegistry = diagramHostRegistry,
+            layoutDirection = layoutDirection,
         ),
         engine = layoutEngine,
         sharedBlockCache = blockLayoutCache,
@@ -115,6 +120,7 @@ internal class MarkdownEngineHost(
         textMeasurer: TextMeasurer,
         latexMeasurer: LatexMeasurerState,
         diagramHostRegistry: DiagramHostRegistry,
+        layoutDirection: LayoutDirection,
     ): LayoutEnvironment = LayoutEnvironment(
         viewportWidth = viewportWidth,
         blockSpacing = blockSpacing,
@@ -123,6 +129,7 @@ internal class MarkdownEngineHost(
         onLinkClick = onLinkClick,
         onFootnoteClick = onFootnoteClick,
         density = density,
+        layoutDirection = layoutDirection,
         textMeasurer = textMeasurer,
         latexMeasurer = latexMeasurer,
         compileEnvironment = facadeState.toCompileEnvironment(),

@@ -110,7 +110,8 @@ internal fun PaintInlineLayoutContent(
         layout(desiredWidth, desiredHeight) {
             for (index in paintItems.indices) {
                 val item = paintItems[index]
-                placeables[index].placeRelative(item.x, item.y)
+                // LayoutInlineBlockModel owns physical geometry; do not mirror it a second time.
+                placeables[index].place(item.x, item.y)
             }
         }
     }

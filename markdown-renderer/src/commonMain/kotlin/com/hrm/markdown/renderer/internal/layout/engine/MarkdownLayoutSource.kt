@@ -1,5 +1,6 @@
 package com.hrm.markdown.renderer.internal.layout.engine
 
+import androidx.compose.ui.unit.LayoutDirection
 import com.hrm.markdown.renderer.internal.core.identity.RenderIdentity
 import com.hrm.markdown.renderer.internal.core.model.InternalRenderDocumentModel
 import com.hrm.markdown.renderer.internal.core.model.InternalRenderBlockModel
@@ -86,6 +87,7 @@ internal class MarkdownBlockLayoutCache(
         val paintRevision: Long,
         val viewportWidthBits: Int,
         val blockSpacingBits: Int,
+        val layoutDirection: LayoutDirection,
         val epoch: InlineLayoutEpoch,
     )
 
@@ -108,6 +110,7 @@ internal class MarkdownBlockLayoutCache(
             paintRevision = block.identity.paintRevision,
             viewportWidthBits = environment.viewportWidth.toBits(),
             blockSpacingBits = environment.blockSpacing.toBits(),
+            layoutDirection = environment.layoutDirection,
             epoch = environment.inlineLayoutEpoch,
         )
         values[key]?.let {

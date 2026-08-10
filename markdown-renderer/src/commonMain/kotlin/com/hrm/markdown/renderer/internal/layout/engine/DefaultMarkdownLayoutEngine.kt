@@ -593,6 +593,7 @@ private fun layoutInlineBlock(
         onLinkClick = environment.onLinkClick,
         onFootnoteClick = environment.onFootnoteClick,
         showDivider = showDivider,
+        layoutDirection = environment.layoutDirection,
     )
 }
 

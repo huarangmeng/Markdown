@@ -22,40 +22,41 @@ internal fun buildInlineDirectiveFallbackText(node: DirectiveInline): String {
 }
 
 internal fun parseCssStyleToSpanStyle(css: String): SpanStyle? {
-    if (css.isBlank()) return null
+    val pairs = css.split(';').map { it.trim() }.filter { it.isNotEmpty() }
+    if (pairs.isEmpty()) return null
     var color: Color? = null
     var background: Color? = null
     var fontWeight: FontWeight? = null
     var fontStyle: FontStyle? = null
     var textDecoration: TextDecoration? = null
 
-    val pairs = css.split(";").map { it.trim() }.filter { it.isNotEmpty() }
     for (pair in pairs) {
         val colonIdx = pair.indexOf(':')
-        if (colonIdx < 0) continue
+        if (colonIdx <= 0 || colonIdx == pair.lastIndex) return null
         val key = pair.substring(0, colonIdx).trim().lowercase()
         val value = pair.substring(colonIdx + 1).trim().lowercase()
         when (key) {
-            "color" -> color = parseCssColor(value)
-            "background", "background-color" -> background = parseCssColor(value)
+            "color" -> color = parseCssColor(value) ?: return null
+            "background", "background-color" -> background = parseCssColor(value) ?: return null
             "font-weight" -> fontWeight = when (value) {
                 "bold" -> FontWeight.Bold
                 "normal" -> FontWeight.Normal
                 "lighter" -> FontWeight.Light
-                else -> null
+                else -> return null
             }
 
             "font-style" -> fontStyle = when (value) {
                 "italic" -> FontStyle.Italic
                 "normal" -> FontStyle.Normal
-                else -> null
+                else -> return null
             }
 
-            "text-decoration" -> textDecoration = when {
-                "underline" in value -> TextDecoration.Underline
-                "line-through" in value -> TextDecoration.LineThrough
-                else -> null
+            "text-decoration" -> textDecoration = when (value) {
+                "underline" -> TextDecoration.Underline
+                "line-through" -> TextDecoration.LineThrough
+                else -> return null
             }
+            else -> return null
         }
     }
     return SpanStyle(
@@ -66,6 +67,9 @@ internal fun parseCssStyleToSpanStyle(css: String): SpanStyle? {
         textDecoration = textDecoration,
     )
 }
+
+/** HTML 安全渲染只接受能够被完整映射的 CSS 声明。 */
+internal fun isFullySupportedCssStyle(css: String): Boolean = parseCssStyleToSpanStyle(css) != null
 
 internal fun parseCssColor(value: String): Color? {
     return when (value.trim().lowercase()) {
@@ -91,7 +95,8 @@ internal fun parseCssColor(value: String): Color? {
                 }
 
                 8 -> try {
-                    Color(hex.toLong(16))
+                    // CSS uses #RRGGBBAA while Compose Color(Long) expects AARRGGBB.
+                    Color((hex.takeLast(2) + hex.take(6)).toLong(16))
                 } catch (_: Exception) {
                     null
                 }
@@ -113,14 +118,16 @@ internal fun parseCssColor(value: String): Color? {
 
 internal fun inferStyleFromClasses(classes: List<String>, theme: MarkdownTheme): SpanStyle? {
     if (classes.isEmpty()) return null
+    val normalizedClasses = classes.map { it.lowercase() }
+    if (normalizedClasses.any { it !in SUPPORTED_STYLE_CLASSES }) return null
     var color: Color? = null
     var background: Color? = null
     var fontWeight: FontWeight? = null
     var fontStyle: FontStyle? = null
     var textDecoration: TextDecoration? = null
 
-    for (cls in classes) {
-        when (cls.lowercase()) {
+    for (cls in normalizedClasses) {
+        when (cls) {
             "red" -> color = Color.Red
             "blue" -> color = Color.Blue
             "green" -> color = Color.Green
@@ -144,6 +151,22 @@ internal fun inferStyleFromClasses(classes: List<String>, theme: MarkdownTheme):
         textDecoration = textDecoration,
     )
 }
+
+internal fun areFullySupportedStyleClasses(value: String): Boolean {
+    val classes = styleClassNames(value)
+    return classes.isNotEmpty() && classes.all { it in SUPPORTED_STYLE_CLASSES }
+}
+
+internal fun styleClassNames(value: String): List<String> =
+    value.splitToSequence(' ', '\t', '\n', '\r')
+        .filter { it.isNotBlank() }
+        .map { it.lowercase() }
+        .toList()
+
+private val SUPPORTED_STYLE_CLASSES = setOf(
+    "red", "blue", "green", "yellow", "orange", "purple", "pink", "gray", "grey",
+    "bold", "italic", "underline", "line-through", "strikethrough", "highlight",
+)
 
 internal fun extractPlainText(node: Node): String = buildString {
     when (node) {

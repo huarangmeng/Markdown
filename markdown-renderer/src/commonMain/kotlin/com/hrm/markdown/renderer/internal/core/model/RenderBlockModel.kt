@@ -7,10 +7,13 @@ sealed interface InternalRenderBlockModel {
     val identity: RenderIdentity
 }
 
+/** `LEFT`/`RIGHT` are physical; `START`/`END` follow the Compose layout direction. */
 enum class BlockTextAlignment {
     INHERIT,
+    LEFT,
     START,
     CENTER,
+    RIGHT,
     END,
 }
 

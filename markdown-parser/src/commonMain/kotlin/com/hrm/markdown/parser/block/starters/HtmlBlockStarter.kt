@@ -53,7 +53,10 @@ internal class HtmlBlockStarter : BlockStarter {
             if (HTML_TYPE4_REGEX.containsMatchIn(line)) return 4
             if (lower.startsWith("<![cdata[")) return 5
             val tagMatch = HTML_TYPE6_TAG_REGEX.find(line)
-            if (tagMatch != null && HtmlTagCategories.isBlockTag(tagMatch.groupValues[1])) return 6
+            if (
+                tagMatch != null &&
+                HtmlTagCategories.isCommonMarkType6BlockTag(tagMatch.groupValues[1])
+            ) return 6
             if (HTML_TYPE7_OPEN_REGEX.containsMatchIn(line) || HTML_TYPE7_CLOSE_REGEX.containsMatchIn(line)) return 7
             return null
         }

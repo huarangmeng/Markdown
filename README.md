@@ -453,15 +453,21 @@ The next line can also contain an <img src="https://example.com/icon.png" alt="i
 
 Supported semantic tags are `strong`/`b`, `em`/`i`, `del`/`s`/`strike`, `mark`,
 `sup`, `sub`, `ins`, `u`, `code`, `kbd`, `span`, `a`, `br`, and `img`. Inline HTML
-comments are hidden. Only a small CSS property subset is accepted for `span`; event
-attributes and executable URL schemes are never executed. Unknown, unsafe, mismatched,
-or unclosed tags remain visible as source text instead of silently losing content.
+comments are hidden. Formatting tags and `br` accept no attributes; `span` accepts only
+fully supported `style`/`class` values; `a` accepts only `href`; and `img` accepts only
+`src`, `alt`, `title`, `width`, and `height`. Supported `span` CSS is limited to colors,
+background colors, font weight/style, and underline/line-through. Any unknown attribute,
+CSS declaration, unsafe URL, mismatched tag, or unclosed tag causes that HTML source to
+remain visible instead of being partially rendered or silently losing content.
 
 Safe block fragments are supported for `p`, `div`, `center`, `article`, `section`, `main`,
 `header`, and `footer`. They can contain the safe inline tags above and use `align` or the
-limited `style="text-align:..."` form for start, center, and end alignment. Malformed fragments
-or unsupported block structures such as tables, forms, scripts, and arbitrary CSS fall back to
-visible raw HTML instead of partial rendering.
+limited `style="text-align:..."` form with `left`, `start`, `center`, `right`, or `end`.
+`left`/`right` remain physical directions, while `start`/`end` follow the current layout
+direction. Compose routing is explicit by CommonMark HTML block type: comments (type 2)
+may be hidden and safe type 6/7 fragments may be mapped; opaque types 1/3/4/5 stay raw.
+Malformed fragments, unknown attributes, or unsupported structures such as tables, forms,
+scripts, and arbitrary CSS fall back atomically to visible raw HTML.
 
 A block tag must start on its own line according to CommonMark rules. In particular,
 `text <p>block</p> text` is invalid block markup and remains inline source; put the `p` element

@@ -10,12 +10,20 @@ class BlockTextAlignmentTest {
     @Test
     fun should_map_alignment_when_render_model_overrides_text_style() {
         assertEquals(
+            TextAlign.Left,
+            TextStyle.Default.withBlockTextAlignment(BlockTextAlignment.LEFT).textAlign,
+        )
+        assertEquals(
             TextAlign.Start,
             TextStyle.Default.withBlockTextAlignment(BlockTextAlignment.START).textAlign,
         )
         assertEquals(
             TextAlign.Center,
             TextStyle.Default.withBlockTextAlignment(BlockTextAlignment.CENTER).textAlign,
+        )
+        assertEquals(
+            TextAlign.Right,
+            TextStyle.Default.withBlockTextAlignment(BlockTextAlignment.RIGHT).textAlign,
         )
         assertEquals(
             TextAlign.End,

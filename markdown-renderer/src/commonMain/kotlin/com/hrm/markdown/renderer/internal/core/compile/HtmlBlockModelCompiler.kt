@@ -23,17 +23,21 @@ import com.hrm.markdown.renderer.internal.core.model.ThematicBreakBlockModel
 /** 将受支持的 HtmlBlock fragment 编译为平台无关 RenderModel。 */
 internal object HtmlBlockModelCompiler {
     private sealed interface FragmentNode {
-        val source: String
+        val sourceRevision: Long
     }
 
     private data class FragmentText(
-        override val source: String,
-    ) : FragmentNode
+        val source: String,
+    ) : FragmentNode {
+        override val sourceRevision: Long = renderIdentityFromText(source)
+    }
 
     private data class FragmentStandaloneTag(
-        override val source: String,
+        val source: String,
         val tag: HtmlTagToken,
-    ) : FragmentNode
+    ) : FragmentNode {
+        override val sourceRevision: Long = renderIdentityFromText(source)
+    }
 
     private data class FragmentElement(
         val openingSource: String,
@@ -41,11 +45,12 @@ internal object HtmlBlockModelCompiler {
         val tag: HtmlTagToken,
         val children: List<FragmentNode>,
     ) : FragmentNode {
-        override val source: String = buildString {
-            append(openingSource)
-            children.forEach { append(it.source) }
-            append(closingSource)
+        override val sourceRevision: Long = children.fold(
+            renderIdentityFromText(openingSource)
+        ) { revision, child ->
+            renderIdentityFromValues(revision, child.sourceRevision)
         }
+            .let { renderIdentityFromValues(it, renderIdentityFromText(closingSource)) }
     }
 
     private data class OpenElement(
@@ -54,7 +59,21 @@ internal object HtmlBlockModelCompiler {
         val children: MutableList<FragmentNode> = mutableListOf(),
     )
 
+    private sealed interface InlineParagraphCompileResult {
+        data class Content(val model: HtmlParagraphBlockModel) : InlineParagraphCompileResult
+
+        data object Empty : InlineParagraphCompileResult
+
+        data object Unsupported : InlineParagraphCompileResult
+    }
+
     fun compile(node: HtmlBlock, identity: RenderIdentity): InternalRenderBlockModel? {
+        when (node.htmlType) {
+            HTML_COMMENT_TYPE,
+            COMMONMARK_BLOCK_TAG_TYPE,
+            COMPLETE_TAG_TYPE -> Unit
+            else -> return null
+        }
         val tokens = HtmlFragmentTokenizer.tokenize(node.literal) ?: return null
         val tree = buildTree(tokens) ?: return null
         val children = compileFlow(
@@ -121,50 +140,88 @@ internal object HtmlBlockModelCompiler {
 
         fun flushInline(): Boolean {
             if (inlineBuffer.isEmpty()) return true
-            val identity = derivedIdentity(parentIdentity, "html-inline", childIndex++, inlineBuffer.sourceText())
+            val identity = derivedIdentity(
+                parent = parentIdentity,
+                role = "html-inline",
+                index = childIndex++,
+                contentRevision = inlineBuffer.sourceRevision(),
+            )
             val paragraph = compileInlineParagraph(inlineBuffer, inheritedAlignment, identity)
             inlineBuffer.clear()
-            if (paragraph != null) result += paragraph
-            return true
+            return when (paragraph) {
+                is InlineParagraphCompileResult.Content -> {
+                    result += paragraph.model
+                    true
+                }
+                InlineParagraphCompileResult.Empty -> true
+                InlineParagraphCompileResult.Unsupported -> false
+            }
         }
 
         for (node in nodes) {
-            val blockName = node.blockTagName()
-            when {
-                blockName == null -> inlineBuffer += node
-                blockName == "hr" && node is FragmentStandaloneTag -> {
-                    flushInline()
-                    result += ThematicBreakBlockModel(
-                        derivedIdentity(parentIdentity, "html-hr", childIndex++, node.source)
-                    )
+            when (node) {
+                is FragmentText -> inlineBuffer += node
+                is FragmentStandaloneTag -> {
+                    val blockAction = SafeHtmlPolicy.blockAction(node.tag, inheritedAlignment)
+                    if (blockAction?.role == SafeBlockHtmlRole.THEMATIC_BREAK) {
+                        if (!flushInline()) return null
+                        result += ThematicBreakBlockModel(
+                            derivedIdentity(
+                                parent = parentIdentity,
+                                role = "html-hr",
+                                index = childIndex++,
+                                contentRevision = node.sourceRevision,
+                            )
+                        )
+                    } else {
+                        inlineBuffer += node
+                    }
                 }
-                node is FragmentElement && blockName in SAFE_CONTAINER_TAGS -> {
-                    flushInline()
-                    val identity = derivedIdentity(parentIdentity, "html-$blockName", childIndex++, node.source)
-                    val compiled = compileContainerElement(node, inheritedAlignment, identity) ?: return null
-                    result += compiled
+                is FragmentElement -> {
+                    val blockAction = SafeHtmlPolicy.blockAction(node.tag, inheritedAlignment)
+                    if (blockAction == null) {
+                        inlineBuffer += node
+                    } else {
+                        if (blockAction.role == SafeBlockHtmlRole.THEMATIC_BREAK) return null
+                        if (!flushInline()) return null
+                        val identity = derivedIdentity(
+                            parent = parentIdentity,
+                            role = "html-${node.tag.name.orEmpty()}",
+                            index = childIndex++,
+                            contentRevision = node.sourceRevision,
+                        )
+                        val compiled = compileContainerElement(
+                            element = node,
+                            action = blockAction,
+                            identity = identity,
+                        ) ?: return null
+                        result += compiled
+                    }
                 }
-                else -> return null
             }
         }
-        flushInline()
+        if (!flushInline()) return null
         return result
     }
 
     private fun compileContainerElement(
         element: FragmentElement,
-        inheritedAlignment: BlockTextAlignment,
+        action: SafeBlockHtmlAction,
         identity: RenderIdentity,
     ): InternalRenderBlockModel? {
-        val name = element.tag.name.orEmpty()
-        val alignment = element.resolveAlignment(inheritedAlignment)
-        return when (name) {
-            "p" -> compileInlineParagraph(element.children, alignment, identity)
-                ?: HtmlContainerBlockModel(identity, emptyList())
-            else -> {
-                val children = compileFlow(element.children, alignment, identity) ?: return null
+        return when (action.role) {
+            SafeBlockHtmlRole.PARAGRAPH -> when (
+                val paragraph = compileInlineParagraph(element.children, action.alignment, identity)
+            ) {
+                is InlineParagraphCompileResult.Content -> paragraph.model
+                InlineParagraphCompileResult.Empty -> HtmlContainerBlockModel(identity, emptyList())
+                InlineParagraphCompileResult.Unsupported -> null
+            }
+            SafeBlockHtmlRole.CONTAINER -> {
+                val children = compileFlow(element.children, action.alignment, identity) ?: return null
                 HtmlContainerBlockModel(identity = identity, children = children)
             }
+            SafeBlockHtmlRole.THEMATIC_BREAK -> null
         }
     }
 
@@ -172,18 +229,22 @@ internal object HtmlBlockModelCompiler {
         nodes: List<FragmentNode>,
         alignment: BlockTextAlignment,
         identity: RenderIdentity,
-    ): HtmlParagraphBlockModel? {
-        if (nodes.any { it.containsBlockTag() }) return null
+    ): InlineParagraphCompileResult {
+        if (nodes.any { !it.isSupportedInlineFragment() }) {
+            return InlineParagraphCompileResult.Unsupported
+        }
         val astNodes = InlineAstBuilder().build(nodes)
         val inline = compileInlineModel(
             nodes = astNodes,
-            inlineRevision = renderIdentityFromText(nodes.sourceText()),
+            inlineRevision = nodes.sourceRevision(),
         )
-        if (inline.atoms.isEmpty()) return null
-        return HtmlParagraphBlockModel(
-            identity = identity,
-            inline = inline,
-            textAlignment = alignment,
+        if (inline.atoms.isEmpty()) return InlineParagraphCompileResult.Empty
+        return InlineParagraphCompileResult.Content(
+            HtmlParagraphBlockModel(
+                identity = identity,
+                inline = inline,
+                textAlignment = alignment,
+            )
         )
     }
 
@@ -249,52 +310,31 @@ internal object HtmlBlockModelCompiler {
         }
     }
 
-    private fun FragmentElement.resolveAlignment(inherited: BlockTextAlignment): BlockTextAlignment {
-        if (tag.name == "center") return BlockTextAlignment.CENTER
-        val explicit = tag.attributes["align"] ?: tag.attributes["style"]
-            ?.split(';')
-            ?.mapNotNull { declaration ->
-                val separator = declaration.indexOf(':')
-                if (separator < 0) return@mapNotNull null
-                val name = declaration.substring(0, separator).trim().lowercase()
-                val value = declaration.substring(separator + 1).trim()
-                value.takeIf { name == "text-align" }
-            }
-            ?.lastOrNull()
-        return when (explicit?.trim()?.lowercase()) {
-            "left", "start" -> BlockTextAlignment.START
-            "center" -> BlockTextAlignment.CENTER
-            "right", "end" -> BlockTextAlignment.END
-            else -> inherited
+    private fun FragmentNode.isSupportedInlineFragment(): Boolean = when (this) {
+        is FragmentText -> true
+        is FragmentStandaloneTag -> SafeHtmlPolicy.inlineAction(tag) != null
+        is FragmentElement -> {
+            SafeHtmlPolicy.inlineAction(tag) is SafeInlineHtmlAction.Span &&
+                children.all { it.isSupportedInlineFragment() }
         }
     }
 
-    private fun FragmentNode.blockTagName(): String? = when (this) {
-        is FragmentElement -> tag.name?.takeIf(HtmlTagCategories::isBlockTag)
-        is FragmentStandaloneTag -> tag.name?.takeIf(HtmlTagCategories::isBlockTag)
-        is FragmentText -> null
+    private fun List<FragmentNode>.sourceRevision(): Long = fold(0L) { revision, node ->
+        renderIdentityFromValues(revision, node.sourceRevision)
     }
-
-    private fun FragmentNode.containsBlockTag(): Boolean = when (this) {
-        is FragmentElement -> HtmlTagCategories.isBlockTag(tag.name.orEmpty()) || children.any { it.containsBlockTag() }
-        is FragmentStandaloneTag -> tag.name?.let(HtmlTagCategories::isBlockTag) == true
-        is FragmentText -> false
-    }
-
-    private fun List<FragmentNode>.sourceText(): String = joinToString(separator = "") { it.source }
 
     private fun derivedIdentity(
         parent: RenderIdentity,
         role: String,
         index: Int,
-        content: String,
+        contentRevision: Long,
     ): RenderIdentity {
         val stableId = renderIdentityFromValues(
             parent.stableId,
             renderIdentityFromText(role),
             index.toLong(),
         )
-        val revision = renderIdentityFromText(content, parent.contentRevision)
+        val revision = renderIdentityFromValues(parent.contentRevision, contentRevision)
         return RenderIdentity(
             stableId = stableId,
             contentRevision = revision,
@@ -303,14 +343,7 @@ internal object HtmlBlockModelCompiler {
         )
     }
 
-    private val SAFE_CONTAINER_TAGS = setOf(
-        "article",
-        "center",
-        "div",
-        "footer",
-        "header",
-        "main",
-        "p",
-        "section",
-    )
+    private const val HTML_COMMENT_TYPE = 2
+    private const val COMMONMARK_BLOCK_TAG_TYPE = 6
+    private const val COMPLETE_TAG_TYPE = 7
 }

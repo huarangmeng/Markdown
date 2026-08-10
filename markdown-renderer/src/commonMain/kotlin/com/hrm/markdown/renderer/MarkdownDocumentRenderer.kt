@@ -15,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.rememberTextMeasurer
 import com.hrm.codehigh.theme.CodeTheme
 import com.hrm.latex.renderer.measure.rememberLatexMeasurer
@@ -92,6 +93,7 @@ internal fun MarkdownDocumentRenderer(
             )
         }
         val density = LocalDensity.current
+        val layoutDirection = LocalLayoutDirection.current
         val latexMeasurer = rememberLatexMeasurer()
         val diagramHostRegistry = remember { DiagramHostRegistry() }
         BoxWithConstraints(modifier = modifier) {
@@ -120,6 +122,7 @@ internal fun MarkdownDocumentRenderer(
                 viewportWidthPx,
                 blockSpacingPx,
                 density,
+                layoutDirection,
                 textMeasurer,
                 latexMeasurer,
                 diagramHostRegistry,
@@ -136,6 +139,7 @@ internal fun MarkdownDocumentRenderer(
                         textMeasurer = textMeasurer,
                         latexMeasurer = latexMeasurer,
                         diagramHostRegistry = diagramHostRegistry,
+                        layoutDirection = layoutDirection,
                     )
                 } else {
                     EagerMarkdownLayoutSource(
@@ -150,6 +154,7 @@ internal fun MarkdownDocumentRenderer(
                             textMeasurer = textMeasurer,
                             latexMeasurer = latexMeasurer,
                             diagramHostRegistry = diagramHostRegistry,
+                            layoutDirection = layoutDirection,
                         )
                     )
                 }

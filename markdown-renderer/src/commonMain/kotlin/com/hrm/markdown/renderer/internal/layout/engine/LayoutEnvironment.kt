@@ -2,6 +2,7 @@ package com.hrm.markdown.renderer.internal.layout.engine
 
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.LayoutDirection
 import com.hrm.codehigh.theme.CodeTheme
 import com.hrm.latex.renderer.measure.LatexMeasurerState
 import com.hrm.markdown.renderer.DiagramHostRegistry
@@ -18,6 +19,7 @@ internal data class LayoutEnvironment(
     val onLinkClick: ((String) -> Unit)? = null,
     val onFootnoteClick: ((String) -> Unit)? = null,
     val density: Density,
+    val layoutDirection: LayoutDirection,
     val textMeasurer: TextMeasurer,
     val latexMeasurer: LatexMeasurerState,
     val compileEnvironment: RenderCompileEnvironment,

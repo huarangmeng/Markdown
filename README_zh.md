@@ -453,13 +453,18 @@ val html = HtmlRenderer.renderMarkdown(input, flavour = CommonMarkFlavour)
 
 当前支持 `strong`/`b`、`em`/`i`、`del`/`s`/`strike`、`mark`、`sup`、`sub`、
 `ins`、`u`、`code`、`kbd`、`span`、`a`、`br` 和 `img`。行内 HTML 注释不显示；
-`span` 只接受有限的 CSS 属性，事件属性及可执行 URL scheme 不会执行。未知、危险、
-错配或未闭合的标签会保留为源码文本，不会静默丢失内容。
+格式标签及 `br` 不接受属性，`span` 只接受能够完整映射的 `style`/`class`，`a` 只接受
+`href`，`img` 只接受 `src`、`alt`、`title`、`width` 和 `height`。`span` 的 CSS 仅支持
+文字/背景颜色、字重、字形、下划线和删除线。未知属性、未知 CSS、危险 URL、错配或
+未闭合标签都会保留源码，不会忽略一部分后继续渲染，也不会静默丢失内容。
 
 块级安全片段支持 `p`、`div`、`center`、`article`、`section`、`main`、`header` 和
 `footer`，容器内可以使用上述安全行内标签，并通过 `align` 或受限的
-`style="text-align:..."` 设置起始、居中和末端对齐。格式错误的片段，或表格、表单、
-脚本、任意 CSS 等未支持的块级结构，会整体回退为可见的原始 HTML，不进行半截渲染。
+`style="text-align:..."` 设置 `left`、`start`、`center`、`right` 或 `end`；其中
+`left`/`right` 是物理方向，`start`/`end` 跟随当前布局方向。Compose 会按 CommonMark
+HTML 块类型明确分流：类型 2 注释可隐藏，类型 6/7 的安全片段可映射，类型 1/3/4/5
+保持原文。格式错误、未知属性，或表格、表单、脚本、任意 CSS 等未支持结构，都会
+原子地回退为可见的原始 HTML，不进行半截渲染。
 
 按照 CommonMark 规则，块级标签必须独占行首。`文本 <p>块</p> 文本` 不是合法的块级
 写法，会保留为行内源码；应将 `p` 独立成行。通过 `HtmlRenderer`/`MarkdownHtml`
