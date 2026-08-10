@@ -237,6 +237,7 @@ internal object HtmlBlockModelCompiler {
         val inline = compileInlineModel(
             nodes = astNodes,
             inlineRevision = nodes.sourceRevision(),
+            parentStableId = identity.stableId,
         )
         if (inline.atoms.isEmpty()) return InlineParagraphCompileResult.Empty
         return InlineParagraphCompileResult.Content(

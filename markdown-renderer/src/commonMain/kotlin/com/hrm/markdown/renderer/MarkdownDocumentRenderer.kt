@@ -31,6 +31,7 @@ import com.hrm.markdown.renderer.internal.selection.SelectionToolbarHost
 import com.hrm.markdown.renderer.internal.selection.markdownSelectionGestures
 import com.hrm.markdown.renderer.internal.selection.rememberMarkdownSelectionController
 import com.hrm.markdown.runtime.MarkdownDirectiveRegistry
+import com.hrm.markdown.runtime.MarkdownSourceMap
 
 @Composable
 internal fun MarkdownDocumentRenderer(
@@ -48,6 +49,7 @@ internal fun MarkdownDocumentRenderer(
     imageContent: MarkdownImageRenderer? = null,
     onLinkClick: ((String) -> Unit)? = null,
     directiveRegistry: MarkdownDirectiveRegistry = MarkdownDirectiveRegistry.Empty,
+    sourceMap: MarkdownSourceMap = MarkdownSourceMap.Identity,
     documentRevision: Long = document.contentHash,
 ) {
     val renderMode = remember(enableScroll) {
@@ -164,6 +166,7 @@ internal fun MarkdownDocumentRenderer(
             }
             navigationController.footnoteDefinitionItemIndexes =
                 layoutSource.metadata.footnoteDefinitionItemIndexes
+            navigationController.documentStartIndex = if (header == null) 0 else 1
             if (selectionController != null) {
                 LaunchedEffect(internalRenderDocument) {
                     selectionController.updateDocument(internalRenderDocument.blocks)
@@ -180,6 +183,7 @@ internal fun MarkdownDocumentRenderer(
             ) {
                 CompositionLocalProvider(
                     LocalMarkdownSelectionController provides selectionController,
+                    LocalMarkdownSourceMap provides sourceMap,
                 ) {
                     ProvideRendererContext(
                         document = document,

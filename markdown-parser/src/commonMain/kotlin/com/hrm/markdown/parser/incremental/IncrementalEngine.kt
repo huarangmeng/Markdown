@@ -267,7 +267,13 @@ class IncrementalEngine(
         // 找出脏区域之后可复用的节点（需要根据旧坐标计算）
         val oldDirtyEndLine = dirtyRange.endLine - linesDelta
         val dirtyRangeOld = LineRange(dirtyRange.startLine, oldDirtyEndLine.coerceAtLeast(dirtyRange.startLine))
-        val reusableSuffix = nodeReuser.findReusableSuffix(oldChildren, dirtyRangeOld, linesDelta, newSource)
+        val reusableSuffix = nodeReuser.findReusableSuffix(
+            oldChildren = oldChildren,
+            dirtyRangeOld = dirtyRangeOld,
+            linesDelta = linesDelta,
+            offsetDelta = newSource.length - oldSource.length,
+            newSource = newSource,
+        )
 
         // 构建新文档
         val newDoc = Document()

@@ -216,13 +216,28 @@ internal class IncrementalSelectionIndexBuilder {
                 is TabBlockModel -> current.items.forEach { tab -> tab.children.forEach(::visit) }
                 is FootnoteDefinitionBlockModel -> current.children.forEach(::visit)
                 is DefinitionListBlockModel -> current.items.forEach { item ->
-                    if (item is DefinitionDescriptionBlockModel) item.children.forEach(::visit)
+                    when (item) {
+                        is com.hrm.markdown.renderer.internal.core.model.DefinitionTermBlockModel ->
+                            add(item.identity.stableId, item.inline.plainText())
+                        is DefinitionDescriptionBlockModel -> item.children.forEach(::visit)
+                    }
                 }
-                is BibliographyDefinitionBlockModel,
-                is FigureBlockModel,
+                is BibliographyDefinitionBlockModel -> add(
+                    current.identity.stableId,
+                    buildString {
+                        append("References")
+                        current.entries.forEach { entry ->
+                            append('\n').append('[').append(entry.key).append("] ").append(entry.content)
+                        }
+                    },
+                )
+                is FigureBlockModel -> add(current.identity.stableId, current.caption)
+                is TocBlockModel -> add(
+                    current.identity.stableId,
+                    current.entries.joinToString("\n") { entry -> "• ${entry.text}" },
+                )
                 is PageBreakBlockModel,
-                is ThematicBreakBlockModel,
-                is TocBlockModel -> Unit
+                is ThematicBreakBlockModel -> Unit
                 else -> Unit
             }
         }
@@ -269,7 +284,11 @@ internal fun buildSelectionIndexFromLayout(
                 block.trailingChildren.forEach(::visit)
             }
             is LayoutDefinitionListBlockModel -> block.items.forEach { item ->
-                if (item is LayoutDefinitionDescriptionGroup) item.children.forEach(::visit)
+                when (item) {
+                    is com.hrm.markdown.renderer.internal.layout.model.LayoutDefinitionTermGroup ->
+                        visit(item.inline)
+                    is LayoutDefinitionDescriptionGroup -> item.children.forEach(::visit)
+                }
             }
             else -> Unit
         }

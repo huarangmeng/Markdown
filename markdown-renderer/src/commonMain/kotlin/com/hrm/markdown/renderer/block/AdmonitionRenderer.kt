@@ -19,6 +19,7 @@ import com.hrm.markdown.renderer.AdmonitionStyle
 import com.hrm.markdown.renderer.LocalMarkdownTheme
 import com.hrm.markdown.renderer.MarkdownBlockChildren
 import com.hrm.markdown.renderer.internal.core.model.AdmonitionBlockModel
+import com.hrm.markdown.renderer.internal.layout.LayoutTokens
 
 /**
  * Admonition 渲染器 (> [!NOTE], > [!WARNING] 等)。
@@ -36,7 +37,7 @@ internal fun AdmonitionRenderer(
         if (node.children.isNotEmpty()) {
             MarkdownBlockChildren(
                 parent = node,
-                modifier = Modifier.padding(top = 8.dp),
+                modifier = Modifier.padding(top = LayoutTokens.ContainerContentSpacing),
             )
         }
     }
@@ -52,7 +53,15 @@ internal fun RenderAdmonitionBlockModel(
         type = model.type,
         title = model.title,
         modifier = modifier,
-        content = content,
+        content = {
+            if (model.children.isNotEmpty()) {
+                Column(modifier = Modifier.padding(top = LayoutTokens.ContainerContentSpacing)) {
+                    content()
+                }
+            } else {
+                content()
+            }
+        },
     )
 }
 
@@ -81,7 +90,12 @@ private fun RenderAdmonitionContainer(
                     strokeWidth = 4.dp.toPx(),
                 )
             }
-            .padding(start = 16.dp, top = 12.dp, end = 12.dp, bottom = 12.dp),
+            .padding(
+                start = LayoutTokens.ContainerStartPadding,
+                top = LayoutTokens.ContainerVerticalPadding,
+                end = LayoutTokens.ContainerEndPadding,
+                bottom = LayoutTokens.ContainerVerticalPadding,
+            ),
     ) {
         // 标题行
         Row {

@@ -11,6 +11,13 @@ import com.hrm.markdown.renderer.internal.core.model.HtmlContainerBlockModel
 import com.hrm.markdown.renderer.internal.core.model.HtmlParagraphBlockModel
 import com.hrm.markdown.renderer.internal.core.model.BlockTextAlignment
 import com.hrm.markdown.renderer.internal.core.model.ParagraphBlockModel
+import com.hrm.markdown.renderer.internal.core.model.BibliographyDefinitionBlockModel
+import com.hrm.markdown.renderer.internal.core.model.BibliographyEntryBlockModel
+import com.hrm.markdown.renderer.internal.core.model.DefinitionListBlockModel
+import com.hrm.markdown.renderer.internal.core.model.DefinitionTermBlockModel
+import com.hrm.markdown.renderer.internal.core.model.FigureBlockModel
+import com.hrm.markdown.renderer.internal.core.model.TocBlockModel
+import com.hrm.markdown.renderer.internal.core.model.TocEntryBlockModel
 import com.hrm.markdown.renderer.internal.core.identity.RenderIdentity
 import com.hrm.markdown.renderer.internal.layout.model.LayoutTextRun
 import com.hrm.markdown.renderer.internal.layout.model.LayoutColumnGroup
@@ -122,6 +129,40 @@ class SelectionModelIndexTest {
 
         assertEquals(listOf(1L, 99L, 2L), index.entries.map { it.stableId })
         assertEquals("H1\tH2\nA1\tA2", index.entryOf(99)!!.text)
+    }
+
+    @Test
+    fun should_include_all_visible_extended_block_text() {
+        val definition = DefinitionListBlockModel(
+            identity = selIdentity(10),
+            items = listOf(
+                DefinitionTermBlockModel(selIdentity(11), inlineModelText(110, "Term"))
+            ),
+        )
+        val bibliography = BibliographyDefinitionBlockModel(
+            identity = selIdentity(20),
+            entries = listOf(BibliographyEntryBlockModel("ref", "Reference text")),
+        )
+        val figure = FigureBlockModel(
+            identity = selIdentity(30),
+            imageUrl = "image.png",
+            caption = "Figure caption",
+            imageWidth = null,
+            imageHeight = null,
+            attributes = emptyMap(),
+        )
+        val toc = TocBlockModel(
+            identity = selIdentity(40),
+            entries = listOf(TocEntryBlockModel("Section", 1, "section")),
+        )
+
+        val index = buildSelectionIndex(listOf(definition, bibliography, figure, toc))
+
+        assertEquals(listOf(11L, 20L, 30L, 40L), index.entries.map { it.stableId })
+        assertEquals(
+            listOf("Term", "References\n[ref] Reference text", "Figure caption", "• Section"),
+            index.entries.map { it.text },
+        )
     }
 
     @Test

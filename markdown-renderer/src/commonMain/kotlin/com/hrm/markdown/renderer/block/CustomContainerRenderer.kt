@@ -19,6 +19,7 @@ import com.hrm.markdown.parser.ast.CustomContainer
 import com.hrm.markdown.renderer.LocalMarkdownTheme
 import com.hrm.markdown.renderer.MarkdownBlockChildren
 import com.hrm.markdown.renderer.internal.core.model.CustomContainerBlockModel
+import com.hrm.markdown.renderer.internal.layout.LayoutTokens
 
 /**
  * 自定义容器渲染器 (::: type ... :::)。
@@ -39,7 +40,13 @@ internal fun CustomContainerRenderer(
         if (node.children.isNotEmpty()) {
             MarkdownBlockChildren(
                 parent = node,
-                modifier = Modifier.padding(top = if (node.title.isNotEmpty() || node.type.isNotEmpty()) 8.dp else 0.dp),
+                modifier = Modifier.padding(
+                    top = if (node.title.isNotEmpty() || node.type.isNotEmpty()) {
+                        LayoutTokens.ContainerContentSpacing
+                    } else {
+                        0.dp
+                    }
+                ),
             )
         }
     }
@@ -55,7 +62,15 @@ internal fun RenderCustomContainerBlockModel(
         type = model.type,
         title = model.title,
         modifier = modifier,
-        content = content,
+        content = {
+            if (model.children.isNotEmpty() && (model.title.isNotEmpty() || model.type.isNotEmpty())) {
+                Column(modifier = Modifier.padding(top = LayoutTokens.ContainerContentSpacing)) {
+                    content()
+                }
+            } else {
+                content()
+            }
+        },
     )
 }
 
@@ -89,7 +104,12 @@ private fun RenderCustomContainerContainer(
                     strokeWidth = 4.dp.toPx(),
                 )
             }
-            .padding(start = 16.dp, top = 12.dp, end = 12.dp, bottom = 12.dp),
+            .padding(
+                start = LayoutTokens.ContainerStartPadding,
+                top = LayoutTokens.ContainerVerticalPadding,
+                end = LayoutTokens.ContainerEndPadding,
+                bottom = LayoutTokens.ContainerVerticalPadding,
+            ),
     ) {
         // 标题行（如果有类型名或标题）
         val displayTitle = title.ifEmpty {

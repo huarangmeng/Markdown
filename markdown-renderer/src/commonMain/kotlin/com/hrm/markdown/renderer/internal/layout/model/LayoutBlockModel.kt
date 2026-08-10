@@ -145,11 +145,12 @@ sealed interface LayoutDefinitionListItemGroup {
     val contentFrame: LayoutRect
 }
 
-data class LayoutDefinitionTermGroup(
+internal data class LayoutDefinitionTermGroup(
     override val identity: RenderIdentity,
     override val frame: LayoutRect,
     override val contentFrame: LayoutRect,
     val item: DefinitionTermBlockModel,
+    val inline: LayoutInlineBlockModel,
 ) : LayoutDefinitionListItemGroup
 
 data class LayoutDefinitionDescriptionGroup(

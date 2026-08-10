@@ -12,8 +12,29 @@ import com.hrm.markdown.parser.LineRange
  */
 class SourceText private constructor(
     val content: String,
-    private val lineOffsets: IntArray
+    private val lineOffsets: IntArray,
+    precomputedLineHashes: LongArray? = null,
 ) {
+    private val lineHashes: LongArray = precomputedLineHashes
+        ?: computeLineHashes(content, lineOffsets)
+    private val rangeHashPrefix: LongArray
+    private val rangeHashPowers: LongArray
+
+    init {
+        require(lineHashes.size == lineOffsets.size) {
+            "line hash count ${lineHashes.size} does not match line count ${lineOffsets.size}"
+        }
+        val prefix = LongArray(lineOffsets.size + 1)
+        val powers = LongArray(lineOffsets.size + 1)
+        powers[0] = 1L
+        for (line in lineOffsets.indices) {
+            prefix[line + 1] = prefix[line] * RANGE_HASH_BASE + lineHashes[line]
+            powers[line + 1] = powers[line] * RANGE_HASH_BASE
+        }
+        rangeHashPrefix = prefix
+        rangeHashPowers = powers
+    }
+
     val length: Int get() = content.length
     val lineCount: Int get() = lineOffsets.size
 
@@ -86,20 +107,21 @@ class SourceText private constructor(
 
     /**
      * 计算 [range] 行范围内源文本的内容哈希。
-     * 使用 FNV-1a 哈希算法，用于增量解析时快速判断内容是否变化。
+     * 每行的 FNV-1a 哈希在构造时预计算，再通过滚动前缀索引 O(1) 聚合任意连续行范围。
      */
     fun contentHash(range: LineRange): Long {
-        val startOff = lineStart(range.startLine.coerceIn(0, lineCount - 1))
-        val endOff = lineEnd((range.endLine - 1).coerceIn(0, lineCount - 1))
-        var hash = -3750763034362895579L // FNV offset basis
-        for (i in startOff until endOff.coerceAtMost(content.length)) {
-            hash = hash xor content[i].code.toLong()
-            hash *= 1099511628211L // FNV prime
-        }
-        return hash
+        val startLine = range.startLine.coerceIn(0, lineCount)
+        val endLine = range.endLine.coerceIn(startLine, lineCount)
+        val lineLength = endLine - startLine
+        return rangeHashPrefix[endLine] -
+            rangeHashPrefix[startLine] * rangeHashPowers[lineLength]
     }
 
     companion object {
+        private const val FNV_OFFSET_BASIS = -3750763034362895579L
+        private const val FNV_PRIME = 1099511628211L
+        private const val RANGE_HASH_BASE = -7046029254386353131L
+
         /**
          * 从原始输入创建 SourceText。
          * 规范化行尾符并替换 NUL 字符。
@@ -175,7 +197,22 @@ class SourceText private constructor(
                 newOffsets[idx++] = oldOffsets[lineAfterDelete + i] + delta
             }
 
-            return SourceText(newContent, newOffsets)
+            val newLineHashes = LongArray(newSize)
+            // 受影响行之前的完整行内容没有变化。
+            for (line in 0 until firstAffectedLine) {
+                newLineHashes[line] = current.lineHashes[line]
+            }
+            // 首个受影响行以及插入换行产生的新行需要重新计算。
+            val affectedEndExclusive = firstAffectedLine + insertedNewlines + 1
+            for (line in firstAffectedLine until affectedEndExclusive) {
+                newLineHashes[line] = hashLine(newContent, newOffsets, line)
+            }
+            // 删除终点之后的完整行可以直接复用旧哈希。
+            for (i in 0 until tailCount) {
+                newLineHashes[affectedEndExclusive + i] = current.lineHashes[lineAfterDelete + i]
+            }
+
+            return SourceText(newContent, newOffsets, newLineHashes)
         }
 
         internal fun normalize(input: String): String {
@@ -218,6 +255,20 @@ class SourceText private constructor(
                 }
             }
             return if (lineCount == offsets.size) offsets else offsets.copyOf(lineCount)
+        }
+
+        private fun computeLineHashes(content: String, lineOffsets: IntArray): LongArray =
+            LongArray(lineOffsets.size) { line -> hashLine(content, lineOffsets, line) }
+
+        private fun hashLine(content: String, lineOffsets: IntArray, line: Int): Long {
+            val start = lineOffsets[line]
+            val end = if (line + 1 < lineOffsets.size) lineOffsets[line + 1] else content.length
+            var hash = FNV_OFFSET_BASIS
+            for (offset in start until end) {
+                hash = hash xor content[offset].code.toLong()
+                hash *= FNV_PRIME
+            }
+            return hash
         }
     }
 }

@@ -2,7 +2,9 @@ package com.hrm.markdown.runtime
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertSame
+import kotlin.test.assertTrue
 
 class MarkdownDirectivePipelineTest {
     @Test
@@ -34,6 +36,58 @@ class MarkdownDirectivePipelineTest {
         val registry = MarkdownDirectiveRegistry(listOf(second, first))
 
         assertSame(second.inlineRenderer, registry.findInlineDirectiveRenderer("badge"))
+    }
+
+    @Test
+    fun registry_should_enable_streaming_only_when_all_transformers_are_append_safe() {
+        val unsafe = MarkdownDirectiveRegistry(listOf(VideoDirectivePlugin))
+        val safe = MarkdownDirectiveRegistry(
+            listOf(
+                object : MarkdownDirectivePlugin {
+                    override val id: String = "append-safe"
+                    override val inputTransformers = listOf(
+                        object : MarkdownInputTransformer {
+                            override val id: String = "identity"
+                            override val streamingSupport =
+                                MarkdownTransformerStreamingSupport.AppendSafe
+
+                            override fun transform(input: String) = MarkdownTransformResult(input)
+                        }
+                    )
+                }
+            )
+        )
+
+        assertFalse(unsafe.supportsStreamingFastPath)
+        assertTrue(safe.supportsStreamingFastPath)
+        assertTrue(MarkdownDirectiveRegistry.Empty.supportsStreamingFastPath)
+    }
+
+    @Test
+    fun composed_source_map_should_map_through_every_transform_stage() {
+        val previous = MarkdownSourceMap.Segmented(
+            listOf(MarkdownSourceMap.Segmented.Segment(0, 20, 100, 120))
+        )
+        val current = MarkdownSourceMap.Segmented(
+            listOf(MarkdownSourceMap.Segmented.Segment(0, 10, 0, 20))
+        )
+
+        val composed = composeSourceMap(previous, current)
+
+        assertEquals(110, composed.mapOutputOffset(5))
+    }
+
+    @Test
+    fun segmented_source_map_should_use_half_open_boundaries_and_map_eof() {
+        val sourceMap = MarkdownSourceMap.Segmented(
+            listOf(
+                MarkdownSourceMap.Segmented.Segment(0, 5, 10, 15),
+                MarkdownSourceMap.Segmented.Segment(5, 10, 20, 30),
+            )
+        )
+
+        assertEquals(20, sourceMap.mapOutputOffset(5))
+        assertEquals(30, sourceMap.mapOutputOffset(10))
     }
 
     private object VideoDirectivePlugin : MarkdownDirectivePlugin {

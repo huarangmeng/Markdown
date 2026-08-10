@@ -17,11 +17,11 @@ class MarkdownDirectiveRegistry(
     private val htmlInlineFallbacks = LinkedHashMap<String, HtmlInlineDirectiveFallback>()
     private val transformers = mutableListOf<MarkdownInputTransformer>()
 
-    /**
-     * 当前实现只在“没有 transformer”时保留 streaming fast path。
-     */
+    /** Whether every registered transformer preserves append-only transformed prefixes. */
     val supportsStreamingFastPath: Boolean
-        get() = transformers.isEmpty()
+        get() = transformers.all {
+            it.streamingSupport == MarkdownTransformerStreamingSupport.AppendSafe
+        }
 
     val hasTransformers: Boolean
         get() = transformers.isNotEmpty()

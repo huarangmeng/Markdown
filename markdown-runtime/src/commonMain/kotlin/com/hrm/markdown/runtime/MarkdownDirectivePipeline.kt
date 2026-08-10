@@ -9,6 +9,9 @@ class MarkdownDirectivePipeline(
     val supportsStreamingFastPath: Boolean
         get() = registry.supportsStreamingFastPath
 
+    val hasTransformers: Boolean
+        get() = registry.hasTransformers
+
     fun transform(input: String): MarkdownTransformResult {
         var markdown = input
         var sourceMap: MarkdownSourceMap = MarkdownSourceMap.Identity

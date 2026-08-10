@@ -46,6 +46,7 @@ class NodeReuser {
      * @param oldChildren 旧文档的子节点列表
      * @param dirtyRange 脏区域行范围（在旧源文本坐标系中）
      * @param linesDelta 行数偏移量（新行数 - 旧行数在脏区域中的差值）
+     * @param offsetDelta 字符偏移量（新文本长度 - 旧文本长度）
      * @param newSource 新源文本
      * @return 可复用的后缀节点列表（已调整行范围和哈希）
      */
@@ -53,6 +54,7 @@ class NodeReuser {
         oldChildren: List<Node>,
         dirtyRangeOld: LineRange,
         linesDelta: Int,
+        offsetDelta: Int,
         newSource: SourceText
     ): List<Node> {
         val result = mutableListOf<Node>()
@@ -65,7 +67,7 @@ class NodeReuser {
                     newLineRange.endLine <= newSource.lineCount) {
                     val newHash = newSource.contentHash(newLineRange)
                     if (newHash == child.contentHash) {
-                        child.lineRange = newLineRange
+                        child.shiftSubtreeCoordinates(linesDelta, offsetDelta)
                         result.add(child)
                     }
                 }

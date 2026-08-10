@@ -1,11 +1,11 @@
 package com.hrm.markdown.renderer.block
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.unit.Constraints
 import com.hrm.markdown.parser.ast.ColumnItem
 import com.hrm.markdown.parser.ast.ColumnsLayout
 import com.hrm.markdown.renderer.MarkdownBlockChildren
@@ -14,6 +14,9 @@ import com.hrm.markdown.renderer.internal.core.model.ColumnsLayoutBlockModel
 import com.hrm.markdown.renderer.internal.core.model.InternalRenderBlockModel
 import com.hrm.markdown.renderer.internal.layout.model.InternalLayoutBlockModel
 import com.hrm.markdown.renderer.internal.layout.model.LayoutColumnsBlockModel
+import com.hrm.markdown.renderer.internal.layout.LayoutTokens
+import com.hrm.markdown.renderer.internal.layout.columns.resolveColumnWidths
+import kotlin.math.roundToInt
 
 /**
  * 多列布局渲染器：将 [ColumnsLayout] 渲染为水平排列的多列结构。
@@ -79,41 +82,42 @@ private fun RenderColumnsRow(
     columns: List<Pair<String, @Composable () -> Unit>>,
     modifier: Modifier = Modifier,
 ) {
-    Row(
+    Layout(
         modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        for ((width, content) in columns) {
-            val weight = parseWeight(width, columns.size)
-            androidx.compose.foundation.layout.Box(
-                modifier = Modifier.weight(weight),
-            ) {
-                content()
+        content = {
+            columns.forEach { (_, content) -> Box { content() } }
+        },
+    ) { measurables, constraints ->
+        val totalWidth = if (constraints.hasBoundedWidth) constraints.maxWidth else constraints.minWidth
+        val spacing = LayoutTokens.ColumnsSpacing.roundToPx()
+        val resolved = resolveColumnWidths(
+            values = columns.map { it.first },
+            totalWidthPx = totalWidth.toFloat(),
+            spacingPx = spacing.toFloat(),
+        )
+        val placeables = measurables.mapIndexed { index, measurable ->
+            val columnWidth = resolved.getOrElse(index) { 0f }.roundToInt().coerceAtLeast(0)
+            measurable.measure(
+                Constraints(
+                    minWidth = columnWidth,
+                    maxWidth = columnWidth,
+                    minHeight = 0,
+                    maxHeight = constraints.maxHeight,
+                )
+            )
+        }
+        val height = placeables.maxOfOrNull { it.height }?.coerceIn(
+            constraints.minHeight,
+            constraints.maxHeight,
+        ) ?: constraints.minHeight
+        layout(totalWidth, height) {
+            var x = 0
+            placeables.forEach { placeable ->
+                // Markdown column order is physical source order, matching tables and the pure
+                // layout engine; ambient RTL affects text inside a column, not column ordering.
+                placeable.place(x, 0)
+                x += placeable.width + spacing
             }
         }
     }
 }
-
-/**
- * 将列宽字符串解析为 Row weight。
- *
- * - `"50%"` → 0.5f
- * - `"33.3%"` → 0.333f
- * - 空字符串 → 平均分配 `1f / columnCount`
- */
-@Suppress("UNUSED_PARAMETER")
-private fun parseWeight(width: String, columnCount: Int): Float {
-    if (width.isBlank()) return 1f
-
-    val percentMatch = PERCENT_REGEX.find(width)
-    if (percentMatch != null) {
-        val percent = percentMatch.groupValues[1].toFloatOrNull()
-        if (percent != null && percent > 0) {
-            return (percent / 100f).coerceIn(0.05f, 1f)
-        }
-    }
-
-    return 1f
-}
-
-private val PERCENT_REGEX = Regex("""^(\d+(?:\.\d+)?)%$""")

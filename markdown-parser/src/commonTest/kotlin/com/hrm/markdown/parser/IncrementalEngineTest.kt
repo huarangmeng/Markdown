@@ -1,10 +1,13 @@
 package com.hrm.markdown.parser
 
 import com.hrm.markdown.parser.ast.*
+import com.hrm.markdown.parser.flavour.CommonMarkFlavour
 import com.hrm.markdown.parser.incremental.EditOperation
 import com.hrm.markdown.parser.incremental.IncrementalEngine
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 /**
@@ -82,6 +85,54 @@ class IncrementalEngineTest {
         parser.parse("# Hello\n\nWorld")
         val doc = parser.applyEdit(EditOperation.Insert(14, "\n\n## New Section"))
         assertTrue(doc.children.any { it is Heading && it.level == 2 })
+    }
+
+    @Test
+    fun should_shift_complete_reused_suffix_subtree_into_new_source_coordinates() {
+        val original = "first\n\n> nested\n>\n> - child"
+        val inserted = "new\n\n"
+        val engine = IncrementalEngine()
+        val initial = engine.fullParse(original)
+        val oldSuffix = initial.children.last()
+        // Materialize lazy inline nodes as well; nested block coordinates must all move together.
+        (oldSuffix as ContainerNode).children
+
+        val incremental = engine.applyEdit(EditOperation.Insert(0, inserted))
+        val reusedSuffix = incremental.children.last()
+        val expected = IncrementalEngine().fullParse(inserted + original).children.last()
+
+        assertSame(oldSuffix, reusedSuffix)
+        assertNodeCoordinatesEqual(expected, reusedSuffix)
+    }
+
+    @Test
+    fun should_keep_reused_suffix_inline_content_lazy_when_shifting_coordinates() {
+        val engine = IncrementalEngine(flavour = CommonMarkFlavour)
+        val initial = engine.fullParse("prefix\n\nlazy *suffix*")
+        val suffix = initial.children.last() as ContainerNode
+        assertFalse(suffix.isInlineParsed)
+
+        val updated = engine.applyEdit(EditOperation.Insert(0, "inserted\n\n"))
+        val reusedSuffix = updated.children.last() as ContainerNode
+
+        assertSame(suffix, reusedSuffix)
+        assertFalse(reusedSuffix.isInlineParsed)
+        assertEquals(4, reusedSuffix.lineRange.startLine)
+    }
+
+    @Test
+    fun should_use_normalized_line_endings_when_computing_edit_dirty_region() {
+        val original = "first\n\nsecond *emphasis*"
+        val engine = IncrementalEngine()
+        engine.fullParse(original)
+
+        val incremental = engine.applyEdit(EditOperation.Insert(0, "new\r\r"))
+        val expected = IncrementalEngine().fullParse("new\n\n$original")
+
+        assertEquals(expected.children.map { it::class }, incremental.children.map { it::class })
+        expected.children.zip(incremental.children).forEach { (expectedNode, actualNode) ->
+            assertNodeCoordinatesEqual(expectedNode, actualNode)
+        }
     }
 
     // ────── IncrementalEngine 流式测试 ──────
@@ -288,5 +339,17 @@ class IncrementalEngineTest {
         is HardLineBreak -> "\n"
         is ContainerNode -> node.children.joinToString(separator = "") { child -> extractPlainText(child) }
         else -> ""
+    }
+}
+
+private fun assertNodeCoordinatesEqual(expected: Node, actual: Node) {
+    assertEquals(expected::class, actual::class)
+    assertEquals(expected.lineRange, actual.lineRange, "line range for ${expected::class.simpleName}")
+    assertEquals(expected.sourceRange, actual.sourceRange, "source range for ${expected::class.simpleName}")
+    if (expected is ContainerNode && actual is ContainerNode) {
+        assertEquals(expected.children.size, actual.children.size)
+        expected.children.zip(actual.children).forEach { (expectedChild, actualChild) ->
+            assertNodeCoordinatesEqual(expectedChild, actualChild)
+        }
     }
 }

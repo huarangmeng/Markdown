@@ -23,7 +23,9 @@ class FigureProcessor : PostProcessor {
         val children = container.children.toList()
         for (child in children) {
             if (child is Paragraph) {
-                val figure = tryConvertToFigure(child)
+                val couldBeFigure = child.rawContent?.trimStart()?.startsWith("![") == true ||
+                    child.materializedChildrenSnapshot().any { it is Image }
+                val figure = if (couldBeFigure) tryConvertToFigure(child) else null
                 if (figure != null) {
                     // 复制源位置信息
                     figure.sourceRange = child.sourceRange

@@ -8,5 +8,18 @@ package com.hrm.markdown.runtime
 interface MarkdownInputTransformer {
     val id: String
 
+    /**
+     * Declares whether transforming a longer append-only input always preserves the complete
+     * transformed prefix produced for the shorter input. Only such transformers can participate
+     * in incremental streaming without forcing parser session restarts.
+     */
+    val streamingSupport: MarkdownTransformerStreamingSupport
+        get() = MarkdownTransformerStreamingSupport.Unsupported
+
     fun transform(input: String): MarkdownTransformResult
+}
+
+enum class MarkdownTransformerStreamingSupport {
+    Unsupported,
+    AppendSafe,
 }

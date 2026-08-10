@@ -14,7 +14,7 @@ class DiagramProcessor : PostProcessor {
 
     private fun processRecursive(node: Node) {
         if (node is ContainerNode) {
-            val children = node.children.toList()
+            val children = node.materializedChildrenSnapshot()
             for (child in children) {
                 if (child is FencedCodeBlock && child.language.lowercase() in DIAGRAM_LANGUAGES) {
                     val diagram = DiagramBlock(

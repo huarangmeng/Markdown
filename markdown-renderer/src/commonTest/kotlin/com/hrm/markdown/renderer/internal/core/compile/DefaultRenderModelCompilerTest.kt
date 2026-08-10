@@ -86,7 +86,31 @@ class DefaultRenderModelCompilerTest {
         ).blocks
 
         assertEquals(before[1].identity.stableId, after[1].identity.stableId)
+        val beforeParagraph = assertIs<ParagraphBlockModel>(before[1])
+        val afterParagraph = assertIs<ParagraphBlockModel>(after[1])
+        assertEquals(beforeParagraph.inline.identity.stableId, afterParagraph.inline.identity.stableId)
+        assertEquals(
+            beforeParagraph.inline.atoms.first().identity.stableId,
+            afterParagraph.inline.atoms.first().identity.stableId,
+        )
         assertNotEquals(before[1].identity.contentRevision, after[1].identity.contentRevision)
+    }
+
+    @Test
+    fun should_namespace_inline_identities_by_their_parent_block() {
+        val paragraphs = DefaultRenderModelCompiler.compile(
+            MarkdownParser().parse("same\n\nsame"),
+            RenderCompileEnvironment(),
+        ).blocks.map { assertIs<ParagraphBlockModel>(it) }
+
+        assertNotEquals(
+            paragraphs[0].inline.identity.stableId,
+            paragraphs[1].inline.identity.stableId,
+        )
+        assertNotEquals(
+            paragraphs[0].inline.atoms.single().identity.stableId,
+            paragraphs[1].inline.atoms.single().identity.stableId,
+        )
     }
 
     @Test

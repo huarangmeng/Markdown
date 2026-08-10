@@ -174,6 +174,19 @@ sealed class ContainerNode : Node() {
         ensureInlineParsed()
         return _children.size
     }
+
+    /**
+     * 遍历当前已经物化的子节点，但不触发延迟行内解析。
+     *
+     * AST 坐标平移等结构维护操作只需要处理现存节点；如果在这些路径上读取
+     * [children]，会意外把整个复用子树的行内节点提前解析出来。
+     */
+    internal inline fun forEachMaterializedChild(action: (Node) -> Unit) {
+        _children.forEach(action)
+    }
+
+    /** Returns a mutation-safe snapshot without triggering delayed inline parsing. */
+    internal fun materializedChildrenSnapshot(): List<Node> = _children.toList()
 }
 
 /**

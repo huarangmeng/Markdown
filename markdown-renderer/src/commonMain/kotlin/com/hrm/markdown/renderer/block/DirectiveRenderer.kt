@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.sp
 import com.hrm.markdown.parser.ast.DirectiveBlock
 import com.hrm.markdown.renderer.LocalMarkdownTheme
 import com.hrm.markdown.renderer.MarkdownBlockChildren
+import com.hrm.markdown.renderer.internal.layout.LayoutTokens
 
 /**
  * 块级指令渲染器：`{% tag args %}...{% endtag %}`。
@@ -32,14 +33,12 @@ internal fun DirectiveBlockRenderer(
         tagName = node.tagName,
         args = node.args,
         modifier = modifier,
-    ) {
-        if (node.children.isNotEmpty()) {
-            MarkdownBlockChildren(
-                parent = node,
-                modifier = Modifier.padding(top = 8.dp),
-            )
-        }
-    }
+        renderChildren = if (node.children.isNotEmpty()) {
+            { MarkdownBlockChildren(parent = node) }
+        } else {
+            null
+        },
+    )
 }
 
 @Composable
@@ -76,7 +75,7 @@ private fun RenderDirectiveFallbackBlock(
             .fillMaxWidth()
             .border(1.dp, borderColor, shape)
             .background(backgroundColor, shape)
-            .padding(12.dp),
+            .padding(LayoutTokens.DirectivePadding),
     ) {
         Row {
             Text(
@@ -112,7 +111,7 @@ private fun RenderDirectiveFallbackBlock(
             )
         }
         if (renderChildren != null) {
-            Column(modifier = Modifier.padding(top = 8.dp)) {
+            Column(modifier = Modifier.padding(top = LayoutTokens.ContainerContentSpacing)) {
                 renderChildren()
             }
         }

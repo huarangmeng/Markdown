@@ -1,9 +1,12 @@
 package com.hrm.markdown.renderer.internal.layout.engine
 
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.hrm.markdown.renderer.internal.core.identity.RenderIdentity
 import com.hrm.markdown.renderer.internal.core.identity.renderIdentityFromText
 import com.hrm.markdown.renderer.internal.core.identity.renderIdentityFromValues
@@ -37,6 +40,8 @@ import com.hrm.markdown.renderer.internal.core.model.ThematicBreakBlockModel
 import com.hrm.markdown.renderer.internal.core.model.TocBlockModel
 import com.hrm.markdown.renderer.internal.layout.inline.buildInlineLayoutBlockFromModel
 import com.hrm.markdown.renderer.internal.layout.list.listItemContentIndentPx
+import com.hrm.markdown.renderer.internal.layout.LayoutTokens
+import com.hrm.markdown.renderer.internal.layout.columns.resolveColumnWidths
 import com.hrm.markdown.renderer.internal.layout.model.InternalLayoutBlockModel
 import com.hrm.markdown.renderer.internal.layout.model.InternalLayoutDocumentMetadata
 import com.hrm.markdown.renderer.internal.layout.model.InternalLayoutDocumentModel
@@ -66,6 +71,7 @@ import com.hrm.markdown.renderer.internal.layout.model.LayoutTocEntryGroup
 import com.hrm.markdown.renderer.internal.layout.model.LayoutWidgetBlockModel
 import com.hrm.markdown.renderer.internal.layout.widget.measureBlockWidget
 import kotlin.math.max
+import kotlin.math.roundToInt
 
 internal object DefaultMarkdownLayoutEngine : MarkdownLayoutEngine {
     override fun layout(
@@ -146,7 +152,7 @@ private fun layoutBlockInternal(
     width: Float,
     environment: LayoutEnvironment,
 ): InternalLayoutBlockModel {
-    val insets = blockInsets(block)
+    val insets = blockInsets(block, environment)
     val contentLeft = left + insets.left
     val contentTop = top + insets.top
     val contentWidth = (width - insets.left - insets.right).coerceAtLeast(0f)
@@ -199,7 +205,7 @@ private fun layoutBlockInternal(
             width,
             insets,
             environment,
-            headerHeight = 28f
+            headerHeight = environment.containerHeaderHeight(block.children.isNotEmpty())
         )
 
         is CustomContainerBlockModel -> layoutContainerBlock(
@@ -210,7 +216,11 @@ private fun layoutBlockInternal(
             width,
             insets,
             environment,
-            headerHeight = if (block.title.isNotBlank() || block.type.isNotBlank()) 28f else 0f,
+            headerHeight = if (block.title.isNotBlank() || block.type.isNotBlank()) {
+                environment.containerHeaderHeight(block.children.isNotEmpty())
+            } else {
+                0f
+            },
         )
 
         is FootnoteDefinitionBlockModel -> layoutFootnoteBlock(
@@ -230,7 +240,7 @@ private fun layoutBlockInternal(
             width,
             insets,
             environment,
-            headerHeight = 24f
+            headerHeight = environment.directiveHeaderHeight(block.children.isNotEmpty())
         )
 
         is FallbackContainerBlockModel -> layoutContainerBlock(
@@ -254,13 +264,16 @@ private fun layoutBlockInternal(
         )
 
         is ColumnsLayoutBlockModel -> {
-            val columnCount = block.columns.size.coerceAtLeast(1)
-            val spacing = 8f
-            val columnWidth =
-                ((contentWidth - spacing * (columnCount - 1)) / columnCount).coerceAtLeast(0f)
+            val spacing = with(environment.density) { LayoutTokens.ColumnsSpacing.toPx() }
+            val columnWidths = resolveColumnWidths(
+                values = block.columns.map { it.width },
+                totalWidthPx = contentWidth,
+                spacingPx = spacing,
+            )
             var maxColumnBottom = contentTop
+            var columnLeft = contentLeft
             val columnGroups = block.columns.mapIndexed { index, column ->
-                val columnLeft = contentLeft + index * (columnWidth + spacing)
+                val columnWidth = columnWidths.getOrElse(index) { 0f }
                 val (columnChildren, columnBottom) = layoutBlocks(
                     column.children,
                     columnLeft,
@@ -285,7 +298,9 @@ private fun layoutBlockInternal(
                     ),
                     width = column.width,
                     children = columnChildren,
-                )
+                ).also {
+                    columnLeft += columnWidth + spacing
+                }
             }
             val contentHeight = (maxColumnBottom - contentTop).coerceAtLeast(0f)
             LayoutColumnsBlockModel(
@@ -315,7 +330,11 @@ private fun layoutBlockInternal(
                 )
                 itemCursorY = itemBottom
                 if (index != block.items.lastIndex) {
-                    itemCursorY += if (block.tight) 4f else environment.blockSpacing
+                    itemCursorY += if (block.tight) {
+                        with(environment.density) { LayoutTokens.ListTightItemSpacing.toPx() }
+                    } else {
+                        environment.blockSpacing
+                    }
                 }
                 LayoutListItemGroup(
                     identity = item.identity,
@@ -361,34 +380,39 @@ private fun layoutBlockInternal(
         }
 
         is TabBlockModel -> {
-            val tabHeaderHeight = 36f
+            val tabHeaderHeight = environment.tabHeaderHeight(block)
+            val tabContentPadding = with(environment.density) { LayoutTokens.TabContentPadding.toPx() }
+            val tabContentLeft = contentLeft + tabContentPadding
+            val tabContentTop = contentTop + tabHeaderHeight + tabContentPadding
+            val tabContentWidth = (contentWidth - tabContentPadding * 2f).coerceAtLeast(0f)
             val tabGroups = block.items.map { item ->
                 val (tabChildren, bottom) = layoutBlocks(
                     item.children,
-                    contentLeft,
-                    contentTop + tabHeaderHeight,
-                    contentWidth,
+                    tabContentLeft,
+                    tabContentTop,
+                    tabContentWidth,
                     environment,
                 )
                 LayoutTabGroup(
                     identity = item.identity,
                     frame = LayoutRect(
-                        left = contentLeft,
-                        top = contentTop + tabHeaderHeight,
-                        width = contentWidth,
-                        height = (bottom - (contentTop + tabHeaderHeight)).coerceAtLeast(0f),
+                        left = tabContentLeft,
+                        top = tabContentTop,
+                        width = tabContentWidth,
+                        height = (bottom - tabContentTop).coerceAtLeast(0f),
                     ),
                     contentFrame = LayoutRect(
-                        left = contentLeft,
-                        top = contentTop + tabHeaderHeight,
-                        width = contentWidth,
-                        height = (bottom - (contentTop + tabHeaderHeight)).coerceAtLeast(0f),
+                        left = tabContentLeft,
+                        top = tabContentTop,
+                        width = tabContentWidth,
+                        height = (bottom - tabContentTop).coerceAtLeast(0f),
                     ),
                     title = item.title,
                     children = tabChildren,
                 )
             }
-            val contentHeight = (tabGroups.maxOfOrNull { it.frame.height } ?: 0f) + tabHeaderHeight
+            val contentHeight = (tabGroups.maxOfOrNull { it.frame.height } ?: 0f) +
+                tabHeaderHeight + tabContentPadding * 2f
             LayoutTabBlockModel(
                 identity = block.identity,
                 frame = LayoutRect(left, top, width, insets.top + contentHeight + insets.bottom),
@@ -501,7 +525,9 @@ private fun layoutFootnoteBlock(
     val contentLeft = left + insets.left
     val contentTop = top + insets.top
     val contentWidth = (width - insets.left - insets.right).coerceAtLeast(0f)
-    val horizontalSpacing = with(environment.density) { 8.dp.toPx() }
+    val horizontalSpacing = with(environment.density) {
+        LayoutTokens.FootnoteHorizontalSpacing.toPx()
+    }
     val labelStyle = environment.markdownTheme.bodyStyle.copy(
         fontWeight = FontWeight.SemiBold,
         fontSize = environment.markdownTheme.footnoteStyle.fontSize,
@@ -654,7 +680,9 @@ private fun layoutTableBlock(
                 environment.measureInlineBlock(
                     model = it.inline,
                     style = style,
-                    widthPx = (columnWidth - cellPadding * 2f).coerceAtLeast(16f),
+                    widthPx = (columnWidth - cellPadding * 2f).coerceAtLeast(
+                        with(environment.density) { LayoutTokens.MinimumInlineMeasureWidth.toPx() }
+                    ),
                 )
             } ?: environment.lineHeightPx(environment.markdownTheme.bodyStyle)
             LayoutTableCellGroup(
@@ -713,24 +741,30 @@ private fun layoutDefinitionListBlock(
     val contentLeft = left + insets.left
     val contentTop = top + insets.top
     val contentWidth = (width - insets.left - insets.right).coerceAtLeast(0f)
-    val indent = 24f
-    val spacing = 4f
+    val indent = with(environment.density) { LayoutTokens.DefinitionIndent.toPx() }
+    val spacing = with(environment.density) { LayoutTokens.DefinitionSpacing.toPx() }
     var cursorY = contentTop
     val items = block.items.map { item ->
         when (item) {
             is com.hrm.markdown.renderer.internal.core.model.DefinitionTermBlockModel -> {
-                val height = environment.measureInlineBlock(
+                val inline = layoutInlineBlock(
+                    identity = item.identity,
                     model = item.inline,
                     style = environment.markdownTheme.bodyStyle.copy(fontWeight = FontWeight.Bold),
-                    widthPx = contentWidth,
+                    left = contentLeft,
+                    top = cursorY,
+                    width = contentWidth,
+                    insets = LayoutInsets(),
+                    environment = environment,
                 )
                 val group = LayoutDefinitionTermGroup(
                     identity = item.identity,
-                    frame = LayoutRect(contentLeft, cursorY, contentWidth, height),
-                    contentFrame = LayoutRect(contentLeft, cursorY, contentWidth, height),
+                    frame = inline.frame,
+                    contentFrame = inline.contentFrame,
                     item = item,
+                    inline = inline,
                 )
-                cursorY += height + spacing
+                cursorY += inline.frame.height + spacing
                 group
             }
 
@@ -781,27 +815,51 @@ private fun layoutFigureBlock(
     val contentLeft = left + insets.left
     val contentTop = top + insets.top
     val contentWidth = (width - insets.left - insets.right).coerceAtLeast(0f)
-    val imageHeight = block.imageHeight?.toFloat() ?: 220f
-    val imageWidth =
-        block.imageWidth?.toFloat()?.coerceAtMost(contentWidth) ?: contentWidth.coerceAtMost(360f)
+    val imageHeight = with(environment.density) {
+        block.imageHeight?.dp?.toPx() ?: LayoutTokens.FigureFallbackHeight.toPx()
+    }
+    val imageWidth = with(environment.density) {
+        block.imageWidth?.dp?.toPx()?.coerceAtMost(contentWidth) ?: contentWidth
+    }
     val imageFrame = LayoutRect(
         left = contentLeft + ((contentWidth - imageWidth) / 2f).coerceAtLeast(0f),
         top = contentTop,
         width = imageWidth,
         height = imageHeight,
     )
-    val captionHeight =
-        if (block.caption.isNotBlank()) environment.lineHeightPx(environment.markdownTheme.bodyStyle) else 0f
+    val captionHorizontalPadding = with(environment.density) {
+        LayoutTokens.FigureCaptionHorizontalPadding.toPx()
+    }
+    val captionWidth = (contentWidth - captionHorizontalPadding * 2f).coerceAtLeast(0f)
+    val captionStyle = environment.markdownTheme.bodyStyle.copy(
+        fontStyle = FontStyle.Italic,
+        fontSize = environment.markdownTheme.bodyStyle.fontSize * 0.875f,
+        textAlign = TextAlign.Center,
+        color = environment.markdownTheme.blockQuoteTextColor,
+    )
+    val captionHeight = if (block.caption.isNotBlank() && captionWidth > 0f) {
+        environment.textMeasurer.measure(
+            text = block.caption,
+            style = captionStyle,
+            constraints = Constraints(maxWidth = captionWidth.roundToInt().coerceAtLeast(1)),
+        ).size.height.toFloat()
+    } else {
+        0f
+    }
     val captionFrame = if (captionHeight > 0f) {
         LayoutRect(
-            left = contentLeft,
-            top = imageFrame.top + imageFrame.height + 4f,
-            width = contentWidth,
+            left = contentLeft + captionHorizontalPadding,
+            top = imageFrame.top + imageFrame.height +
+                with(environment.density) { LayoutTokens.FigureCaptionSpacing.toPx() },
+            width = captionWidth,
             height = captionHeight,
         )
     } else null
-    val contentHeight =
-        imageFrame.height + if (captionFrame != null) 4f + captionFrame.height else 0f
+    val contentHeight = imageFrame.height + if (captionFrame != null) {
+        with(environment.density) { LayoutTokens.FigureCaptionSpacing.toPx() } + captionFrame.height
+    } else {
+        0f
+    }
     return LayoutFigureBlockModel(
         identity = block.identity,
         frame = LayoutRect(left, top, width, insets.top + contentHeight + insets.bottom),
@@ -825,9 +883,16 @@ private fun layoutTocBlock(
     val contentWidth = (width - insets.left - insets.right).coerceAtLeast(0f)
     var cursorY = contentTop
     val entries = block.entries.map { entry ->
-        val indent = ((entry.level - 1).coerceAtLeast(0) * 16f)
+        val indent = with(environment.density) {
+            LayoutTokens.TocIndentPerLevel.toPx() * (entry.level - 1).coerceAtLeast(0)
+        }
         val height =
-            environment.measureTocEntryHeight(entry, (contentWidth - indent).coerceAtLeast(24f))
+            environment.measureTocEntryHeight(
+                entry,
+                (contentWidth - indent).coerceAtLeast(
+                    with(environment.density) { LayoutTokens.MinimumTocMeasureWidth.toPx() }
+                ),
+            )
         val group = LayoutTocEntryGroup(
             identity = RenderIdentity(
                 stableId = renderIdentityFromText("${entry.level}:${entry.text}:${entry.id.orEmpty()}"),
@@ -844,10 +909,12 @@ private fun layoutTocBlock(
             ),
             entry = entry,
         )
-        cursorY += height + environment.blockSpacing / 2f
+        cursorY += height + with(environment.density) { LayoutTokens.TocSpacing.toPx() }
         group
     }
-    val contentHeight = (cursorY - contentTop - environment.blockSpacing / 2f).coerceAtLeast(0f)
+    val contentHeight = (
+        cursorY - contentTop - with(environment.density) { LayoutTokens.TocSpacing.toPx() }
+        ).coerceAtLeast(0f)
     return LayoutTocBlockModel(
         identity = block.identity,
         frame = LayoutRect(left, top, width, insets.top + contentHeight + insets.bottom),
@@ -865,14 +932,49 @@ private fun layoutBibliographyBlock(
     insets: LayoutInsets,
     environment: LayoutEnvironment,
 ): LayoutBibliographyBlockModel {
+    if (block.entries.isEmpty()) {
+        return LayoutBibliographyBlockModel(
+            identity = block.identity,
+            frame = LayoutRect(left, top, width, 0f),
+            contentFrame = LayoutRect(left, top, width, 0f),
+            block = block,
+            entries = emptyList(),
+        )
+    }
     val contentLeft = left + insets.left
     val contentTop = top + insets.top
     val contentWidth = (width - insets.left - insets.right).coerceAtLeast(0f)
     val titleHeight =
         environment.lineHeightPx(environment.markdownTheme.headingStyles.getOrElse(3) { environment.markdownTheme.bodyStyle })
-    var cursorY = contentTop + titleHeight + 8f
-    val entryHeight = environment.lineHeightPx(environment.markdownTheme.bodyStyle)
+    val titleSpacing = with(environment.density) { LayoutTokens.BibliographyTitleSpacing.toPx() }
+    val entryVerticalPadding = with(environment.density) {
+        LayoutTokens.BibliographyEntryVerticalPadding.toPx()
+    }
+    val prefixStyle = environment.markdownTheme.bodyStyle.copy(
+        fontWeight = FontWeight.SemiBold,
+        color = environment.markdownTheme.linkColor,
+    )
+    var cursorY = contentTop + titleHeight + titleSpacing
     val entries = block.entries.map { entry ->
+        val prefix = "[${entry.key}] "
+        val prefixMeasurement = environment.textMeasurer.measure(
+            text = prefix,
+            style = prefixStyle,
+            constraints = Constraints(maxWidth = Int.MAX_VALUE),
+            maxLines = 1,
+            softWrap = false,
+        )
+        val entryContentWidth = (contentWidth - prefixMeasurement.size.width).coerceAtLeast(1f)
+        val contentMeasurement = environment.textMeasurer.measure(
+            text = entry.content,
+            style = environment.markdownTheme.bodyStyle,
+            constraints = Constraints(maxWidth = entryContentWidth.roundToInt().coerceAtLeast(1)),
+        )
+        val rowContentHeight = max(
+            prefixMeasurement.size.height.toFloat(),
+            contentMeasurement.size.height.toFloat(),
+        )
+        val entryHeight = rowContentHeight + entryVerticalPadding * 2f
         val group = LayoutBibliographyEntryGroup(
             identity = RenderIdentity(
                 stableId = renderIdentityFromText("${entry.key}:${entry.content}"),
@@ -881,13 +983,18 @@ private fun layoutBibliographyBlock(
                 paintRevision = 0L,
             ),
             frame = LayoutRect(contentLeft, cursorY, contentWidth, entryHeight),
-            contentFrame = LayoutRect(contentLeft, cursorY, contentWidth, entryHeight),
+            contentFrame = LayoutRect(
+                contentLeft,
+                cursorY + entryVerticalPadding,
+                contentWidth,
+                rowContentHeight,
+            ),
             entry = entry,
         )
-        cursorY += entryHeight + 4f
+        cursorY += entryHeight
         group
     }
-    val contentHeight = (cursorY - contentTop - 4f).coerceAtLeast(titleHeight)
+    val contentHeight = (cursorY - contentTop).coerceAtLeast(titleHeight)
     return LayoutBibliographyBlockModel(
         identity = block.identity,
         frame = LayoutRect(left, top, width, insets.top + contentHeight + insets.bottom),
@@ -964,22 +1071,77 @@ private fun layoutRenderBlock(
     )
 }
 
-private fun blockInsets(block: InternalRenderBlockModel): LayoutInsets = when (block) {
-    is CodeBlockModel,
-    is MathBlockModel,
-    is DiagramBlockModel,
-    is HtmlBlockModel,
-    is BibliographyDefinitionBlockModel -> LayoutInsets(0f, 12f, 0f, 12f)
+private fun blockInsets(
+    block: InternalRenderBlockModel,
+    environment: LayoutEnvironment,
+): LayoutInsets = with(environment.density) {
+    when (block) {
+        is BibliographyDefinitionBlockModel -> LayoutInsets(
+            left = LayoutTokens.BibliographyPadding.toPx(),
+            top = LayoutTokens.BibliographyPadding.toPx(),
+            right = LayoutTokens.BibliographyPadding.toPx(),
+            bottom = LayoutTokens.BibliographyPadding.toPx(),
+        )
 
-    is BlockQuoteBlockModel -> LayoutInsets(20f, 0f, 0f, 0f)
-    is AdmonitionBlockModel,
-    is CustomContainerBlockModel,
-    is DirectiveBlockModel,
-    is FigureBlockModel -> LayoutInsets(16f, 12f, 12f, 12f)
+        is CodeBlockModel,
+        is MathBlockModel,
+        is DiagramBlockModel,
+        is HtmlBlockModel -> LayoutInsets()
 
-    is FootnoteDefinitionBlockModel -> LayoutInsets(0f, 4f, 0f, 0f)
-    is PageBreakBlockModel,
-    is ThematicBreakBlockModel -> LayoutInsets(0f, 8f, 0f, 8f)
+        is BlockQuoteBlockModel -> LayoutInsets(
+            left = environment.markdownTheme.blockQuotePadding.toPx() +
+                environment.markdownTheme.blockQuoteBorderWidth.toPx(),
+        )
 
-    else -> LayoutInsets()
+        is AdmonitionBlockModel,
+        is CustomContainerBlockModel -> LayoutInsets(
+            left = LayoutTokens.ContainerStartPadding.toPx(),
+            top = LayoutTokens.ContainerVerticalPadding.toPx(),
+            right = LayoutTokens.ContainerEndPadding.toPx(),
+            bottom = LayoutTokens.ContainerVerticalPadding.toPx(),
+        )
+
+        is DirectiveBlockModel -> LayoutInsets(
+            left = LayoutTokens.DirectivePadding.toPx(),
+            top = LayoutTokens.DirectivePadding.toPx(),
+            right = LayoutTokens.DirectivePadding.toPx(),
+            bottom = LayoutTokens.DirectivePadding.toPx(),
+        )
+
+        is FigureBlockModel -> LayoutInsets()
+        is FootnoteDefinitionBlockModel -> LayoutInsets(
+            top = LayoutTokens.FootnoteTopPadding.toPx()
+        )
+        is PageBreakBlockModel,
+        is ThematicBreakBlockModel -> LayoutInsets()
+
+        else -> LayoutInsets()
+    }
+}
+
+private fun LayoutEnvironment.containerHeaderHeight(hasContent: Boolean): Float =
+    lineHeightPx(markdownTheme.bodyStyle) + if (hasContent) {
+        with(density) { LayoutTokens.ContainerContentSpacing.toPx() }
+    } else {
+        0f
+    }
+
+private fun LayoutEnvironment.directiveHeaderHeight(hasContent: Boolean): Float =
+    lineHeightPx(markdownTheme.bodyStyle.copy(fontSize = 14.sp)) + if (hasContent) {
+        with(density) { LayoutTokens.ContainerContentSpacing.toPx() }
+    } else {
+        0f
+    }
+
+private fun LayoutEnvironment.tabHeaderHeight(block: TabBlockModel): Float {
+    val titleHeight = block.items.maxOfOrNull { item ->
+        textMeasurer.measure(
+            text = item.title,
+            style = markdownTheme.bodyStyle,
+            constraints = Constraints(maxWidth = Int.MAX_VALUE),
+            maxLines = 1,
+            softWrap = false,
+        ).size.height.toFloat()
+    } ?: lineHeightPx(markdownTheme.bodyStyle)
+    return titleHeight + with(density) { LayoutTokens.TabTitleVerticalPadding.toPx() * 2f }
 }

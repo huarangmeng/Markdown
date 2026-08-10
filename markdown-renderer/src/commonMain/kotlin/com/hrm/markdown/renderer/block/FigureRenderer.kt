@@ -19,6 +19,7 @@ import com.hrm.markdown.renderer.LocalMarkdownTheme
 import com.hrm.markdown.renderer.MarkdownImageData
 import com.hrm.markdown.renderer.internal.core.model.FigureBlockModel
 import com.hrm.markdown.renderer.internal.layout.model.LayoutFigureBlockModel
+import com.hrm.markdown.renderer.internal.layout.LayoutTokens
 
 /**
  * Figure 渲染器：将 Figure 节点渲染为图片 + 标题（figcaption）。
@@ -85,7 +86,11 @@ internal fun RenderFigureBlockModel(
                     textAlign = TextAlign.Center,
                     color = theme.blockQuoteTextColor,
                 ),
-                modifier = Modifier.padding(top = 4.dp, start = 16.dp, end = 16.dp),
+                modifier = Modifier.padding(
+                    top = LayoutTokens.FigureCaptionSpacing,
+                    start = LayoutTokens.FigureCaptionHorizontalPadding,
+                    end = LayoutTokens.FigureCaptionHorizontalPadding,
+                ),
             )
         }
     }

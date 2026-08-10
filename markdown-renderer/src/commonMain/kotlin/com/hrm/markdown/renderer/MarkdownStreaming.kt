@@ -10,7 +10,10 @@ import com.hrm.markdown.parser.MarkdownParser
 import com.hrm.markdown.parser.ast.Document
 import com.hrm.markdown.runtime.MarkdownDirectivePipeline
 import com.hrm.markdown.runtime.MarkdownDirectiveRegistry
+import com.hrm.markdown.runtime.MarkdownSourceMap
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 /**
@@ -24,43 +27,71 @@ internal fun rememberStreamingDocument(
     isStreaming: Boolean,
     config: MarkdownConfig = MarkdownConfig.Default,
     runtimePipeline: MarkdownDirectivePipeline = MarkdownDirectivePipeline(MarkdownDirectiveRegistry.Empty),
-): Document? {
-    val parser = remember(config) {
-        MarkdownParser(
-            flavour = config.flavour,
-            customEmojiMap = config.customEmojiMap,
-            enableAsciiEmoticons = config.enableAsciiEmoticons,
-            enableLinting = config.enableLinting,
-            appendCoalesceThreshold = config.appendCoalesceThreshold,
-        )
+): StreamingMarkdownSnapshot? {
+    val parser = remember(config) { config.newParser() }
+    var snapshotState by remember(parser, runtimePipeline) {
+        mutableStateOf(StreamingMarkdownState())
     }
-    var state by remember(parser, runtimePipeline) { mutableStateOf(StreamingDocumentState<Document>()) }
+    val transformMutex = remember(runtimePipeline) { Mutex() }
 
     LaunchedEffect(markdown, isStreaming, parser, runtimePipeline) {
-        state = updateStreamingDocumentState(
-            markdown = markdown,
+        val transformed = if (runtimePipeline.hasTransformers) {
+            withContext(Dispatchers.Default) {
+                transformMutex.withLock { runtimePipeline.transform(markdown) }
+            }
+        } else {
+            com.hrm.markdown.runtime.MarkdownTransformResult(markdown)
+        }
+        val documentState = updateStreamingDocumentState(
+            markdown = transformed.markdown,
             isStreaming = isStreaming,
-            state = state,
+            state = snapshotState.documentState,
             beginStream = parser::beginStream,
             append = parser::append,
             endStream = parser::endStream,
             parse = { value ->
                 withContext(Dispatchers.Default) {
-                    parser.parse(runtimePipeline.transform(value).markdown)
+                    // Full parses own a disposable parser. Cancellation can leave a synchronous
+                    // parse running, but it can no longer race with the stateful streaming parser.
+                    config.newParser().parse(value)
                 }
             }
         )
+        // Document and source map describe one transformed input revision and must become visible
+        // atomically; publishing them through separate Compose states can briefly pair revisions.
+        snapshotState = StreamingMarkdownState(documentState, transformed.sourceMap)
     }
 
-    return state.document
+    return snapshotState.documentState.document?.let { document ->
+        StreamingMarkdownSnapshot(document, snapshotState.sourceMap)
+    }
 }
+
+private data class StreamingMarkdownState(
+    val documentState: StreamingDocumentState<Document> = StreamingDocumentState(),
+    val sourceMap: MarkdownSourceMap = MarkdownSourceMap.Identity,
+)
+
+internal data class StreamingMarkdownSnapshot(
+    val document: Document,
+    val sourceMap: MarkdownSourceMap,
+)
+
+private fun MarkdownConfig.newParser(): MarkdownParser = MarkdownParser(
+    flavour = flavour,
+    customEmojiMap = customEmojiMap,
+    enableAsciiEmoticons = enableAsciiEmoticons,
+    enableLinting = enableLinting,
+    appendCoalesceThreshold = appendCoalesceThreshold,
+)
 
 internal data class StreamingDocumentState<T>(
     /** 已提交给流式解析器的原始 Markdown，用于验证下一次更新确实是 append-only。 */
     val streamedMarkdown: String = "",
     val document: T? = null,
     val wasStreaming: Boolean = false,
-    val lastNonStreamingMarkdown: String = "",
+    /** Null means no non-streaming revision has been parsed yet; empty Markdown is still a revision. */
+    val lastNonStreamingMarkdown: String? = null,
 )
 
 internal suspend fun <T> updateStreamingDocumentState(

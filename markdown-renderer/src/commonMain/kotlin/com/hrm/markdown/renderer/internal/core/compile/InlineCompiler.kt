@@ -36,7 +36,6 @@ import com.hrm.markdown.renderer.internal.core.identity.RenderIdentity
 import com.hrm.markdown.renderer.internal.core.identity.renderIdentityFromText
 import com.hrm.markdown.renderer.internal.core.identity.renderIdentityFromValues
 import com.hrm.markdown.renderer.internal.core.identity.renderIdentityMix
-import com.hrm.markdown.renderer.internal.core.identity.renderIdentitySeed
 import com.hrm.markdown.renderer.internal.core.model.DirectiveInlineWidgetModel
 import com.hrm.markdown.renderer.internal.core.model.ImageWidgetModel
 import com.hrm.markdown.renderer.internal.core.model.InlineAtom
@@ -52,10 +51,12 @@ import com.hrm.markdown.renderer.internal.core.model.WidgetAtom
 internal fun compileInlineModel(
     nodes: List<Node>,
     inlineRevision: Long,
+    parentStableId: Long,
 ): InlineModel {
+    val inlineStableId = stableInlineListId(parentStableId)
     return InlineModel(
         identity = RenderIdentity(
-            stableId = stableInlineListId(nodes),
+            stableId = inlineStableId,
             contentRevision = inlineRevision,
             layoutRevision = inlineRevision,
             paintRevision = 0L,
@@ -65,7 +66,7 @@ internal fun compileInlineModel(
                 nodes = nodes,
                 activeMarks = emptyList(),
                 sink = this,
-                parentStableId = stableInlineListId(nodes),
+                parentStableId = inlineStableId,
             )
         }
     )
@@ -284,7 +285,11 @@ private fun compileInlineNode(
                 identity = identity,
                 widget = SpoilerWidgetModel(
                     identity = identity,
-                    content = compileInlineModel(node.children, computeSemanticRevision(node)),
+                    content = compileInlineModel(
+                        nodes = node.children,
+                        inlineRevision = computeSemanticRevision(node),
+                        parentStableId = stableId,
+                    ),
                     alternateText = extractPlainText(node),
                 ),
             )
@@ -335,25 +340,21 @@ private fun nodeIdentity(node: Node, stableId: Long): RenderIdentity {
     )
 }
 
-private fun stableInlineListId(nodes: List<Node>): Long {
-    if (nodes.isEmpty()) return 0L
-    var acc = renderIdentitySeed()
-    nodes.forEachIndexed { index, node ->
-        acc = renderIdentityMix(acc, stableInlineNodeId(node, renderIdentitySeed(), index))
-    }
-    return acc
-}
+private fun stableInlineListId(parentStableId: Long): Long = renderIdentityFromValues(
+    renderIdentityFromText("inline-list"),
+    parentStableId,
+)
 
 private fun stableInlineNodeId(node: Node, parentStableId: Long, siblingIndex: Int): Long {
     val typeId = renderIdentityFromText(node::class.simpleName ?: "inline")
     val range = node.sourceRange
     if (range != SourceRange.EMPTY && range.length > 0) {
         return renderIdentityFromValues(
+            parentStableId,
             typeId,
             range.start.offset.toLong(),
-            range.end.offset.toLong(),
             node.lineRange.startLine.toLong(),
-            node.lineRange.endLine.toLong(),
+            siblingIndex.toLong(),
         )
     }
     return renderIdentityFromValues(parentStableId, typeId, siblingIndex.toLong())

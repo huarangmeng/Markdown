@@ -16,6 +16,7 @@ import com.hrm.markdown.parser.ast.BibliographyDefinition
 import com.hrm.markdown.renderer.LocalMarkdownTheme
 import com.hrm.markdown.renderer.internal.core.model.BibliographyDefinitionBlockModel
 import com.hrm.markdown.renderer.internal.core.model.BibliographyEntryBlockModel
+import com.hrm.markdown.renderer.internal.layout.LayoutTokens
 import com.hrm.markdown.renderer.internal.layout.model.LayoutBibliographyBlockModel
 
 /**
@@ -54,21 +55,21 @@ internal fun RenderBibliographyBlockModel(
             .fillMaxWidth()
             .clip(RoundedCornerShape(8.dp))
             .background(theme.codeBlockBackground)
-            .padding(12.dp),
+            .padding(LayoutTokens.BibliographyPadding),
     ) {
         Text(
             text = "References",
             style = theme.headingStyles.getOrElse(3) { theme.bodyStyle }.copy(
                 fontWeight = FontWeight.Bold,
             ),
-            modifier = Modifier.padding(bottom = 8.dp),
+            modifier = Modifier.padding(bottom = LayoutTokens.BibliographyTitleSpacing),
         )
 
         model.entries.forEach { entry ->
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 2.dp),
+                    .padding(vertical = LayoutTokens.BibliographyEntryVerticalPadding),
             ) {
                 Text(
                     text = "[${entry.key}] ",

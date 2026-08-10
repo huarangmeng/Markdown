@@ -10,8 +10,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -27,6 +28,7 @@ import com.hrm.markdown.renderer.internal.core.model.InternalRenderBlockModel
 import com.hrm.markdown.renderer.internal.core.model.TabBlockModel
 import com.hrm.markdown.renderer.internal.layout.model.InternalLayoutBlockModel
 import com.hrm.markdown.renderer.internal.layout.model.LayoutTabBlockModel
+import com.hrm.markdown.renderer.internal.layout.LayoutTokens
 
 /**
  * 内容标签页渲染器（MkDocs Material 风格）。
@@ -39,7 +41,7 @@ internal fun TabBlockRenderer(
     val tabItems = remember(node) { node.children.filterIsInstance<TabItem>() }
     if (tabItems.isEmpty()) return
     RenderTabContainer(
-        titles = tabItems.map { it.title },
+        tabs = tabItems.map { TabHeader(it.stableKey.toLong(), it.title) },
         modifier = modifier,
     ) { selectedIndex ->
         val selectedTab = tabItems.getOrNull(selectedIndex)
@@ -57,7 +59,7 @@ internal fun RenderTabBlockModel(
 ) {
     if (model.items.isEmpty()) return
     RenderTabContainer(
-        titles = model.items.map { it.title },
+        tabs = model.items.map { TabHeader(it.identity.stableId, it.title) },
         modifier = modifier,
     ) { selectedIndex ->
         model.items.getOrNull(selectedIndex)?.let { tab ->
@@ -74,7 +76,7 @@ internal fun RenderTabLayoutBlockModel(
 ) {
     if (model.tabs.isEmpty()) return
     RenderTabContainer(
-        titles = model.tabs.map { it.title },
+        tabs = model.tabs.map { TabHeader(it.identity.stableId, it.title) },
         modifier = modifier,
     ) { selectedIndex ->
         model.tabs.getOrNull(selectedIndex)?.let { tab ->
@@ -85,12 +87,16 @@ internal fun RenderTabLayoutBlockModel(
 
 @Composable
 private fun RenderTabContainer(
-    titles: List<String>,
+    tabs: List<TabHeader>,
     modifier: Modifier = Modifier,
     content: @Composable (selectedIndex: Int) -> Unit,
 ) {
     val theme = LocalMarkdownTheme.current
-    var selectedIndex by remember { mutableIntStateOf(0) }
+    var selectedId by remember { mutableLongStateOf(tabs.first().stableId) }
+    val selectedIndex = tabs.indexOfFirst { it.stableId == selectedId }.takeIf { it >= 0 } ?: 0
+    if (tabs.none { it.stableId == selectedId }) {
+        SideEffect { selectedId = tabs.first().stableId }
+    }
 
     Column(
         modifier = modifier
@@ -105,15 +111,18 @@ private fun RenderTabContainer(
                 .background(theme.codeBlockTitleBackground)
                 .padding(horizontal = 4.dp),
         ) {
-            titles.forEachIndexed { index, title ->
+            tabs.forEachIndexed { index, tab ->
                 val isSelected = index == selectedIndex
                 Box(
                     modifier = Modifier
-                        .clickable { selectedIndex = index }
-                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                        .clickable { selectedId = tab.stableId }
+                        .padding(
+                            horizontal = LayoutTokens.TabTitleHorizontalPadding,
+                            vertical = LayoutTokens.TabTitleVerticalPadding,
+                        ),
                 ) {
                     Text(
-                        text = title,
+                        text = tab.title,
                         style = theme.bodyStyle.copy(
                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                             color = if (isSelected) theme.linkColor else Color.Gray,
@@ -126,9 +135,14 @@ private fun RenderTabContainer(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
+                .padding(LayoutTokens.TabContentPadding),
         ) {
             content(selectedIndex)
         }
     }
 }
+
+private data class TabHeader(
+    val stableId: Long,
+    val title: String,
+)

@@ -9,6 +9,28 @@ import kotlin.test.assertTrue
 class StreamingDocumentStateTest {
 
     @Test
+    fun should_parse_initial_empty_non_streaming_document() = runBlocking {
+        var parseCount = 0
+
+        val state = updateStreamingDocumentState(
+            markdown = "",
+            isStreaming = false,
+            state = StreamingDocumentState(),
+            beginStream = {},
+            append = { it },
+            endStream = { "end" },
+            parse = {
+                parseCount++
+                "empty document"
+            },
+        )
+
+        assertEquals(1, parseCount)
+        assertEquals("empty document", state.document)
+        assertEquals("", state.lastNonStreamingMarkdown)
+    }
+
+    @Test
     fun should_begin_before_append_when_stream_starts() = runBlocking {
         val calls = mutableListOf<String>()
 

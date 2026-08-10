@@ -20,6 +20,7 @@ internal class MarkdownNavigationController(
     var scrollState: ScrollState? = null
     var lazyListState: LazyListState? = null
     var footnoteDefinitionItemIndexes: Map<String, Int> = emptyMap()
+    var documentStartIndex: Int = 0
     var onLinkClick: ((String) -> Unit)? = null
 
     val linkClickDelegate: (String) -> Unit = { target: String ->
@@ -38,7 +39,9 @@ internal class MarkdownNavigationController(
                     )
                     val targetIndex = footnoteDefinitionItemIndexes[label]
                     if (enableScroll && targetIndex != null) {
-                        lazyState.animateScrollToItem(targetIndex)
+                        lazyState.animateScrollToItem(
+                            resolveLazyDocumentItemIndex(targetIndex, documentStartIndex)
+                        )
                         withFrameNanos { }
                     }
                     if (!footnoteNavigationState.bringDefinitionIntoView(label)) {
@@ -76,6 +79,9 @@ internal class MarkdownNavigationController(
         }
     }
 }
+
+internal fun resolveLazyDocumentItemIndex(documentIndex: Int, documentStartIndex: Int): Int =
+    documentIndex + documentStartIndex
 
 @Composable
 internal fun rememberMarkdownNavigationController(

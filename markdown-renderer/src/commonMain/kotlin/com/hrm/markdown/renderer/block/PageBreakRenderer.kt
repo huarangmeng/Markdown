@@ -13,6 +13,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.hrm.markdown.renderer.internal.layout.LayoutTokens
 
 /**
  * 分页符渲染器：`***pagebreak***`。
@@ -27,7 +28,7 @@ internal fun PageBreakRenderer(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .padding(vertical = 8.dp),
+            .padding(vertical = LayoutTokens.PageBreakVerticalPadding),
         contentAlignment = Alignment.Center,
     ) {
         HorizontalDivider(

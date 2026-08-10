@@ -2,10 +2,13 @@ package com.hrm.markdown.renderer.inline
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import com.hrm.markdown.parser.SourceRange
 import com.hrm.markdown.parser.ast.ContainerNode
 import com.hrm.markdown.parser.ast.Node
 import com.hrm.markdown.renderer.internal.core.compile.compileInlineModel
 import com.hrm.markdown.renderer.internal.core.compile.computeSemanticRevision
+import com.hrm.markdown.renderer.internal.core.identity.renderIdentityFromText
+import com.hrm.markdown.renderer.internal.core.identity.renderIdentityFromValues
 import com.hrm.markdown.renderer.internal.core.model.InlineModel
 
 private const val INLINE_REVISION_OFFSET_BASIS = -3750763034362895579L
@@ -24,6 +27,7 @@ internal fun rememberInlineModel(parent: ContainerNode): InlineModel {
     return rememberInlineModel(
         nodes = parent.children,
         inlineRevision = inlineRevision,
+        parentStableId = legacyInlineParentStableId(parent),
     )
 }
 
@@ -31,12 +35,27 @@ internal fun rememberInlineModel(parent: ContainerNode): InlineModel {
 internal fun rememberInlineModel(
     nodes: List<Node>,
     inlineRevision: Long,
+    parentStableId: Long,
 ): InlineModel {
-    return remember(inlineRevision) {
+    return remember(inlineRevision, parentStableId) {
         compileInlineModel(
             nodes = nodes,
             inlineRevision = inlineRevision,
+            parentStableId = parentStableId,
         )
+    }
+}
+
+internal fun legacyInlineParentStableId(parent: ContainerNode): Long {
+    val typeId = renderIdentityFromText(parent::class.simpleName ?: "inline-parent")
+    return if (parent.sourceRange != SourceRange.EMPTY) {
+        renderIdentityFromValues(
+            typeId,
+            parent.sourceRange.start.offset.toLong(),
+            parent.lineRange.startLine.toLong(),
+        )
+    } else {
+        renderIdentityFromValues(typeId, parent.stableKey.toLong())
     }
 }
 

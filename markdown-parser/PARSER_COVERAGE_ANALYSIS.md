@@ -651,7 +651,7 @@
 - ✅ 尾部脏区域检测（从最后一个未关闭块到文本末尾）
 - ✅ 稳定前缀块直接复用（不重新解析）
 - ✅ 块稳定性分类（最后一个块始终视为"仍在构建中"）
-- ✅ contentHash 比对优化（FNV-1a 哈希）
+- ✅ contentHash 比对优化（预计算逐行 FNV-1a 哈希，O(1) 范围聚合）
 - ✅ 跨 chunk 的 CRLF 状态化归一化（`\r` / `\n` 分包仍只产生一个换行）
 - ✅ `sourceText` 按需同步，读取时始终覆盖全部已接收输入
 
@@ -798,7 +798,8 @@
 - ✅ Compose 侧支持 block / inline directive 原生渲染
 - ✅ HTML 导出支持 block / inline directive fallback
 - ✅ `MarkdownHtml.render(document, directivePlugins)` 与字符串入口共用同一条 directive 运行时链路
-- ✅ 流式模式下只要存在 transformer，就自动关闭 streaming fast path，保证转换正确性
+- ✅ transformer 显式声明 AppendSafe 能力后可保留 streaming fast path；其他 transformer 自动回退到隔离的全量解析并输出警告
+- ✅ 多阶段 MarkdownSourceMap 可组合，并通过 renderer 的 LocalMarkdownSourceMap 交付给渲染上下文
 
 #### 当前用法
 

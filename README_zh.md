@@ -181,6 +181,11 @@ class VideoSyntaxTransformer : MarkdownInputTransformer {
 }
 ```
 
+输入转换器默认采用保守策略：即使传入 `isStreaming = true`，也会回退到彼此隔离的全量解析并输出警告。
+只有在“更长的 append-only 输入经过转换后，必定完整保留上一次转换结果前缀”时，转换器才应声明
+`streamingSupport = MarkdownTransformerStreamingSupport.AppendSafe` 以启用增量流式路径。当前转换结果到
+原始输入的源码映射可通过 `LocalMarkdownSourceMap` 获取。
+
 `DirectiveBlockRenderScope` 和 `DirectiveInlineRenderScope` 现在基于 snapshot。
 读取结构化 directive 数据时，请统一使用 `scope.directive` 作为唯一入口。
 HTML 导出侧的 `HtmlDirectiveFallback` 与 `HtmlInlineDirectiveFallback`
@@ -224,8 +229,8 @@ Markdown(
 - ✅ 校验 append-only 前缀 — 重试、清空或全文替换会原子重启流式会话
 - ✅ 跨 token/chunk 正确归一化 CRLF，并在取消时提交尚未解析的缓冲尾部
 - ✅ 流式输出期间自动闭合未闭合的围栏、数学块、强调标记
-- ✅ 延迟行内解析 — 先处理块结构，按需解析行内元素
-- ✅ FNV-1a 内容哈希，O(1) 时间复杂度的块稳定性检测
+- ✅ Parser 级延迟行内解析 — 仅消费块结构的调用方无需物化行内节点
+- ✅ 预计算逐行 FNV-1a 哈希并以 O(1) 聚合行范围，用于块稳定性检测
 - ✅ 按显示帧合并 — 同一帧内多个 token 更新只提交最新文档，不人为限制成低帧率
 
 `Markdown(document = ...)` 同样支持可变的自定义 AST：没有源码范围的节点会获得确定性的

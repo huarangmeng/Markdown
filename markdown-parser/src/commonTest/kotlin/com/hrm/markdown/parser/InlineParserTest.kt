@@ -879,6 +879,7 @@ class LazyInlineParsingTest {
         val doc = parser.parse("Hello **bold**")
         val para = doc.children.first()
         assertIs<Paragraph>(para)
+        assertFalse(para.isInlineParsed)
         // 首次访问触发解析
         para.children
         assertTrue(para.isInlineParsed)

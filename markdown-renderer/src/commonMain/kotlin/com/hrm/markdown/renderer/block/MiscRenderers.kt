@@ -42,6 +42,8 @@ import com.hrm.markdown.renderer.internal.core.model.FootnoteDefinitionBlockMode
 import com.hrm.markdown.renderer.internal.core.model.HtmlBlockModel
 import com.hrm.markdown.renderer.internal.core.model.InternalRenderBlockModel
 import com.hrm.markdown.renderer.internal.layout.model.LayoutTocBlockModel
+import com.hrm.markdown.renderer.internal.layout.LayoutTokens
+import com.hrm.markdown.renderer.internal.layout.model.LayoutInlineBlockModel
 import com.hrm.markdown.renderer.internal.layout.model.LayoutDefinitionDescriptionGroup
 import com.hrm.markdown.renderer.internal.layout.model.LayoutDefinitionListBlockModel
 import com.hrm.markdown.renderer.internal.layout.model.LayoutDefinitionTermGroup
@@ -94,7 +96,7 @@ internal fun DefinitionListRenderer(
     val theme = LocalMarkdownTheme.current
     Column(
         modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
+        verticalArrangement = Arrangement.spacedBy(LayoutTokens.DefinitionSpacing),
     ) {
         for (child in node.children) {
             when (child) {
@@ -109,7 +111,7 @@ internal fun DefinitionListRenderer(
                 is DefinitionDescription -> {
                     MarkdownBlockChildren(
                         parent = child,
-                        modifier = Modifier.padding(start = 24.dp),
+                        modifier = Modifier.padding(start = LayoutTokens.DefinitionIndent),
                     )
                 }
 
@@ -128,7 +130,7 @@ internal fun RenderDefinitionListBlockModel(
     val theme = LocalMarkdownTheme.current
     Column(
         modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
+        verticalArrangement = Arrangement.spacedBy(LayoutTokens.DefinitionSpacing),
     ) {
         for (item in model.items) {
             when (item) {
@@ -141,7 +143,7 @@ internal fun RenderDefinitionListBlockModel(
 
                 is DefinitionDescriptionBlockModel -> {
                     Column(
-                        modifier = Modifier.padding(start = 24.dp),
+                        modifier = Modifier.padding(start = LayoutTokens.DefinitionIndent),
                         verticalArrangement = Arrangement.spacedBy(theme.blockSpacing),
                     ) {
                         renderChildren(item.children)
@@ -155,26 +157,24 @@ internal fun RenderDefinitionListBlockModel(
 @Composable
 internal fun RenderDefinitionListLayoutBlockModel(
     model: LayoutDefinitionListBlockModel,
+    renderTerm: @Composable (LayoutInlineBlockModel) -> Unit,
     renderChildren: @Composable (List<InternalLayoutBlockModel>) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val theme = LocalMarkdownTheme.current
     Column(
         modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
+        verticalArrangement = Arrangement.spacedBy(LayoutTokens.DefinitionSpacing),
     ) {
         for (item in model.items) {
             when (item) {
                 is LayoutDefinitionTermGroup -> {
-                    InlineLayoutBlockText(
-                        model = item.item.inline,
-                        style = theme.bodyStyle.copy(fontWeight = FontWeight.Bold),
-                    )
+                    renderTerm(item.inline)
                 }
 
                 is LayoutDefinitionDescriptionGroup -> {
                     Column(
-                        modifier = Modifier.padding(start = 24.dp),
+                        modifier = Modifier.padding(start = LayoutTokens.DefinitionIndent),
                         verticalArrangement = Arrangement.spacedBy(theme.blockSpacing),
                     ) {
                         renderChildren(item.children)
@@ -194,14 +194,17 @@ internal fun RenderTocLayoutBlockModel(
     val onLinkClick = com.hrm.markdown.renderer.LocalOnLinkClick.current
     Column(
         modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(2.dp),
+        verticalArrangement = Arrangement.spacedBy(LayoutTokens.TocSpacing),
     ) {
         model.entries.forEach { item ->
             Text(
-                text = item.entry.text,
+                text = "• ${item.entry.text}",
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = ((item.entry.level - 1).coerceAtLeast(0) * 16).dp)
+                    .padding(
+                        start = LayoutTokens.TocIndentPerLevel *
+                            (item.entry.level - 1).coerceAtLeast(0)
+                    )
                     .then(
                         if (!item.entry.id.isNullOrBlank() && onLinkClick != null) {
                             Modifier.clickable { onLinkClick("#${item.entry.id}") }
@@ -288,11 +291,11 @@ internal fun RenderFootnoteDefinitionBlockModel(
         modifier = modifier
             .fillMaxWidth()
             .bringIntoViewRequester(bringIntoViewRequester)
-            .padding(top = 4.dp)
+            .padding(top = LayoutTokens.FootnoteTopPadding)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(LayoutTokens.FootnoteHorizontalSpacing),
             verticalAlignment = Alignment.Top,
         ) {
             Text(

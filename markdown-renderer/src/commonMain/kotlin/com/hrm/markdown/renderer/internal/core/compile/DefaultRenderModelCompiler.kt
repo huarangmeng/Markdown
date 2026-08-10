@@ -166,21 +166,33 @@ private fun compileBlock(
     return when (node) {
         is Paragraph -> ParagraphBlockModel(
             identity = identity,
-            inline = compileInlineModel(node.children, context.identities.semanticRevision(node)),
+            inline = compileInlineModel(
+                node.children,
+                context.identities.semanticRevision(node),
+                identity.stableId,
+            ),
         )
 
         is Heading -> HeadingBlockModel(
             identity = identity,
             level = node.level,
             numbering = context.headingNumbers[node],
-            inline = compileInlineModel(node.children, context.identities.semanticRevision(node)),
+            inline = compileInlineModel(
+                node.children,
+                context.identities.semanticRevision(node),
+                identity.stableId,
+            ),
         )
 
         is SetextHeading -> HeadingBlockModel(
             identity = identity,
             level = node.level,
             numbering = context.headingNumbers[node],
-            inline = compileInlineModel(node.children, context.identities.semanticRevision(node)),
+            inline = compileInlineModel(
+                node.children,
+                context.identities.semanticRevision(node),
+                identity.stableId,
+            ),
         )
 
         is ThematicBreak -> ThematicBreakBlockModel(identity)
@@ -298,13 +310,18 @@ private fun compileBlock(
         is DefinitionList -> DefinitionListBlockModel(
             identity = identity,
             items = node.children.mapNotNull { child ->
+                val childIdentity = context.identities.identity(child)
                 when (child) {
                     is DefinitionTerm -> DefinitionTermBlockModel(
-                        identity = context.identities.identity(child),
-                        inline = compileInlineModel(child.children, context.identities.semanticRevision(child)),
+                        identity = childIdentity,
+                        inline = compileInlineModel(
+                            child.children,
+                            context.identities.semanticRevision(child),
+                            childIdentity.stableId,
+                        ),
                     )
                     is DefinitionDescription -> DefinitionDescriptionBlockModel(
-                        identity = context.identities.identity(child),
+                        identity = childIdentity,
                         children = compileBlocks(child.children, context),
                     )
                     else -> null
@@ -401,11 +418,16 @@ private fun compileTableRow(
         identity = context.identities.identity(row),
         isHeader = isHeader,
         cells = row.children.filterIsInstance<TableCell>().map { cell ->
+            val cellIdentity = context.identities.identity(cell)
             TableCellBlockModel(
-                identity = context.identities.identity(cell),
+                identity = cellIdentity,
                 alignment = cell.alignment,
                 isHeader = isHeader || cell.isHeader,
-                inline = compileInlineModel(cell.children, context.identities.semanticRevision(cell)),
+                inline = compileInlineModel(
+                    cell.children,
+                    context.identities.semanticRevision(cell),
+                    cellIdentity.stableId,
+                ),
             )
         },
     )

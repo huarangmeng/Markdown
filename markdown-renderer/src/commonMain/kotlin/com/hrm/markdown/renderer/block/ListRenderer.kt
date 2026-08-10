@@ -15,7 +15,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import com.hrm.markdown.parser.ast.ListBlock
 import com.hrm.markdown.parser.ast.ListItem
 import com.hrm.markdown.renderer.LocalMarkdownTheme
@@ -23,6 +22,7 @@ import com.hrm.markdown.renderer.MarkdownBlockChildren
 import com.hrm.markdown.renderer.internal.core.model.InternalRenderBlockModel
 import com.hrm.markdown.renderer.internal.core.model.ListBlockModel
 import com.hrm.markdown.renderer.internal.core.model.ListItemBlockModel
+import com.hrm.markdown.renderer.internal.layout.LayoutTokens
 import com.hrm.markdown.renderer.internal.layout.list.OrderedListMarkerWidth
 import com.hrm.markdown.renderer.internal.layout.list.TaskListMarkerWidth
 import com.hrm.markdown.renderer.internal.layout.list.UnorderedListMarkerWidth
@@ -271,7 +271,7 @@ private fun RenderListContainer(
     items: List<Pair<Long, @Composable () -> Unit>>,
 ) {
     val theme = LocalMarkdownTheme.current
-    val spacing = if (tight) 2.dp else theme.blockSpacing
+    val spacing = if (tight) LayoutTokens.ListTightItemSpacing else theme.blockSpacing
     Column(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(spacing),

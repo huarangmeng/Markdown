@@ -26,8 +26,22 @@ class HtmlFilterProcessor : PostProcessor {
                     node.literal = filtered
                 }
             }
+            is Paragraph -> {
+                // Most paragraphs cannot contain a disallowed tag. Preserve lazy inline parsing
+                // unless the raw block text proves that filtering work is actually required.
+                val materialized = node.materializedChildrenSnapshot()
+                val children = when {
+                    materialized.isNotEmpty() -> materialized
+                    GFM_DISALLOWED_TAG_REGEX.containsMatchIn(node.rawContent.orEmpty()) ->
+                        node.children.toList()
+                    else -> emptyList()
+                }
+                for (child in children) {
+                    processRecursive(child)
+                }
+            }
             is ContainerNode -> {
-                for (child in node.children.toList()) {
+                for (child in node.materializedChildrenSnapshot()) {
                     processRecursive(child)
                 }
             }

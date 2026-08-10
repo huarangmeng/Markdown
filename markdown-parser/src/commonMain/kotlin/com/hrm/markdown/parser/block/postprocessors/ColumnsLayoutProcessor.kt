@@ -22,7 +22,7 @@ class ColumnsLayoutProcessor : PostProcessor {
 
     private fun processRecursive(node: Node) {
         if (node is ContainerNode) {
-            val children = node.children.toList()
+            val children = node.materializedChildrenSnapshot()
             for (child in children) {
                 if (child is CustomContainer && child.type.equals("columns", ignoreCase = true)) {
                     val columnsLayout = convertToColumnsLayout(child)

@@ -181,6 +181,12 @@ class VideoSyntaxTransformer : MarkdownInputTransformer {
 }
 ```
 
+Input transformers are conservative by default: requesting `isStreaming = true` falls back to
+isolated full parses and emits a warning. A transformer may opt into incremental streaming with
+`streamingSupport = MarkdownTransformerStreamingSupport.AppendSafe` only when transforming a
+longer append-only input always preserves the complete previous transformed prefix. The active
+mapping back to original source offsets is available through `LocalMarkdownSourceMap`.
+
 `DirectiveBlockRenderScope` and `DirectiveInlineRenderScope` are snapshot-based.
 Use `scope.directive` as the single structured entry point for directive data.
 For HTML export, `HtmlDirectiveFallback` and `HtmlInlineDirectiveFallback` also receive
@@ -224,8 +230,8 @@ Markdown(
 - ✅ Validates the append-only prefix — retry, clear, or replacement updates restart atomically
 - ✅ Normalizes CRLF across token/chunk boundaries and flushes buffered tails on cancellation
 - ✅ Auto-closes unclosed fences, math blocks, emphasis during streaming
-- ✅ Lazy inline parsing — block structure first, inline elements on demand
-- ✅ FNV-1a content hashing for O(1) block stability detection
+- ✅ Parser-level lazy inline parsing — block-only consumers can defer inline materialization
+- ✅ Precomputed per-line FNV-1a hashes with O(1) range aggregation for block stability detection
 - ✅ Display-frame coalescing — multiple token updates in one frame commit only the latest document, without an artificial low-fps cap
 
 The `Markdown(document = ...)` overload also supports mutable custom ASTs: nodes without source

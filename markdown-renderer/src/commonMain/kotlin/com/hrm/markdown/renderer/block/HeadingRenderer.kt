@@ -7,12 +7,12 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import com.hrm.markdown.parser.ast.Heading
 import com.hrm.markdown.parser.ast.Node
 import com.hrm.markdown.parser.ast.SetextHeading
 import com.hrm.markdown.renderer.LocalMarkdownConfig
 import com.hrm.markdown.renderer.LocalMarkdownTheme
+import com.hrm.markdown.renderer.internal.layout.LayoutTokens
 import com.hrm.markdown.renderer.LocalRendererDocument
 import com.hrm.markdown.renderer.inline.InlineLayoutBlockText
 import com.hrm.markdown.renderer.inline.rememberInlineModel
@@ -94,7 +94,7 @@ internal fun RenderHeadingBlockModel(
 
         if (showDivider) {
             HorizontalDivider(
-                modifier = Modifier.padding(top = 4.dp),
+                modifier = Modifier.padding(top = LayoutTokens.HeadingDividerSpacing),
                 thickness = theme.dividerThickness,
                 color = theme.dividerColor,
             )

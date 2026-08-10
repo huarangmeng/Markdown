@@ -35,7 +35,7 @@ class DirtyRegionTracker {
         val (editStartLine, editEndLineOld, editEndLineNew) = when (edit) {
             is EditOperation.Insert -> {
                 val startLine = oldSource.lineAtOffset(edit.offset)
-                val insertedLines = edit.text.count { it == '\n' }
+                val insertedLines = normalizedNewlineCount(edit.text)
                 Triple(startLine, startLine, startLine + insertedLines + 1)
             }
             is EditOperation.Delete -> {
@@ -46,7 +46,7 @@ class DirtyRegionTracker {
             is EditOperation.Replace -> {
                 val startLine = oldSource.lineAtOffset(edit.offset)
                 val oldEndLine = oldSource.lineAtOffset((edit.offset + edit.length - 1).coerceAtLeast(edit.offset))
-                val insertedLines = edit.newText.count { it == '\n' }
+                val insertedLines = normalizedNewlineCount(edit.newText)
                 Triple(startLine, oldEndLine + 1, startLine + insertedLines + 1)
             }
             is EditOperation.Append -> {
@@ -63,6 +63,9 @@ class DirtyRegionTracker {
 
         return LineRange(expandedStart, expandedEnd)
     }
+
+    private fun normalizedNewlineCount(text: String): Int =
+        SourceText.of(text).lineCount - 1
 
     /**
      * 对于 append-only 场景的优化版本。

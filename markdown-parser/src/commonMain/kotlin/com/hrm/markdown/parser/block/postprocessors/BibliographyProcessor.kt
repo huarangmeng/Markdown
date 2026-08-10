@@ -46,7 +46,7 @@ internal class BibliographyProcessor : PostProcessor {
             result.add(node)
         }
         if (node is ContainerNode) {
-            for (child in node.children.toList()) {
+            for (child in node.materializedChildrenSnapshot()) {
                 collectBibliographyDefs(child, result)
             }
         }

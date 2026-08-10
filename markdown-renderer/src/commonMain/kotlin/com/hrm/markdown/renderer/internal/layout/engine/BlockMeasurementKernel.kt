@@ -1,7 +1,10 @@
 package com.hrm.markdown.renderer.internal.layout.engine
 
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.hrm.markdown.renderer.internal.core.model.BibliographyDefinitionBlockModel
 import com.hrm.markdown.renderer.internal.core.model.DefinitionDescriptionBlockModel
@@ -20,6 +23,7 @@ import com.hrm.markdown.renderer.internal.core.model.TabBlockModel
 import com.hrm.markdown.renderer.internal.core.model.TableBlockModel
 import com.hrm.markdown.renderer.internal.core.model.ThematicBreakBlockModel
 import com.hrm.markdown.renderer.internal.core.model.TocBlockModel
+import com.hrm.markdown.renderer.internal.layout.LayoutTokens
 
 internal fun LayoutEnvironment.measureInlineBlock(
     model: InlineModel,
@@ -73,26 +77,50 @@ internal fun LayoutEnvironment.measureLeafBlockContentHeight(
             0,
             markdownTheme.headingStyles.lastIndex
         )]
-        measureInlineBlock(block.inline, style, widthPx) + if (block.level <= 2) 8f else 0f
+        measureInlineBlock(block.inline, style, widthPx) + if (block.level <= 2) {
+            with(density) {
+                LayoutTokens.HeadingDividerSpacing.toPx() + markdownTheme.dividerThickness.toPx()
+            }
+        } else {
+            0f
+        }
     }
 
     is TableBlockModel -> measureTableBlockContentHeight(block, widthPx)
     is DefinitionListBlockModel -> measureDefinitionListContentHeight(block, widthPx)
     is TocBlockModel -> measureTocContentHeight(block, widthPx)
-    is HtmlBlockModel -> block.html.lineSequence().count().coerceAtLeast(1) * lineHeightPx(
-        markdownTheme.codeBlockStyle
-    )
+    is HtmlBlockModel -> textMeasurer.measure(
+        text = block.html.trimEnd('\n'),
+        style = markdownTheme.codeBlockStyle.copy(fontFamily = FontFamily.Monospace),
+        constraints = Constraints(maxWidth = widthPx.toInt().coerceAtLeast(1)),
+    ).size.height.toFloat()
 
-    is BibliographyDefinitionBlockModel -> block.entries.size.coerceAtLeast(1) * lineHeightPx(
-        markdownTheme.bodyStyle
-    ) + 32f
+    is BibliographyDefinitionBlockModel -> if (block.entries.isEmpty()) {
+        0f
+    } else {
+        block.entries.size * lineHeightPx(markdownTheme.bodyStyle) + with(density) {
+            LayoutTokens.BibliographyTitleSpacing.toPx() +
+                LayoutTokens.BibliographyEntryVerticalPadding.toPx() * block.entries.size * 2f
+        } + lineHeightPx(markdownTheme.headingStyles.getOrElse(3) { markdownTheme.bodyStyle })
+    }
 
-    is FigureBlockModel -> 220f + if (block.caption.isNotBlank()) lineHeightPx(markdownTheme.bodyStyle) else 0f
-    is PageBreakBlockModel -> 28f
-    is ThematicBreakBlockModel -> 16f
-    is TabBlockModel -> 80f
+    is FigureBlockModel -> with(density) {
+        block.imageHeight?.dp?.toPx() ?: LayoutTokens.FigureFallbackHeight.toPx()
+    } + if (block.caption.isNotBlank()) lineHeightPx(markdownTheme.bodyStyle) else 0f
+    is PageBreakBlockModel -> textMeasurer.measure(
+        text = "— Page Break —",
+        style = TextStyle(fontSize = 10.sp),
+        constraints = Constraints(maxWidth = Int.MAX_VALUE),
+        maxLines = 1,
+        softWrap = false,
+    ).size.height.toFloat() + with(density) { LayoutTokens.PageBreakVerticalPadding.toPx() * 2f }
+    is ThematicBreakBlockModel -> with(density) { markdownTheme.dividerThickness.toPx() }
+    is TabBlockModel -> lineHeightPx(markdownTheme.bodyStyle) + with(density) {
+        LayoutTokens.TabTitleVerticalPadding.toPx() * 2f +
+            LayoutTokens.TabContentPadding.toPx() * 2f
+    }
     is FallbackLeafBlockModel -> 0f
-    else -> 32f
+    else -> lineHeightPx(markdownTheme.bodyStyle)
 }
 
 private fun LayoutEnvironment.measureTableBlockContentHeight(
@@ -117,7 +145,9 @@ private fun LayoutEnvironment.measureTableBlockContentHeight(
                 measureInlineBlock(
                     model = cell.inline,
                     style = style,
-                    widthPx = (cellWidth - horizontalPadding).coerceAtLeast(16f),
+                    widthPx = (cellWidth - horizontalPadding).coerceAtLeast(
+                        with(density) { LayoutTokens.MinimumInlineMeasureWidth.toPx() }
+                    ),
                 ) + horizontalPadding,
             )
         }
@@ -129,8 +159,8 @@ private fun LayoutEnvironment.measureDefinitionListContentHeight(
     block: DefinitionListBlockModel,
     widthPx: Float,
 ): Float {
-    val indent = 24f
-    val spacing = 4f
+    val indent = with(density) { LayoutTokens.DefinitionIndent.toPx() }
+    val spacing = with(density) { LayoutTokens.DefinitionSpacing.toPx() }
     return block.items.sumOf { item ->
         when (item) {
             is DefinitionTermBlockModel -> {
@@ -159,8 +189,15 @@ private fun LayoutEnvironment.measureTocContentHeight(
 ): Float {
     if (block.entries.isEmpty()) return 0f
     return block.entries.sumOf { entry ->
-        val indentWidth = ((entry.level - 1).coerceAtLeast(0) * 16f)
-        measureTocEntryHeight(entry, (widthPx - indentWidth).coerceAtLeast(24f)).toDouble()
+        val indentWidth = with(density) {
+            LayoutTokens.TocIndentPerLevel.toPx() * (entry.level - 1).coerceAtLeast(0)
+        }
+        measureTocEntryHeight(
+            entry,
+            (widthPx - indentWidth).coerceAtLeast(
+                with(density) { LayoutTokens.MinimumTocMeasureWidth.toPx() }
+            ),
+        ).toDouble()
     }.toFloat()
 }
 

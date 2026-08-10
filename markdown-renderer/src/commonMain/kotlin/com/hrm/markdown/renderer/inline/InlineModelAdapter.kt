@@ -17,6 +17,7 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withLink
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.hrm.codehigh.renderer.InlineCodeDefaults
 import com.hrm.codehigh.renderer.measureInlineCodeSize
@@ -40,6 +41,7 @@ import com.hrm.markdown.renderer.internal.core.model.SpanMark
 import com.hrm.markdown.renderer.internal.core.model.SpoilerWidgetModel
 import com.hrm.markdown.renderer.internal.core.model.TextAtom
 import com.hrm.markdown.renderer.internal.core.model.WidgetAtom
+import com.hrm.markdown.renderer.internal.layout.LayoutTokens
 import com.hrm.markdown.renderer.internal.layout.inline.InlineFlowInput
 import com.hrm.markdown.renderer.internal.layout.inline.InlineFlowSegment
 import com.hrm.markdown.runtime.MarkdownDirectiveRegistry
@@ -315,7 +317,7 @@ private fun AnnotatedString.Builder.renderWidgetAtom(
             inlineCodeTheme
         )
 
-        is ImageWidgetModel -> renderImageWidget(widget, context)
+        is ImageWidgetModel -> renderImageWidget(widget, context, density)
         is InlineMathWidgetModel -> renderInlineMathWidget(
             widget,
             theme,
@@ -383,12 +385,19 @@ private fun AnnotatedString.Builder.renderInlineCodeWidget(
 private fun AnnotatedString.Builder.renderImageWidget(
     widget: ImageWidgetModel,
     context: InlineRenderBuildContext,
+    density: Density,
 ) {
+    val widthPx = with(density) {
+        widget.width?.dp?.toPx() ?: LayoutTokens.InlineImageFallbackWidth.toPx()
+    }
+    val heightPx = with(density) {
+        widget.height?.dp?.toPx() ?: LayoutTokens.InlineImageFallbackHeight.toPx()
+    }
     context.emitImageWidget(
         builder = this,
         widget = widget,
-        widthPx = widget.width?.toFloat() ?: 200f,
-        heightPx = widget.height?.toFloat() ?: 150f,
+        widthPx = widthPx,
+        heightPx = heightPx,
     ) {
         val imageData = MarkdownImageData(
             url = widget.url,

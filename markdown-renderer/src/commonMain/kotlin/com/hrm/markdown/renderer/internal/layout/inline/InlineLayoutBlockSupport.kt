@@ -23,6 +23,7 @@ import com.hrm.markdown.renderer.internal.layout.model.LayoutRect
 import com.hrm.markdown.renderer.internal.layout.model.LayoutTextRun
 import com.hrm.markdown.renderer.internal.layout.model.LayoutWidgetRun
 import com.hrm.markdown.runtime.MarkdownDirectiveRegistry
+import com.hrm.markdown.renderer.internal.layout.LayoutTokens
 
 internal fun inlineWidgetByPlaceholderId(
     model: InlineModel,
@@ -214,14 +215,14 @@ internal fun buildInlineLayoutBlockFromResult(
         maxLines = maxLines,
     )
     val dividerHeight = if (showDivider) {
-        4f + with(density) { theme.dividerThickness.toPx() }
+        with(density) { LayoutTokens.HeadingDividerSpacing.toPx() + theme.dividerThickness.toPx() }
     } else {
         0f
     }
-    val contentHeight = layout.heightPx + dividerHeight
+    val contentHeight = layout.heightPx
     return buildInlineLayoutBlockModel(
         identity = identity,
-        frame = LayoutRect(left, top, width, insets.top + contentHeight + insets.bottom),
+        frame = LayoutRect(left, top, width, insets.top + contentHeight + dividerHeight + insets.bottom),
         contentFrame = LayoutRect(contentLeft, contentTop, contentWidth, contentHeight),
         style = style,
         layout = layout,

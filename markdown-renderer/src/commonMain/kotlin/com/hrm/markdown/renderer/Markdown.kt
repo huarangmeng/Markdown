@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.NonSkippableComposable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -15,6 +16,8 @@ import com.hrm.markdown.parser.ast.Document
 import com.hrm.markdown.runtime.MarkdownDirectivePlugin
 import com.hrm.markdown.runtime.MarkdownDirectiveRegistry
 import com.hrm.markdown.runtime.MarkdownDirectivePipeline
+import com.hrm.markdown.parser.log.HLog
+import com.hrm.markdown.runtime.MarkdownSourceMap
 import com.hrm.markdown.renderer.internal.core.compile.computeSemanticRevision
 
 /**
@@ -75,19 +78,27 @@ fun Markdown(
     val directiveRegistry = remember(directivePlugins) { MarkdownDirectiveRegistry(directivePlugins) }
     val runtimePipeline = remember(directiveRegistry) { MarkdownDirectivePipeline(directiveRegistry) }
     val effectiveStreaming = isStreaming && runtimePipeline.supportsStreamingFastPath
-    val document = rememberStreamingDocument(
+    LaunchedEffect(isStreaming, effectiveStreaming, runtimePipeline) {
+        if (isStreaming && !effectiveStreaming) {
+            HLog.w("Markdown") {
+                "Streaming requested, but at least one input transformer is not append-safe; " +
+                    "falling back to isolated full parses."
+            }
+        }
+    }
+    val snapshot = rememberStreamingDocument(
         markdown = markdown,
         isStreaming = effectiveStreaming,
         config = config,
         runtimePipeline = runtimePipeline,
     )
 
-    if (document == null) {
+    if (snapshot == null) {
         if (effectiveStreaming) return
         MarkdownLoading(modifier = modifier)
     } else {
         MarkdownDocumentRenderer(
-            document = document,
+            document = snapshot.document,
             modifier = modifier,
             theme = theme,
             codeTheme = codeTheme,
@@ -101,6 +112,7 @@ fun Markdown(
             imageContent = imageContent,
             onLinkClick = onLinkClick,
             directiveRegistry = directiveRegistry,
+            sourceMap = snapshot.sourceMap,
         )
     }
 }
@@ -155,6 +167,7 @@ fun Markdown(
         imageContent = imageContent,
         onLinkClick = onLinkClick,
         directiveRegistry = directiveRegistry,
+        sourceMap = MarkdownSourceMap.Identity,
         documentRevision = computeSemanticRevision(document),
     )
 }

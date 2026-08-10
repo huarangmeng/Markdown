@@ -1,12 +1,17 @@
 package com.hrm.markdown.renderer.internal.layout.widget
 
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.hrm.latex.renderer.model.LatexConfig
 import com.hrm.markdown.renderer.internal.core.model.BlockWidgetModel
 import com.hrm.markdown.renderer.internal.core.model.CodeBlockWidgetModel
 import com.hrm.markdown.renderer.internal.core.model.DiagramBlockWidgetModel
 import com.hrm.markdown.renderer.internal.core.model.MathBlockWidgetModel
 import com.hrm.markdown.renderer.internal.layout.engine.LayoutEnvironment
+import com.hrm.markdown.renderer.internal.layout.engine.lineHeightPx
 import com.hrm.markdown.renderer.internal.layout.model.BlockWidgetMeasurement
-import kotlin.math.ceil
 import kotlin.math.max
 
 internal fun measureBlockWidget(
@@ -15,8 +20,8 @@ internal fun measureBlockWidget(
     environment: LayoutEnvironment,
 ): BlockWidgetMeasurement {
     return when (widget) {
-        is CodeBlockWidgetModel -> measureCodeWidget(widget, viewportWidthPx)
-        is MathBlockWidgetModel -> measureMathWidget(widget, viewportWidthPx)
+        is CodeBlockWidgetModel -> measureCodeWidget(widget, viewportWidthPx, environment)
+        is MathBlockWidgetModel -> measureMathWidget(widget, viewportWidthPx, environment)
         is DiagramBlockWidgetModel -> measureDiagramWidget(widget, viewportWidthPx, environment)
     }
 }
@@ -24,16 +29,29 @@ internal fun measureBlockWidget(
 private fun measureCodeWidget(
     widget: CodeBlockWidgetModel,
     viewportWidthPx: Float,
+    environment: LayoutEnvironment,
 ): BlockWidgetMeasurement {
-    val lineCount = widget.code.lineSequence().count().coerceAtLeast(1)
-    val longestLine = widget.code.lineSequence().maxOfOrNull { it.length } ?: 0
-    val charWidthPx = 8f
-    val titleHeightPx = if (widget.title.isNullOrBlank()) 0f else 28f
-    val horizontalPaddingPx = 24f
-    val contentWidthPx = max(viewportWidthPx, longestLine * charWidthPx + horizontalPaddingPx)
+    val lines = widget.code.lineSequence().toList().ifEmpty { listOf(" ") }
+    val style = environment.markdownTheme.codeBlockStyle
+    val contentWidth = lines.maxOf { line ->
+        environment.textMeasurer.measure(
+            text = line.ifEmpty { " " },
+            style = style,
+            constraints = Constraints(maxWidth = Int.MAX_VALUE),
+            maxLines = 1,
+            softWrap = false,
+        ).size.width.toFloat()
+    }
+    val padding = with(environment.density) { environment.markdownTheme.codeBlockPadding.toPx() }
+    val titleHeight = if (widget.title.isNullOrBlank()) {
+        0f
+    } else {
+        environment.lineHeightPx(style) + padding
+    }
+    val contentWidthPx = max(viewportWidthPx, contentWidth + padding * 2f)
     return BlockWidgetMeasurement(
         widthPx = contentWidthPx,
-        heightPx = titleHeightPx + lineCount * 22f + 24f,
+        heightPx = titleHeight + lines.size * environment.lineHeightPx(style) + padding * 2f,
         scrollableHorizontally = contentWidthPx > viewportWidthPx,
     )
 }
@@ -41,12 +59,22 @@ private fun measureCodeWidget(
 private fun measureMathWidget(
     widget: MathBlockWidgetModel,
     viewportWidthPx: Float,
+    environment: LayoutEnvironment,
 ): BlockWidgetMeasurement {
-    val length = widget.latex.trim().length.coerceAtLeast(1)
-    val wrappedLines = ceil((length * 10f) / viewportWidthPx.coerceAtLeast(160f)).toInt().coerceAtLeast(1)
+    val config = LatexConfig(
+        fontSize = (environment.markdownTheme.mathFontSize * 1.2f).sp,
+        theme = environment.markdownTheme.latexTheme,
+    )
+    val dimensions = environment.latexMeasurer.measure(widget.latex.trim(), config)
+    val padding = with(environment.density) { environment.markdownTheme.codeBlockPadding.toPx() }
+    val contentHeight = dimensions?.heightPx ?: environment.lineHeightPx(
+        TextStyle(fontSize = config.fontSize)
+    )
+    val contentWidth = dimensions?.widthPx ?: 0f
     return BlockWidgetMeasurement(
-        widthPx = viewportWidthPx,
-        heightPx = 40f + wrappedLines * 28f,
+        widthPx = max(viewportWidthPx, contentWidth + padding * 2f),
+        heightPx = contentHeight + padding * 2f,
+        scrollableHorizontally = contentWidth + padding * 2f > viewportWidthPx,
     )
 }
 
@@ -55,21 +83,25 @@ private fun measureDiagramWidget(
     viewportWidthPx: Float,
     environment: LayoutEnvironment,
 ): BlockWidgetMeasurement {
+    val padding = with(environment.density) { environment.markdownTheme.codeBlockPadding.toPx() }
     val cachedHeight = environment.diagramHostRegistry.cachedHeightPx(widget.hostKey)
     if (cachedHeight != null) {
         return BlockWidgetMeasurement(
             widthPx = viewportWidthPx,
-            heightPx = cachedHeight,
+            heightPx = cachedHeight + padding * 2f,
         )
     }
     val lineCount = widget.code.lineSequence().count().coerceAtLeast(3)
-    val preferredHeight = when (widget.diagramType.lowercase()) {
-        "mermaid" -> 120f + lineCount * 10f
-        "plantuml" -> 110f + lineCount * 9f
-        else -> 100f + lineCount * 8f
+    val preferredHeight = with(environment.density) {
+        when (widget.diagramType.lowercase()) {
+            "mermaid" -> 120.dp.toPx() + lineCount * 10.dp.toPx()
+            "plantuml" -> 110.dp.toPx() + lineCount * 9.dp.toPx()
+            else -> 100.dp.toPx() + lineCount * 8.dp.toPx()
+        }
     }
     return BlockWidgetMeasurement(
         widthPx = viewportWidthPx,
-        heightPx = preferredHeight.coerceAtLeast(140f),
+        heightPx = preferredHeight.coerceAtLeast(with(environment.density) { 140.dp.toPx() }) +
+            padding * 2f,
     )
 }

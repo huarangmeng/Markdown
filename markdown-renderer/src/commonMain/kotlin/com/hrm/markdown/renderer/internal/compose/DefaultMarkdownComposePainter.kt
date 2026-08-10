@@ -96,6 +96,7 @@ import com.hrm.markdown.renderer.internal.layout.model.LayoutWidgetBlockModel
 import com.hrm.markdown.renderer.internal.selection.LocalMarkdownSelectionController
 import com.hrm.markdown.renderer.internal.selection.selectableBlock
 import kotlinx.coroutines.flow.distinctUntilChanged
+import com.hrm.markdown.renderer.internal.layout.LayoutTokens
 
 internal object DefaultMarkdownComposePainter : MarkdownComposePainter {
     @Composable
@@ -214,22 +215,29 @@ private fun PaintBlock(block: com.hrm.markdown.renderer.internal.layout.model.In
         is LayoutDefinitionListBlockModel -> RenderDefinitionListLayoutBlockModel(
             model = block,
             modifier = Modifier.fillMaxWidth(),
+            renderTerm = ::PaintBlock,
             renderChildren = ::PaintLayoutBlockChildren,
         )
 
         is LayoutFigureBlockModel -> RenderFigureLayoutBlockModel(
             model = block,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .selectableBlock(block, LocalMarkdownSelectionController.current),
         )
 
         is LayoutTocBlockModel -> RenderTocLayoutBlockModel(
             model = block,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .selectableBlock(block, LocalMarkdownSelectionController.current),
         )
 
         is LayoutBibliographyBlockModel -> RenderBibliographyLayoutBlockModel(
             model = block,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .selectableBlock(block, LocalMarkdownSelectionController.current),
         )
 
         is LayoutTabBlockModel -> RenderTabLayoutBlockModel(
@@ -490,7 +498,7 @@ private fun PaintInlineBlock(block: LayoutInlineBlockModel) {
         )
         if (block.showDivider) {
             HorizontalDivider(
-                modifier = Modifier.padding(top = 4.dp),
+                modifier = Modifier.padding(top = LayoutTokens.HeadingDividerSpacing),
                 thickness = LocalMarkdownTheme.current.dividerThickness,
                 color = LocalMarkdownTheme.current.dividerColor,
             )

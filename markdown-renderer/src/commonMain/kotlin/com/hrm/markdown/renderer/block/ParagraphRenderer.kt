@@ -12,6 +12,7 @@ import com.hrm.markdown.renderer.LocalMarkdownTheme
 import com.hrm.markdown.renderer.MarkdownImageData
 import com.hrm.markdown.renderer.inline.InlineLayoutBlockText
 import com.hrm.markdown.renderer.inline.inlineNodesRevision
+import com.hrm.markdown.renderer.inline.legacyInlineParentStableId
 import com.hrm.markdown.renderer.inline.rememberInlineModel
 import com.hrm.markdown.renderer.internal.core.identity.RenderIdentity
 import com.hrm.markdown.renderer.internal.core.identity.renderIdentityMix
@@ -40,6 +41,7 @@ internal fun ParagraphRenderer(
     val inlineModel = rememberInlineModel(
         nodes = node.children,
         inlineRevision = inlineRevision,
+        parentStableId = legacyInlineParentStableId(node),
     )
     val hasImage = remember(inlineModel.identity.contentRevision) {
         inlineModel.atoms.any { atom ->
