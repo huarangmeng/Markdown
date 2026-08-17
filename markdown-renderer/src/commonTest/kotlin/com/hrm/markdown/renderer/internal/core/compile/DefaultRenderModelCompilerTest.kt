@@ -16,6 +16,7 @@ import com.hrm.markdown.renderer.internal.core.model.HtmlContainerBlockModel
 import com.hrm.markdown.renderer.internal.core.model.HtmlParagraphBlockModel
 import com.hrm.markdown.renderer.internal.core.model.ImageWidgetModel
 import com.hrm.markdown.renderer.internal.core.model.InlineMathWidgetModel
+import com.hrm.markdown.renderer.internal.core.model.ListBlockModel
 import com.hrm.markdown.renderer.internal.core.model.ParagraphBlockModel
 import com.hrm.markdown.renderer.internal.core.model.TextAtom
 import com.hrm.markdown.renderer.internal.core.model.WidgetAtom
@@ -345,6 +346,66 @@ class DefaultRenderModelCompilerTest {
     }
 
     @Test
+    fun should_compile_safe_html_unordered_list() {
+        val block = compileSingleBlock("<ul>\n<li>Hello</li>\n<li><strong>World</strong></li>\n</ul>")
+        val root = assertIs<HtmlContainerBlockModel>(block)
+        val list = assertIs<ListBlockModel>(root.children.single())
+
+        assertEquals(false, list.ordered)
+        assertEquals(2, list.items.size)
+        val first = assertIs<HtmlParagraphBlockModel>(list.items[0].children.single())
+        val second = assertIs<HtmlParagraphBlockModel>(list.items[1].children.single())
+
+        assertEquals("Hello", first.inline.atoms.filterIsInstance<TextAtom>().single().text)
+        val secondAtom = second.inline.atoms.filterIsInstance<TextAtom>().single()
+        assertEquals("World", secondAtom.text)
+        assertEquals("strong", secondAtom.marks.single().kind)
+    }
+
+    @Test
+    fun should_compile_safe_html_ordered_list_with_start_number() {
+        val block = compileSingleBlock("<ol start=\"3\"><li>Alpha</li><li>Beta</li></ol>")
+        val root = assertIs<HtmlContainerBlockModel>(block)
+        val list = assertIs<ListBlockModel>(root.children.single())
+
+        assertEquals(true, list.ordered)
+        assertEquals(3, list.startNumber)
+        assertEquals(listOf("Alpha", "Beta"), list.items.map { item ->
+            assertIs<HtmlParagraphBlockModel>(item.children.single())
+                .inline
+                .atoms
+                .filterIsInstance<TextAtom>()
+                .joinToString("") { it.text }
+        })
+    }
+
+    @Test
+    fun should_compile_nested_safe_html_lists() {
+        val block = compileSingleBlock(
+            """
+            <ul>
+            <li>Parent
+            <ol>
+            <li>Child</li>
+            </ol>
+            </li>
+            </ul>
+            """.trimIndent()
+        )
+        val root = assertIs<HtmlContainerBlockModel>(block)
+        val outer = assertIs<ListBlockModel>(root.children.single())
+        val itemChildren = outer.items.single().children
+
+        val parent = assertIs<HtmlParagraphBlockModel>(itemChildren[0])
+        val inner = assertIs<ListBlockModel>(itemChildren[1])
+        val child = assertIs<HtmlParagraphBlockModel>(inner.items.single().children.single())
+
+        assertEquals("Parent", parent.inline.atoms.filterIsInstance<TextAtom>().single().text)
+        assertEquals(true, inner.ordered)
+        assertEquals("Child", child.inline.atoms.filterIsInstance<TextAtom>().single().text)
+    }
+
+    @Test
     fun should_keep_raw_html_block_when_fragment_is_malformed_or_unsupported() {
         val inputs = listOf(
             "<div><strong>broken</div>",
@@ -354,6 +415,10 @@ class DefaultRenderModelCompilerTest {
             "<div onclick=\"alert(1)\">unsupported block attribute</div>",
             "<div><a href=\"javascript:alert(1)\">unsafe child</a></div>",
             "<p><div>nested block must survive</div></p>",
+            "<ul onclick=\"alert(1)\"><li>unsafe list</li></ul>",
+            "<ul><li onclick=\"alert(1)\">unsafe item</li></ul>",
+            "<ol start=\"x\"><li>bad start</li></ol>",
+            "<li>orphan item</li>",
         )
 
         for (input in inputs) {

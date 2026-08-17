@@ -145,6 +145,12 @@ val previewCategories: List<PreviewCategory> = listOf(
                 sourceGroups = extendedPreviewGroups + cjkPreviewGroups,
             ),
             consolidatedPreviewGroup(
+                id = "html",
+                title = "HTML",
+                description = "安全 HTML 渲染与 HTML 导出",
+                sourceGroups = htmlPreviewGroups,
+            ),
+            consolidatedPreviewGroup(
                 id = "directives_and_plugins",
                 title = "指令与插件",
                 description = "块级/行内指令、输入转换与自定义渲染",

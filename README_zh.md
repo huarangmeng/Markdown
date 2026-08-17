@@ -308,7 +308,7 @@ CompositionLocalProvider(
 | **列表** | 无序/有序/任务列表、嵌套、紧凑/松散区分 |
 | **表格 (GFM)** | 列对齐、单元格内行内格式、管道符转义 |
 | **分隔线** | `---`、`***`、`___` |
-| **HTML 块** | 所有 7 种 CommonMark 类型；常用容器及文字对齐的 Compose 安全片段渲染 |
+| **HTML 块** | 所有 7 种 CommonMark 类型；常用容器、列表及文字对齐的 Compose 安全片段渲染 |
 | **链接引用定义** | 完整支持各种标题格式 |
 
 </details>
@@ -471,9 +471,10 @@ val html = HtmlRenderer.renderMarkdown(input, flavour = CommonMarkFlavour)
 文字/背景颜色、字重、字形、下划线和删除线。未知属性、未知 CSS、危险 URL、错配或
 未闭合标签都会保留源码，不会忽略一部分后继续渲染，也不会静默丢失内容。
 
-块级安全片段支持 `p`、`div`、`center`、`article`、`section`、`main`、`header` 和
-`footer`，容器内可以使用上述安全行内标签，并通过 `align` 或受限的
-`style="text-align:..."` 设置 `left`、`start`、`center`、`right` 或 `end`；其中
+块级安全片段支持 `p`、`div`、`center`、`article`、`section`、`main`、`header`、
+`footer`，以及安全的 `ul`/`ol`/`li` 列表结构。容器内可以使用上述安全行内标签，
+并通过 `align` 或受限的 `style="text-align:..."` 设置 `left`、`start`、`center`、
+`right` 或 `end`；`ol` 接受整数 `start` 属性，`ul` 和 `li` 不接受属性。其中
 `left`/`right` 是物理方向，`start`/`end` 跟随当前布局方向。Compose 会按 CommonMark
 HTML 块类型明确分流：类型 2 注释可隐藏，类型 6/7 的安全片段可映射，类型 1/3/4/5
 保持原文。格式错误、未知属性，或表格、表单、脚本、任意 CSS 等未支持结构，都会

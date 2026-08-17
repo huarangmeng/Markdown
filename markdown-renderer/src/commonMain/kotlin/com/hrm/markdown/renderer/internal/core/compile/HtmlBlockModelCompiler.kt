@@ -18,6 +18,8 @@ import com.hrm.markdown.renderer.internal.core.model.HtmlContainerBlockModel
 import com.hrm.markdown.renderer.internal.core.model.HtmlParagraphBlockModel
 import com.hrm.markdown.renderer.internal.core.model.InlineModel
 import com.hrm.markdown.renderer.internal.core.model.InternalRenderBlockModel
+import com.hrm.markdown.renderer.internal.core.model.ListBlockModel
+import com.hrm.markdown.renderer.internal.core.model.ListItemBlockModel
 import com.hrm.markdown.renderer.internal.core.model.ThematicBreakBlockModel
 
 /** 将受支持的 HtmlBlock fragment 编译为平台无关 RenderModel。 */
@@ -178,11 +180,7 @@ internal object HtmlBlockModelCompiler {
                     }
                 }
                 is FragmentElement -> {
-                    val blockAction = SafeHtmlPolicy.blockAction(node.tag, inheritedAlignment)
-                    if (blockAction == null) {
-                        inlineBuffer += node
-                    } else {
-                        if (blockAction.role == SafeBlockHtmlRole.THEMATIC_BREAK) return null
+                    if (node.isListContainerElement()) {
                         if (!flushInline()) return null
                         val identity = derivedIdentity(
                             parent = parentIdentity,
@@ -190,18 +188,111 @@ internal object HtmlBlockModelCompiler {
                             index = childIndex++,
                             contentRevision = node.sourceRevision,
                         )
-                        val compiled = compileContainerElement(
+                        result += compileListElement(
                             element = node,
-                            action = blockAction,
                             identity = identity,
+                            inheritedAlignment = inheritedAlignment,
                         ) ?: return null
-                        result += compiled
+                    } else {
+                        val blockAction = SafeHtmlPolicy.blockAction(node.tag, inheritedAlignment)
+                        if (blockAction == null) {
+                            inlineBuffer += node
+                        } else {
+                            if (blockAction.role == SafeBlockHtmlRole.THEMATIC_BREAK) return null
+                            if (!flushInline()) return null
+                            val identity = derivedIdentity(
+                                parent = parentIdentity,
+                                role = "html-${node.tag.name.orEmpty()}",
+                                index = childIndex++,
+                                contentRevision = node.sourceRevision,
+                            )
+                            val compiled = compileContainerElement(
+                                element = node,
+                                action = blockAction,
+                                identity = identity,
+                            ) ?: return null
+                            result += compiled
+                        }
                     }
                 }
             }
         }
         if (!flushInline()) return null
         return result
+    }
+
+    private fun compileListElement(
+        element: FragmentElement,
+        identity: RenderIdentity,
+        inheritedAlignment: BlockTextAlignment,
+    ): ListBlockModel? {
+        val name = element.tag.name ?: return null
+        val ordered = when (name) {
+            "ul" -> false
+            "ol" -> true
+            else -> return null
+        }
+        val startNumber = listStartNumber(element.tag, ordered) ?: return null
+        val items = mutableListOf<ListItemBlockModel>()
+
+        for (child in element.children) {
+            when (child) {
+                is FragmentText -> if (!child.source.isBlank()) return null
+                is FragmentStandaloneTag -> if (!child.isHiddenComment()) return null
+                is FragmentElement -> {
+                    if (child.tag.name != "li") return null
+                    val itemIdentity = derivedIdentity(
+                        parent = identity,
+                        role = "html-li",
+                        index = items.size,
+                        contentRevision = child.sourceRevision,
+                    )
+                    items += compileListItemElement(
+                        element = child,
+                        identity = itemIdentity,
+                        inheritedAlignment = inheritedAlignment,
+                    ) ?: return null
+                }
+            }
+        }
+
+        return ListBlockModel(
+            identity = identity,
+            ordered = ordered,
+            startNumber = startNumber,
+            bulletChar = if (ordered) '1' else '-',
+            delimiter = '.',
+            tight = true,
+            items = items,
+        )
+    }
+
+    private fun compileListItemElement(
+        element: FragmentElement,
+        identity: RenderIdentity,
+        inheritedAlignment: BlockTextAlignment,
+    ): ListItemBlockModel? {
+        if (element.tag.name != "li" || element.tag.attributes.isNotEmpty()) return null
+        val children = compileFlow(
+            nodes = element.children,
+            inheritedAlignment = inheritedAlignment,
+            parentIdentity = identity,
+        ) ?: return null
+        return ListItemBlockModel(
+            identity = identity,
+            taskListItem = false,
+            checked = false,
+            children = children,
+        )
+    }
+
+    private fun listStartNumber(tag: HtmlTagToken, ordered: Boolean): Int? {
+        if (!ordered) {
+            return if (tag.attributes.isEmpty()) 1 else null
+        }
+        if (tag.attributes.keys.any { it != "start" }) return null
+        val start = tag.attributes["start"] ?: return 1
+        return start.trim().toIntOrNull()
     }
 
     private fun compileContainerElement(
@@ -319,6 +410,11 @@ internal object HtmlBlockModelCompiler {
                 children.all { it.isSupportedInlineFragment() }
         }
     }
+
+    private fun FragmentElement.isListContainerElement(): Boolean = tag.name == "ul" || tag.name == "ol"
+
+    private fun FragmentStandaloneTag.isHiddenComment(): Boolean =
+        SafeHtmlPolicy.inlineAction(tag) == SafeInlineHtmlAction.Hidden
 
     private fun List<FragmentNode>.sourceRevision(): Long = fold(0L) { revision, node ->
         renderIdentityFromValues(revision, node.sourceRevision)
