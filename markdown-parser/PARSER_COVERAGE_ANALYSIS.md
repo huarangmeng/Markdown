@@ -186,8 +186,8 @@
 - ✅ GFM 禁止的原始 HTML 标签过滤（`<title>`, `<textarea>`, `<style>`, `<xmp>`, `<iframe>`, `<noembed>`, `<noframes>`, `<script>`, `<plaintext>`）
 - ✅ `HtmlFragmentTokenizer` 统一拆分多行 fragment 的文本、标签、注释、CDATA 与处理指令
 - ✅ CommonMark 类型 6 标签集合与 HTML 语义块标签集合独立维护，避免语法分类和渲染语义混用
-- ✅ Compose 渲染器按 `HtmlBlock.htmlType` 分流：类型 2、6、7 进入安全策略，类型 1、3、4、5 保持原始 HTML
-- ✅ Compose 渲染器安全映射常用容器、行内子树与物理/逻辑文字对齐；未知标签、属性、CSS 或格式错误会整体回退源码
+- ✅ Compose 渲染器按 `HtmlBlock.htmlType` 分流：类型 2、6、7 进入安全策略，类型 1 仅允许安全 `pre`/`code` 代码块映射，其他类型 1 与类型 3/4/5 保持原始 HTML
+- ✅ Compose 渲染器安全映射常用容器、标题、引用、分隔线、代码块、列表、行内子树与物理/逻辑文字对齐；未知标签、属性、CSS 或格式错误会整体回退源码
 
 **覆盖率**: 12/12 (100%)
 
@@ -227,7 +227,7 @@
 > **备注**: `BlockParser.tryParseTocPlaceholder()` 解析 `[TOC]` 后续的配置行（`:key=value` 格式），将参数写入 `TocPlaceholder` 节点的 `minDepth`/`maxDepth`/`excludeIds`/`order` 属性。渲染器据此过滤标题深度范围、排除指定 ID、调整排序方式。
 
 #### 可折叠内容（扩展）
-- ✅ `<details><summary>标题</summary>内容</details>` 折叠/展开块（作为 HTML 块类型 6 处理）
+- ✅ `<details><summary>标题</summary>内容</details>` 按 CommonMark 作为 HTML 块类型 6 识别；Compose 安全 HTML 暂不映射为交互折叠，未支持时保持原始 HTML
 
 #### 脚注定义（扩展）
 - ✅ `[^label]: content` 单行脚注

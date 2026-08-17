@@ -8,9 +8,13 @@ import com.hrm.markdown.parser.ast.StyledText
 import com.hrm.markdown.parser.ast.TableHead
 import com.hrm.markdown.parser.ast.Text
 import com.hrm.markdown.renderer.inline.InlinePlaceholderId
+import com.hrm.markdown.renderer.internal.core.model.BlockQuoteBlockModel
 import com.hrm.markdown.renderer.internal.core.model.FallbackContainerBlockModel
 import com.hrm.markdown.renderer.internal.core.model.FallbackLeafBlockModel
 import com.hrm.markdown.renderer.internal.core.model.BlockTextAlignment
+import com.hrm.markdown.renderer.internal.core.model.CodeBlockModel
+import com.hrm.markdown.renderer.internal.core.model.CodeBlockWidgetModel
+import com.hrm.markdown.renderer.internal.core.model.HeadingBlockModel
 import com.hrm.markdown.renderer.internal.core.model.HtmlBlockModel
 import com.hrm.markdown.renderer.internal.core.model.HtmlContainerBlockModel
 import com.hrm.markdown.renderer.internal.core.model.HtmlParagraphBlockModel
@@ -19,6 +23,7 @@ import com.hrm.markdown.renderer.internal.core.model.InlineMathWidgetModel
 import com.hrm.markdown.renderer.internal.core.model.ListBlockModel
 import com.hrm.markdown.renderer.internal.core.model.ParagraphBlockModel
 import com.hrm.markdown.renderer.internal.core.model.TextAtom
+import com.hrm.markdown.renderer.internal.core.model.ThematicBreakBlockModel
 import com.hrm.markdown.renderer.internal.core.model.WidgetAtom
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -406,6 +411,68 @@ class DefaultRenderModelCompilerTest {
     }
 
     @Test
+    fun should_compile_safe_html_thematic_break_and_headings() {
+        val hr = assertIs<HtmlContainerBlockModel>(compileSingleBlock("<hr>"))
+        assertIs<ThematicBreakBlockModel>(hr.children.single())
+
+        val block = compileSingleBlock("<h2>Safe <em>Heading</em></h2>")
+        val root = assertIs<HtmlContainerBlockModel>(block)
+        val heading = assertIs<HeadingBlockModel>(root.children.single())
+        val atoms = heading.inline.atoms.filterIsInstance<TextAtom>()
+
+        assertEquals(2, heading.level)
+        assertEquals(null, heading.numbering)
+        assertEquals("Safe Heading", atoms.joinToString("") { it.text })
+        assertTrue(atoms.first().marks.isEmpty())
+        assertEquals("emphasis", atoms.last().marks.single().kind)
+    }
+
+    @Test
+    fun should_compile_safe_html_blockquote() {
+        val block = compileSingleBlock("<blockquote><p>Quoted <strong>text</strong></p><hr></blockquote>")
+        val root = assertIs<HtmlContainerBlockModel>(block)
+        val quote = assertIs<BlockQuoteBlockModel>(root.children.single())
+
+        val paragraph = assertIs<HtmlParagraphBlockModel>(quote.children.first())
+        val atoms = paragraph.inline.atoms.filterIsInstance<TextAtom>()
+
+        assertEquals(2, quote.children.size)
+        assertEquals("Quoted text", atoms.joinToString("") { it.text })
+        assertEquals("strong", atoms.last().marks.single().kind)
+        assertIs<ThematicBreakBlockModel>(quote.children.last())
+    }
+
+    @Test
+    fun should_compile_safe_html_pre_code_block() {
+        val block = compileSingleBlock(
+            "<pre><code class=\"language-kotlin\">fun main() {\n" +
+                "    println(&quot;Hi&quot;)\n" +
+                "}</code></pre>"
+        )
+        val root = assertIs<HtmlContainerBlockModel>(block)
+        val code = assertIs<CodeBlockModel>(root.children.single())
+
+        assertEquals("kotlin", code.language)
+        assertEquals("fun main() {\n    println(\"Hi\")\n}", code.code)
+        assertEquals(true, code.showLineNumbers)
+        assertEquals(1, code.startLine)
+        assertEquals(emptySet(), code.highlightedLines)
+        val widget = assertIs<CodeBlockWidgetModel>(code.widget)
+        assertEquals(code.code, widget.code)
+        assertEquals("kotlin", widget.language)
+    }
+
+    @Test
+    fun should_compile_safe_html_pre_without_code_tag() {
+        val block = compileSingleBlock("<pre>plain &lt;tag&gt;\n  indented</pre>")
+        val root = assertIs<HtmlContainerBlockModel>(block)
+        val code = assertIs<CodeBlockModel>(root.children.single())
+
+        assertEquals("", code.language)
+        assertEquals("plain <tag>\n  indented", code.code)
+    }
+
+    @Test
     fun should_keep_raw_html_block_when_fragment_is_malformed_or_unsupported() {
         val inputs = listOf(
             "<div><strong>broken</div>",
@@ -419,6 +486,12 @@ class DefaultRenderModelCompilerTest {
             "<ul><li onclick=\"alert(1)\">unsafe item</li></ul>",
             "<ol start=\"x\"><li>bad start</li></ol>",
             "<li>orphan item</li>",
+            "<h1 class=\"title\">unsupported heading attribute</h1>",
+            "<blockquote cite=\"https://example.com\">unsupported quote attribute</blockquote>",
+            "<pre class=\"code\">unsupported pre attribute</pre>",
+            "<pre><code class=\"kotlin\">unsupported code class</code></pre>",
+            "<pre><code data-lang=\"kotlin\">unsupported code attribute</code></pre>",
+            "<pre><code><span>rich code HTML</span></code></pre>",
         )
 
         for (input in inputs) {

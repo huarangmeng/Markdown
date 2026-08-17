@@ -126,4 +126,86 @@ val html = HtmlRenderer.renderMarkdown("# Hello")
             ),
         )
     ),
+    PreviewGroup(
+        id = "safe_html",
+        title = "安全 HTML",
+        description = "Compose 安全渲染的 HTML 子集",
+        items = listOf(
+            PreviewItem(
+                id = "safe_html_inline_and_paragraph",
+                title = "行内与段落",
+                content = {
+                    Markdown(
+                        markdown = """
+普通 Markdown 可以和 <strong>粗体 HTML</strong>、<em>斜体 HTML</em> 混排。
+
+<p align="center">居中的安全段落</p>
+
+<div style="text-align:right"><span style="color:blue; font-weight:bold">右对齐的安全容器</span></div>
+                        """.trimIndent()
+                    )
+                }
+            ),
+            PreviewItem(
+                id = "safe_html_headings",
+                title = "h1-h6 标题",
+                content = {
+                    Markdown(
+                        markdown = """
+<h1>HTML H1</h1>
+<h2>HTML H2 <em>with inline</em></h2>
+<h3>HTML H3</h3>
+<h4>HTML H4</h4>
+<h5>HTML H5</h5>
+<h6>HTML H6</h6>
+                        """.trimIndent()
+                    )
+                }
+            ),
+            PreviewItem(
+                id = "safe_html_blockquote_hr",
+                title = "引用与分隔线",
+                content = {
+                    Markdown(
+                        markdown = """
+<blockquote>
+<p>HTML 引用里可以包含 <strong>安全行内标签</strong>。</p>
+<hr>
+<p>分隔线之后继续引用内容。</p>
+</blockquote>
+                        """.trimIndent()
+                    )
+                }
+            ),
+            PreviewItem(
+                id = "safe_html_pre_code",
+                title = "HTML pre/code 代码块",
+                content = {
+                    Markdown(
+                        markdown = """
+<pre><code class="language-kotlin">fun main() {
+    println(&quot;Hello from HTML code&quot;)
+}</code></pre>
+                        """.trimIndent()
+                    )
+                }
+            ),
+            PreviewItem(
+                id = "safe_html_lists_and_fallback",
+                title = "列表与原子回退",
+                content = {
+                    Markdown(
+                        markdown = """
+<ol start="3">
+<li>Alpha</li>
+<li><strong>Beta</strong></li>
+</ol>
+
+<table><tr><td>HTML 表格不在安全子集内，会整体保留源码。</td></tr></table>
+                        """.trimIndent()
+                    )
+                }
+            ),
+        )
+    ),
 )

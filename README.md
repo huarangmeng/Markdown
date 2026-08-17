@@ -311,7 +311,7 @@ CompositionLocalProvider(
 | **Lists** | Unordered/ordered/task lists, nested, tight/loose distinction |
 | **Tables (GFM)** | Column alignment, inline formatting in cells, escaped pipes |
 | **Thematic Breaks** | `---`, `***`, `___` |
-| **HTML Blocks** | All 7 CommonMark types; safe Compose fragments for common containers, lists, and text alignment |
+| **HTML Blocks** | All 7 CommonMark types; safe Compose fragments for common containers, headings, quotes, code blocks, lists, and text alignment |
 | **Link Reference Definitions** | Full support with title variants |
 
 </details>
@@ -459,7 +459,7 @@ val html = HtmlRenderer.renderMarkdown(input, flavour = CommonMarkFlavour)
 
 ### Safe HTML in Compose
 
-`Markdown()` renders a safe, cross-platform subset of inline HTML without a WebView:
+`Markdown()` renders a safe, cross-platform subset of HTML without a WebView:
 
 ```markdown
 Text with <strong>bold</strong>, <em>italic</em>,
@@ -477,14 +477,18 @@ CSS declaration, unsafe URL, mismatched tag, or unclosed tag causes that HTML so
 remain visible instead of being partially rendered or silently losing content.
 
 Safe block fragments are supported for `p`, `div`, `center`, `article`, `section`, `main`,
-`header`, `footer`, and safe `ul`/`ol`/`li` list structures. Containers can contain the safe
-inline tags above and use `align` or the limited `style="text-align:..."` form with `left`,
-`start`, `center`, `right`, or `end`. `ol` accepts an integer `start` attribute; `ul` and
-`li` accept no attributes. `left`/`right` remain physical directions, while `start`/`end`
-follow the current layout direction. Compose routing is explicit by CommonMark HTML block
-type: comments (type 2) may be hidden and safe type 6/7 fragments may be mapped; opaque
-types 1/3/4/5 stay raw. Malformed fragments, unknown attributes, or unsupported structures
-such as tables, forms, scripts, and arbitrary CSS fall back atomically to visible raw HTML.
+`header`, `footer`, `h1`-`h6`, `blockquote`, `hr`, safe `pre`/`code` code blocks, and safe
+`ul`/`ol`/`li` list structures. Containers can contain the safe inline tags above and use
+`align` or the limited `style="text-align:..."` form with `left`, `start`, `center`,
+`right`, or `end`. `ol` accepts an integer `start` attribute; `ul` and `li` accept no
+attributes. `pre` can contain text directly or a single `code` child; `code` accepts only
+`class="language-..."` or `class="lang-..."` to declare a language. `left`/`right` remain
+physical directions, while `start`/`end` follow the current layout direction. Compose
+routing is explicit by CommonMark HTML block type: comments (type 2) may be hidden, safe
+type 6/7 fragments may be mapped, and safe type 1 `pre` code fragments may be mapped;
+other type 1 fragments and types 3/4/5 stay raw. Malformed fragments, unknown attributes,
+or unsupported structures such as tables, forms, scripts, and arbitrary CSS fall back
+atomically to visible raw HTML.
 
 A block tag must start on its own line according to CommonMark rules. In particular,
 `text <p>block</p> text` is invalid block markup and remains inline source; put the `p` element

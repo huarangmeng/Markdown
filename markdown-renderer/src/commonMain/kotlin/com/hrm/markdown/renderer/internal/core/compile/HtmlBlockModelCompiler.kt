@@ -13,7 +13,11 @@ import com.hrm.markdown.parser.html.HtmlTagToken
 import com.hrm.markdown.renderer.internal.core.identity.RenderIdentity
 import com.hrm.markdown.renderer.internal.core.identity.renderIdentityFromText
 import com.hrm.markdown.renderer.internal.core.identity.renderIdentityFromValues
+import com.hrm.markdown.renderer.internal.core.model.BlockQuoteBlockModel
 import com.hrm.markdown.renderer.internal.core.model.BlockTextAlignment
+import com.hrm.markdown.renderer.internal.core.model.CodeBlockModel
+import com.hrm.markdown.renderer.internal.core.model.CodeBlockWidgetModel
+import com.hrm.markdown.renderer.internal.core.model.HeadingBlockModel
 import com.hrm.markdown.renderer.internal.core.model.HtmlContainerBlockModel
 import com.hrm.markdown.renderer.internal.core.model.HtmlParagraphBlockModel
 import com.hrm.markdown.renderer.internal.core.model.InlineModel
@@ -61,6 +65,11 @@ internal object HtmlBlockModelCompiler {
         val children: MutableList<FragmentNode> = mutableListOf(),
     )
 
+    private data class CodeBlockExtraction(
+        val code: String,
+        val language: String,
+    )
+
     private sealed interface InlineParagraphCompileResult {
         data class Content(val model: HtmlParagraphBlockModel) : InlineParagraphCompileResult
 
@@ -71,6 +80,7 @@ internal object HtmlBlockModelCompiler {
 
     fun compile(node: HtmlBlock, identity: RenderIdentity): InternalRenderBlockModel? {
         when (node.htmlType) {
+            RAW_HTML_BLOCK_TYPE,
             HTML_COMMENT_TYPE,
             COMMONMARK_BLOCK_TAG_TYPE,
             COMPLETE_TAG_TYPE -> Unit
@@ -198,7 +208,6 @@ internal object HtmlBlockModelCompiler {
                         if (blockAction == null) {
                             inlineBuffer += node
                         } else {
-                            if (blockAction.role == SafeBlockHtmlRole.THEMATIC_BREAK) return null
                             if (!flushInline()) return null
                             val identity = derivedIdentity(
                                 parent = parentIdentity,
@@ -206,11 +215,29 @@ internal object HtmlBlockModelCompiler {
                                 index = childIndex++,
                                 contentRevision = node.sourceRevision,
                             )
-                            val compiled = compileContainerElement(
-                                element = node,
-                                action = blockAction,
-                                identity = identity,
-                            ) ?: return null
+                            val compiled = when (blockAction.role) {
+                                SafeBlockHtmlRole.HEADING -> compileHeadingElement(
+                                    element = node,
+                                    action = blockAction,
+                                    identity = identity,
+                                )
+                                SafeBlockHtmlRole.BLOCK_QUOTE -> compileBlockQuoteElement(
+                                    element = node,
+                                    identity = identity,
+                                    inheritedAlignment = blockAction.alignment,
+                                )
+                                SafeBlockHtmlRole.CODE_BLOCK -> compileCodeBlockElement(
+                                    element = node,
+                                    identity = identity,
+                                )
+                                SafeBlockHtmlRole.CONTAINER,
+                                SafeBlockHtmlRole.PARAGRAPH,
+                                SafeBlockHtmlRole.THEMATIC_BREAK -> compileContainerElement(
+                                    element = node,
+                                    action = blockAction,
+                                    identity = identity,
+                                )
+                            } ?: return null
                             result += compiled
                         }
                     }
@@ -295,6 +322,59 @@ internal object HtmlBlockModelCompiler {
         return start.trim().toIntOrNull()
     }
 
+    private fun compileHeadingElement(
+        element: FragmentElement,
+        action: SafeBlockHtmlAction,
+        identity: RenderIdentity,
+    ): HeadingBlockModel? {
+        val level = action.headingLevel?.takeIf { it in 1..6 } ?: return null
+        return when (val paragraph = compileInlineParagraph(element.children, action.alignment, identity)) {
+            is InlineParagraphCompileResult.Content -> HeadingBlockModel(
+                identity = identity,
+                level = level,
+                numbering = null,
+                inline = paragraph.model.inline,
+            )
+            InlineParagraphCompileResult.Empty,
+            InlineParagraphCompileResult.Unsupported -> null
+        }
+    }
+
+    private fun compileBlockQuoteElement(
+        element: FragmentElement,
+        identity: RenderIdentity,
+        inheritedAlignment: BlockTextAlignment,
+    ): BlockQuoteBlockModel? {
+        val children = compileFlow(
+            nodes = element.children,
+            inheritedAlignment = inheritedAlignment,
+            parentIdentity = identity,
+        ) ?: return null
+        return BlockQuoteBlockModel(identity = identity, children = children)
+    }
+
+    private fun compileCodeBlockElement(
+        element: FragmentElement,
+        identity: RenderIdentity,
+    ): CodeBlockModel? {
+        val extracted = extractCodeBlock(element) ?: return null
+        return CodeBlockModel(
+            identity = identity,
+            language = extracted.language,
+            title = null,
+            code = extracted.code,
+            showLineNumbers = true,
+            startLine = 1,
+            highlightedLines = emptySet(),
+            widget = CodeBlockWidgetModel(
+                identity = identity,
+                code = extracted.code,
+                language = extracted.language,
+                title = null,
+            ),
+        )
+    }
+
     private fun compileContainerElement(
         element: FragmentElement,
         action: SafeBlockHtmlAction,
@@ -312,6 +392,9 @@ internal object HtmlBlockModelCompiler {
                 val children = compileFlow(element.children, action.alignment, identity) ?: return null
                 HtmlContainerBlockModel(identity = identity, children = children)
             }
+            SafeBlockHtmlRole.HEADING,
+            SafeBlockHtmlRole.BLOCK_QUOTE,
+            SafeBlockHtmlRole.CODE_BLOCK,
             SafeBlockHtmlRole.THEMATIC_BREAK -> null
         }
     }
@@ -416,6 +499,59 @@ internal object HtmlBlockModelCompiler {
     private fun FragmentStandaloneTag.isHiddenComment(): Boolean =
         SafeHtmlPolicy.inlineAction(tag) == SafeInlineHtmlAction.Hidden
 
+    private fun extractCodeBlock(element: FragmentElement): CodeBlockExtraction? {
+        if (element.tag.name != "pre") return null
+        if (element.tag.attributes.isNotEmpty()) return null
+
+        val visibleChildren = element.children.filterNot { child ->
+            child is FragmentStandaloneTag && child.isHiddenComment()
+        }
+        val codeElement = visibleChildren.filterIsInstance<FragmentElement>()
+            .singleOrNull { it.tag.name == "code" }
+        if (codeElement != null) {
+            if (visibleChildren.any { child ->
+                    child !== codeElement && (child !is FragmentText || child.source.isNotBlank())
+                }
+            ) {
+                return null
+            }
+            val language = codeLanguage(codeElement.tag) ?: return null
+            val code = collectCodeText(codeElement.children) ?: return null
+            return CodeBlockExtraction(code = code, language = language)
+        }
+
+        val code = collectCodeText(element.children) ?: return null
+        return CodeBlockExtraction(code = code, language = "")
+    }
+
+    private fun collectCodeText(nodes: List<FragmentNode>): String? = buildString {
+        for (node in nodes) {
+            when (node) {
+                is FragmentText -> append(HtmlEntities.replaceAll(node.source))
+                is FragmentStandaloneTag -> if (!node.isHiddenComment()) return null
+                is FragmentElement -> return null
+            }
+        }
+    }
+
+    private fun codeLanguage(tag: HtmlTagToken): String? {
+        if (tag.name != "code") return null
+        if (tag.attributes.isEmpty()) return ""
+        if (tag.attributes.keys.any { it != "class" }) return null
+        val classes = tag.attributes["class"].orEmpty()
+            .splitToSequence(' ', '\t', '\n', '\r')
+            .filter { it.isNotBlank() }
+            .toList()
+        if (classes.size != 1) return null
+        val className = classes.single()
+        val language = when {
+            className.startsWith("language-") -> className.removePrefix("language-")
+            className.startsWith("lang-") -> className.removePrefix("lang-")
+            else -> return null
+        }
+        return language.takeIf { it.isNotBlank() && it.none(Char::isWhitespace) }
+    }
+
     private fun List<FragmentNode>.sourceRevision(): Long = fold(0L) { revision, node ->
         renderIdentityFromValues(revision, node.sourceRevision)
     }
@@ -440,6 +576,7 @@ internal object HtmlBlockModelCompiler {
         )
     }
 
+    private const val RAW_HTML_BLOCK_TYPE = 1
     private const val HTML_COMMENT_TYPE = 2
     private const val COMMONMARK_BLOCK_TAG_TYPE = 6
     private const val COMPLETE_TAG_TYPE = 7

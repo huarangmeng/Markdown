@@ -28,12 +28,16 @@ internal sealed interface SafeInlineHtmlAction {
 internal enum class SafeBlockHtmlRole {
     CONTAINER,
     PARAGRAPH,
+    HEADING,
+    BLOCK_QUOTE,
+    CODE_BLOCK,
     THEMATIC_BREAK,
 }
 
 internal data class SafeBlockHtmlAction(
     val role: SafeBlockHtmlRole,
     val alignment: BlockTextAlignment,
+    val headingLevel: Int? = null,
 )
 
 /**
@@ -84,12 +88,29 @@ internal object SafeHtmlPolicy {
             "article", "center", "div", "footer", "header", "main", "section" ->
                 SafeBlockHtmlRole.CONTAINER
             "p" -> SafeBlockHtmlRole.PARAGRAPH
+            "h1", "h2", "h3", "h4", "h5", "h6" -> SafeBlockHtmlRole.HEADING
+            "blockquote" -> SafeBlockHtmlRole.BLOCK_QUOTE
+            "pre" -> SafeBlockHtmlRole.CODE_BLOCK
             "hr" -> SafeBlockHtmlRole.THEMATIC_BREAK
             else -> return null
         }
         if (role == SafeBlockHtmlRole.THEMATIC_BREAK) {
             return if (token.attributes.isEmpty()) {
                 SafeBlockHtmlAction(role, inheritedAlignment)
+            } else {
+                null
+            }
+        }
+        if (role == SafeBlockHtmlRole.HEADING ||
+            role == SafeBlockHtmlRole.BLOCK_QUOTE ||
+            role == SafeBlockHtmlRole.CODE_BLOCK
+        ) {
+            return if (token.kind == HtmlTagKind.OPENING && token.attributes.isEmpty()) {
+                SafeBlockHtmlAction(
+                    role = role,
+                    alignment = inheritedAlignment,
+                    headingLevel = name.removePrefix("h").toIntOrNull(),
+                )
             } else {
                 null
             }
