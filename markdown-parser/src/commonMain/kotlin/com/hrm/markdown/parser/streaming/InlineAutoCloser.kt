@@ -54,13 +54,22 @@ object InlineAutoCloser {
                         continue
                     } else {
                         // 单 $ 行内数学
-                        // 检查前面是否是数字（不作为数学公式）
-                        val prevIsDigit = i > 0 && content[i - 1].isDigit()
-                        if (!prevIsDigit) {
-                            if (!state.tryCloseSingleDollar()) {
+                        if (state.inSingleDollarMath()) {
+                            // 已在单 $ 公式内：任何单 $ 都作为闭合符，
+                            // 不受前导数字影响（如 $m/s^2$ 中结尾的 2）。
+                            state.tryCloseSingleDollar()
+                        } else if (!state.inMath()) {
+                            // 作为潜在开启符，应用与主解析器一致的启发式：
+                            // - 前一个字符是数字（如 100$）不作为公式起始
+                            // - 后一个字符是空白或结尾（如 "$ "）不作为公式起始
+                            val prevIsDigit = i > 0 && content[i - 1].isDigit()
+                            val nextIsWhitespaceOrEnd =
+                                i + 1 >= content.length || content[i + 1].isWhitespace()
+                            if (!prevIsDigit && !nextIsWhitespaceOrEnd) {
                                 state.pushSingleDollar()
                             }
                         }
+                        // 若处于 $$ 公式内，单 $ 视为内容，忽略之。
                         i++
                         continue
                     }
@@ -200,6 +209,7 @@ object InlineAutoCloser {
             val last = stack.lastOrNull()
             return last is OpenStructure.SingleDollar || last is OpenStructure.DoubleDollar
         }
+        fun inSingleDollarMath(): Boolean = stack.lastOrNull() is OpenStructure.SingleDollar
 
         fun pushBackticks(count: Int) {
             stack.add(OpenStructure.Backticks(count))

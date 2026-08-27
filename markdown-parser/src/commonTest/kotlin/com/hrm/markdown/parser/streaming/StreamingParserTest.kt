@@ -873,6 +873,39 @@ class InlineAutoCloserTest {
     }
 
     @Test
+    fun should_not_repair_closed_inline_math_ending_with_digit() {
+        // Issue #43: 数字结尾的闭合公式 $m/s^2$ 不应被误判为未闭合
+        val suffix = InlineAutoCloser.buildRepairSuffix("its SI unit becomes \$m/s^2\$.")
+        assertEquals("", suffix, "Complete inline math should not need repair, got: $suffix")
+    }
+
+    @Test
+    fun should_not_repair_closed_inline_math_with_superscript_number() {
+        // 闭合符前是数字（^2 的 2）时仍应正确闭合
+        val suffix = InlineAutoCloser.buildRepairSuffix("energy \$E=mc^2\$ is famous")
+        assertEquals("", suffix, "Complete inline math should not need repair, got: $suffix")
+    }
+
+    @Test
+    fun should_treat_price_dollar_as_literal_not_math_opener() {
+        // 前导数字的 $（价格）不应被当作公式起始，从而不产生修复后缀
+        assertEquals("", InlineAutoCloser.buildRepairSuffix("It costs 100\$ today"))
+    }
+
+    @Test
+    fun should_not_open_math_when_dollar_followed_by_whitespace() {
+        // "$ " 后接空白，不作为公式起始
+        assertEquals("", InlineAutoCloser.buildRepairSuffix("price is \$ 5 dollars"))
+    }
+
+    @Test
+    fun should_still_repair_genuinely_unclosed_math_ending_with_digit() {
+        // 真正未闭合、且以数字结尾的公式仍需补全
+        val suffix = InlineAutoCloser.buildRepairSuffix("becomes \$m/s^2")
+        assertTrue(suffix.contains("$"), "Expected \$ in suffix, got: $suffix")
+    }
+
+    @Test
     fun should_repair_unclosed_superscript() {
         val suffix = InlineAutoCloser.buildRepairSuffix("x^2")
         assertTrue(suffix.contains("^"), "Expected ^ in suffix, got: $suffix")
