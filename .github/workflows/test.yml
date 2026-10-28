@@ -44,6 +44,62 @@ jobs:
             **/build/reports/tests/jvmTest/**
             **/build/test-results/jvmTest/**
 
+  macos-native:
+    name: macOS Native Tests
+    runs-on: macos-14
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: zulu
+          java-version: 21
+          cache: gradle
+      - name: Prepare Gradle
+        run: chmod +x ./gradlew
+      - name: Verify Apple Silicon host
+        run: test "$(uname -m)" = arm64
+      - name: Run native parser, runtime and renderer tests
+        run: |
+          ./gradlew :markdown-parser:macosArm64Test :markdown-runtime:macosArm64Test \
+            :markdown-renderer:macosArm64Test --max-workers=2
+          python3 -I - <<'PYTEST'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          for module in ("markdown-parser", "markdown-runtime", "markdown-renderer"):
+              reports = [ET.parse(path).getroot() for path in
+                         Path(module, "build/test-results/macosArm64Test").glob("TEST-*.xml")]
+              if not reports or sum(int(report.get("tests", 0)) for report in reports) == 0:
+                  raise SystemExit(f"No native tests executed: {module}")
+              if any(int(report.get(key, 0)) for report in reports for key in ("failures", "errors", "skipped")):
+                  raise SystemExit(f"Native tests failed or were skipped: {module}")
+              required = {"markdown-parser": "MutationThreadTest", "markdown-renderer": "SelectionClipboardTest"}
+              if module in required and not any(required[module] in report.get("name", "") and
+                                                int(report.get("tests", 0)) > 0 for report in reports):
+                  raise SystemExit(f"Missing native test: {required[module]}")
+          PYTEST
+      - name: Verify Maven variant metadata
+        run: |
+          ./gradlew :markdown-parser:generateMetadataFileForKotlinMultiplatformPublication \
+            :markdown-runtime:generateMetadataFileForKotlinMultiplatformPublication \
+            :markdown-renderer:generateMetadataFileForKotlinMultiplatformPublication --max-workers=2
+          for module in markdown-parser markdown-runtime markdown-renderer; do
+            jq -e 'any(.variants[]; .attributes["org.jetbrains.kotlin.native.target"] == "macos_arm64")' \
+              "$module/build/publications/kotlinMultiplatform/module.json"
+          done
+      - name: Upload native test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-native-test-reports
+          path: |
+            markdown-parser/build/test-results/macosArm64Test/**
+            markdown-runtime/build/test-results/macosArm64Test/**
+            markdown-renderer/build/test-results/macosArm64Test/**
+            markdown-parser/build/publications/kotlinMultiplatform/module.json
+            markdown-runtime/build/publications/kotlinMultiplatform/module.json
+            markdown-renderer/build/publications/kotlinMultiplatform/module.json
+
   parser-stress:
     name: Parser Stress Tests
     runs-on: ubuntu-latest

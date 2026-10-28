@@ -29,6 +29,8 @@ kotlin {
         }
     }
 
+    macosArm64()
+
     jvm()
 
     js {
@@ -70,7 +72,7 @@ mavenPublishing {
             - Input transform pipeline
             - Plugin registry
             - Directive-based extension dispatch
-            - Multi-platform support (Android/iOS/JVM/JS/WasmJS)
+            - Multi-platform support (Android/iOS/macOS Native/JVM/JS/WasmJS)
         """.trimIndent()
         )
         inceptionYear.set("2026")

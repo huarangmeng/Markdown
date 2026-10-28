@@ -21,10 +21,12 @@
 
 ## ✨ Why KMP Markdown?
 
+The `macosArm64` library target is experimental and requires `org.jetbrains.compose.experimental.macos.enabled=true`. Native rendering also requires macOS Native Maven publications of the transitive LaTeX, codehigh and diagram libraries; existing JVM/iOS artifacts cannot substitute for them. The demo desktop application remains JVM-based. Native tests and Maven variant metadata are checked by the macOS CI job; adding this target alone does not establish successful native linking or rendering.
+
 |  | Feature | Description |
 |--|---------|-------------|
 | 🚀 | **Incremental Updates** | Reuses unchanged content when editing documents or receiving streaming output |
-| 🌍 | **True Cross-Platform** | One codebase renders identically on **Android**, **iOS**, **Desktop (JVM)**, **Web (Wasm/JS)** |
+| 🌍 | **True Cross-Platform** | One codebase renders identically on **Android**, **iOS**, **Desktop (JVM)**, **Web (Wasm/JS)**; experimental **macOS (Kotlin/Native)** target |
 | 📐 | **Syntax Support** | 413 supported syntax and behavior items, **652/652 CommonMark Spec** examples passing, plus GFM & 20+ extensions |
 | 🤖 | **LLM-Ready Streaming** | First-class token-by-token rendering with display-frame coalescing — zero flicker during AI generation |
 | 🎨 | **Fully Themeable** | 30+ configurable properties, built-in GitHub light/dark themes, auto system detection |
