@@ -3,6 +3,7 @@ package com.hrm.markdown.renderer
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.Stable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -63,6 +64,15 @@ class MarkdownTextSearchState internal constructor() {
         private set
     var highlightActiveMatch: Boolean by mutableStateOf(true)
     var highlightColor: Color by mutableStateOf(Color.Yellow.copy(alpha = 0.3f))
+
+    /** 是否绘制所有匹配的背景；当前匹配启用高亮时只使用 [highlightColor]，不叠色。 */
+    var highlightAllMatches: Boolean by mutableStateOf(false)
+    var allMatchHighlightColor: Color by mutableStateOf(Color.Yellow.copy(alpha = 0.15f))
+
+    // 按实际几何节点分组，避免每个可见块在每帧遍历整篇结果；不测量或保留离屏块。
+    internal val matchesByGeometry: Map<Long, List<MarkdownTextSearchMatch>> by derivedStateOf {
+        if (highlightAllMatches) matches.groupBy { it.geometryStableId } else emptyMap()
+    }
 
     private var ignoreCase = true
     private var controller: MarkdownSelectionController? = null

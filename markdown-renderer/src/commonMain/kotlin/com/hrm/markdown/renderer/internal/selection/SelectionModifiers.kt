@@ -46,10 +46,18 @@ internal fun Modifier.selectableBlock(
             .onGloballyPositioned { controller.registry.register(stableId, it, requester) }
             .drawWithContent {
                 // 搜索只绘制背景，不写入 controller.state.range，因此不会触发选区菜单/手柄。
-                val active = search?.activeMatch
-                if (search?.highlightActiveMatch == true && active?.geometryStableId == stableId) {
-                    for (box in controller.highlightBoxesFor(stableId, active.logicalRange, textOnly = true)) {
-                        drawRect(search.highlightColor, box.topLeft, box.size)
+                if (search != null) {
+                    val active = search.activeMatch.takeIf { search.highlightActiveMatch }
+                    for (match in search.matchesByGeometry[stableId].orEmpty()) {
+                        if (match == active) continue
+                        for (box in controller.highlightBoxesFor(stableId, match.logicalRange, textOnly = true)) {
+                            drawRect(search.allMatchHighlightColor, box.topLeft, box.size)
+                        }
+                    }
+                    if (active?.geometryStableId == stableId) {
+                        for (box in controller.highlightBoxesFor(stableId, active.logicalRange, textOnly = true)) {
+                            drawRect(search.highlightColor, box.topLeft, box.size)
+                        }
                     }
                 }
                 drawContent()

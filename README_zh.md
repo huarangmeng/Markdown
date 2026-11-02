@@ -350,8 +350,11 @@ Column {
 - 支持段落、标题、嵌套正文和表格单元格文字。不索引图片替代文本、公式/图表源码、行内 widget 或代码块。
   当前 CodeHigh 代码块公共 API 未开放文本布局几何，查找不会估算坐标。隐藏 tab 中可能存在逻辑匹配，
   但需要显示该 tab 后才能定位。
-- 当前匹配默认使用 30% 不透明度的黄色背景；设置 `highlightActiveMatch = false` 关闭，或通过
-  `highlightColor` 调整。此功能独立于 `enableSelection`。
+- 当前匹配默认使用 30% 不透明度的黄色背景，可通过 `highlightColor` 调整。
+  设置 `highlightAllMatches = true` 可同时高亮其余匹配，默认关闭；其颜色默认是 15% 不透明度的黄色，
+  可通过 `allMatchHighlightColor` 调整。当前颜色替代普通命中颜色，不叠色。
+  `highlightActiveMatch = false` 只关闭当前匹配的特殊样式；若开启全部高亮，该匹配仍使用普通命中颜色。
+  两种样式均独立于 `enableSelection`，不会为高亮而排版离屏文本。
 - 每个 Markdown 实例使用独立状态，并在 UI 线程操作。`clear()` 清除查询、结果、高亮并取消定位。
   新查询、文档修订、解绑或后续定位会使旧请求失效；调用协程取消仍向上传播。不要缓存旧匹配结果。
 - 关闭查找面板后传 `textSearchState = null`，避免搜索索引、几何回调和定位 requester。

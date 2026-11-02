@@ -55,7 +55,10 @@ class MarkdownTextSearchLifecycleTest {
         setContent { page.Content() }
         waitForIdle()
         val original = page.document
-        runOnIdle { page.search.setQuery("针叶林") }
+        runOnIdle {
+            page.search.highlightAllMatches = true
+            page.search.setQuery("针叶林")
+        }
         waitForIdle()
         val matches = page.search.matches
         assertEquals(2, matches.size)
@@ -90,31 +93,61 @@ class MarkdownTextSearchLifecycleTest {
 
     @Test
     fun should_paint_optional_yellow_background_without_selection_or_reparse() = runComposeUiTest {
-        val page = SearchPage("before needle after", enableSelection = true)
+        val phrase = "needle ".repeat(9).trim()
+        val page = SearchPage("before $phrase after\n\n$phrase tail", enableSelection = true)
         setContent { page.Content() }
         waitForIdle()
-        runOnIdle { page.search.setQuery("needle") }
-        assertTrue(reveal(page, page.search.matches.single()))
-        val highlighted = onNodeWithTag("viewport").captureToImage().toPixelMap()
-        var yellowPixels = 0
-        for (y in 0 until highlighted.height) for (x in 0 until highlighted.width) {
-            val c = highlighted[x, y]
-            if (c.red > 0.9f && c.green > 0.9f && c.blue in 0.55f..0.85f) yellowPixels++
+        runOnIdle {
+            page.search.highlightAllMatches = true
+            page.search.allMatchHighlightColor = Color.Yellow.copy(alpha = 0.3f)
+            page.search.highlightColor = Color(0xFFFFC107).copy(alpha = 0.7f)
+            page.search.setQuery(phrase)
         }
-        assertTrue(yellowPixels > 10, "Actual body pixels must contain the active yellow range")
+        val matches = page.search.matches
+        assertEquals(2, matches.size)
+        for (match in matches) {
+            val boxes = page.controller.highlightBoxesFor(match.geometryStableId, match.logicalRange, textOnly = true)
+            assertTrue(boxes.map { it.top }.distinct().size > 1, "Each hit must wrap onto real text lines")
+        }
+        fun assertHighlights(active: MarkdownTextSearchMatch? = null, visible: Boolean = true) {
+            val pixels = onNodeWithTag("viewport").captureToImage().toPixelMap()
+            for (match in matches) {
+                val block = assertNotNull(page.controller.registry.coordinatesOf(match.geometryStableId))
+                var light = 0
+                var dark = 0
+                for (box in page.controller.highlightBoxesFor(match.geometryStableId, match.logicalRange, textOnly = true)) {
+                    val topLeft = page.viewport.windowToLocal(block.localToWindow(box.topLeft))
+                    val bottomRight = page.viewport.windowToLocal(block.localToWindow(box.bottomRight))
+                    for (y in (topLeft.y + 1).toInt().coerceAtLeast(0) until (bottomRight.y - 1).toInt().coerceAtMost(pixels.height)) {
+                        for (x in (topLeft.x + 1).toInt().coerceAtLeast(0) until (bottomRight.x - 1).toInt().coerceAtMost(pixels.width)) {
+                            val c = pixels[x, y]
+                            if (c.red > 0.9f && c.green > 0.9f && c.blue in 0.55f..0.85f) light++
+                            if (c.red > 0.9f && c.green in 0.75f..0.9f && c.blue < 0.4f) dark++
+                        }
+                    }
+                }
+                assertEquals(visible && match != active, light > 10, "Inactive hit must keep its light background")
+                assertEquals(visible && match == active, dark > 10, "Only the active hit may be dark")
+            }
+        }
+        assertHighlights()
+        for (match in matches) {
+            assertTrue(reveal(page, match))
+            assertHighlights(active = match)
+        }
         runOnIdle {
             assertNull(page.controller.state.range)
             assertEquals(0, page.menuCalls)
             page.search.highlightActiveMatch = false
         }
-        val hidden = onNodeWithTag("viewport").captureToImage().toPixelMap()
-        var hiddenYellow = 0
-        for (y in 0 until hidden.height) for (x in 0 until hidden.width) {
-            val c = hidden[x, y]
-            if (c.red > 0.9f && c.green > 0.9f && c.blue in 0.55f..0.85f) hiddenYellow++
+        assertHighlights()
+        runOnIdle { page.search.highlightAllMatches = false }
+        assertHighlights(visible = false)
+        runOnIdle {
+            page.search.highlightAllMatches = true
+            page.search.highlightActiveMatch = true
+            page.controller.selectAll()
         }
-        assertEquals(0, hiddenYellow)
-        runOnIdle { page.controller.selectAll() }
         val selectedRange = page.controller.state.range
         val toolbarKey = page.controller.state.toolbarRequestKey
         runOnIdle { page.search.setQuery("after") }
@@ -125,7 +158,10 @@ class MarkdownTextSearchLifecycleTest {
             page.search.clear()
             assertEquals(selectedRange, page.controller.state.range)
             assertNull(page.search.activeMatch)
+            assertTrue(page.search.matchesByGeometry.isEmpty())
+            page.controller.clearSelection()
         }
+        assertHighlights(visible = false)
     }
 
     @Test

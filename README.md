@@ -358,8 +358,12 @@ same match again, even after the user scrolls away.
   math/diagram sources, inline widgets, and code blocks are excluded. CodeHigh's current public
   code-block API does not expose text-layout geometry; search does not estimate it. Hidden tab
   content may have a logical match but cannot be revealed until the tab is shown.
-- The active match has a yellow background at 30% opacity. Set `highlightActiveMatch = false`
-  to disable it or customize `highlightColor`. This is independent of `enableSelection`.
+- The active match has a yellow background at 30% opacity, customizable with `highlightColor`.
+  Set `highlightAllMatches = true` to also highlight other matches at 15% opacity; this is off by
+  default and customizable with `allMatchHighlightColor`. The active color replaces, rather than
+  blends with, the other-match color. `highlightActiveMatch = false` disables only the active
+  style, so that match still uses the other-match color when all-match highlighting is enabled.
+  Both styles are independent of `enableSelection` and do not lay out offscreen text.
 - Use one state per Markdown instance, on the UI thread. `clear()` clears query/results/highlight
   and cancels pending reveal. New queries, document revisions, detachment, or newer reveal calls
   invalidate pending requests; caller cancellation still propagates. Do not retain old matches.
