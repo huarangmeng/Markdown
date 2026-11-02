@@ -282,6 +282,28 @@ internal class MarkdownSelectionController(
         state.isHandleDrag = false
         draggedHandleAnchor = null
         fixedHandleAnchor = null
+        // 原地长按只建立了光标锚点。释放时用已绘制文字的词边界展开，不能把它当作空选择清除。
+        // 长按期间 hasSelection 已启用真实 TextLayoutResult 注册；未完成回调时复用现有单 run 测量。
+        // 只访问命中的可见块，不为选词或复制物化离屏正文。
+        state.range?.takeIf { it.start == it.end }?.let { collapsed ->
+            val anchor = collapsed.start
+            val entry = index.entryOf(anchor.blockStableId) ?: return@let
+            if (entry.totalChars == 0) return@let
+            val geometry = geometryByStableId[anchor.blockStableId] ?: return@let
+            val (span, offset) = geometry.charToRun(
+                anchor.charInBlock.coerceAtMost(entry.totalChars - 1), entry.totalChars,
+            ) ?: return@let
+            val layout = textLayoutFor(geometry, span) ?: return@let
+            val text = layout.result.layoutInput.text
+            if (text.isEmpty()) return@let
+            val word = layout.result.getWordBoundary((layout.textStart + offset).coerceIn(0, text.lastIndex))
+            val from = (span.charStart + word.start - layout.textStart).coerceIn(0, entry.totalChars)
+            val to = (span.charStart + word.end - layout.textStart).coerceIn(from, entry.totalChars)
+            state.range = SelectionRange(
+                anchor.copy(charInBlock = clampToCharBoundary(entry.text, from)),
+                anchor.copy(charInBlock = clampToCharBoundary(entry.text, to)),
+            )
+        }
         if (selectedText.isEmpty()) {
             clearSelection()
         } else {

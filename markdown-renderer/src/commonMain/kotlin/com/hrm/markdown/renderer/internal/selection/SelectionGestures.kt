@@ -58,10 +58,14 @@ internal fun Modifier.markdownSelectionGestures(
             )
         }
         .pointerInput(controller) {
-            // Consumed drag events cancel tap detection for the same gesture;
-            // the next independent tap should always clear the selection.
             detectTapGestures(
-                onTap = { controller.clearSelection() },
+                onPress = {
+                    val selectionAtPress = controller.state.range
+                    // An unmoved long press also releases this detector; only an independent tap clears selection.
+                    if (tryAwaitRelease() && controller.state.range === selectionAtPress) {
+                        controller.clearSelection()
+                    }
+                },
             )
         }
 

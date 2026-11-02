@@ -305,7 +305,7 @@ Markdown(
 
 插槽内容应保持在声明高度内，工具栏文字不计入 Markdown 复制内容。`MarkdownTableInfo.rowCount` 包含表头行。
 
-外层容器负责垂直滚动时，设置 `enableScroll = false`。
+外层容器负责垂直滚动时，设置 `enableScroll = false`；将父容器的 `ScrollState` 作为 `externalScrollState` 传入，可在点击脚注返回箭头时恢复原滚动位置，不会增加第二个滚动容器。监听行内点击不会替换内置脚注跳转。
 
 软换行默认为 `Space`；使用 `LineBreak` 可在显示与复制时保留换行。HTML 导出同样支持 `softBreakPolicy`。
 

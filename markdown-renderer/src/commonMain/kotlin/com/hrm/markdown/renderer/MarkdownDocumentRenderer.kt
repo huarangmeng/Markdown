@@ -1,6 +1,7 @@
 package com.hrm.markdown.renderer
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
@@ -48,6 +49,7 @@ internal fun MarkdownDocumentRenderer(
     sourceMap: MarkdownSourceMap = MarkdownSourceMap.Identity,
     components: MarkdownComponents = MarkdownComponents.Default,
     interactions: MarkdownInteractions = MarkdownInteractions.Default,
+    externalScrollState: ScrollState? = null,
 ) {
     DisposableEffect(state) { onDispose { state.clearSelectionAction = null; state.scrollEnabled = false } }
     val latexState = rememberMarkdownLatexState(config.latexConfig)
@@ -55,7 +57,7 @@ internal fun MarkdownDocumentRenderer(
         resolveMarkdownRenderMode(enableScroll = enableScroll)
     }
     val lazyListState = state.lazyListState
-    val scrollState = state.scrollState
+    val scrollState = if (enableScroll) state.scrollState else externalScrollState ?: state.scrollState
     val header = components.header
     val footer = components.footer
     SideEffect {
@@ -125,7 +127,7 @@ internal fun MarkdownDocumentRenderer(
             }
             val navigationController = rememberMarkdownNavigationController(
                 renderMode = renderMode,
-                enableScroll = enableScroll,
+                enableScroll = enableScroll || externalScrollState != null,
                 scrollState = scrollState,
                 lazyListState = lazyListState,
                 onLinkClick = stableOnLinkClick,

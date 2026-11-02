@@ -1,6 +1,7 @@
 package com.hrm.markdown.renderer.internal.selection
 
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.draw.drawWithContent
@@ -24,8 +25,9 @@ internal fun Modifier.selectableBlock(
     return this.composed {
         val stableId = block.identity.stableId
         val highlightColor = LocalMarkdownStyle.current.colors.link.copy(alpha = 0.3f)
-        DisposableEffect(block, controller) {
-            controller.registerVisibleBlock(block)
+        // Model revisions need not move the Compose node, so they must not discard its coordinates.
+        SideEffect { controller.registerVisibleBlock(block) }
+        DisposableEffect(stableId, controller) {
             onDispose {
                 controller.unregisterVisibleBlock(stableId)
                 controller.registry.unregister(stableId)

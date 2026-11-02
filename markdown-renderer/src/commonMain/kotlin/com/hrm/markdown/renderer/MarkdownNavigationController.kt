@@ -66,8 +66,11 @@ internal class MarkdownNavigationController(
             val returnPosition = footnoteNavigationState.getReturnPosition(label)
             if (returnPosition != null && enableScroll) {
                 when (returnPosition) {
-                    is FootnoteReturnPosition.Scroll ->
-                        scrollState?.animateScrollTo(returnPosition.value)
+                    is FootnoteReturnPosition.Scroll -> {
+                        val state = scrollState ?: return@launch
+                        state.animateScrollTo(returnPosition.value)
+                        return@launch
+                    }
 
                     is FootnoteReturnPosition.LazyList ->
                         lazyListState?.animateScrollToItem(

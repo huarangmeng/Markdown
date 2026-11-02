@@ -17,8 +17,14 @@ import androidx.compose.ui.platform.NativeClipboard
 import androidx.compose.ui.platform.asAwtTransferable
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.longClick
+import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.v2.runComposeUiTest
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.dp
 import com.hrm.markdown.renderer.internal.selection.LocalMarkdownSelectionController
 import com.hrm.markdown.renderer.internal.selection.MarkdownSelectionController
@@ -34,6 +40,42 @@ import kotlin.test.assertTrue
 
 @OptIn(ExperimentalTestApi::class)
 class MarkdownSelectionLifecycleTest {
+    /** 原地长按真实字形必须留下完整词选区，不能要求用户额外拖动才允许复制。 */
+    @Test
+    fun should_selectAndCopyPaintedWord_when_longPressIsReleasedWithoutDragging() = runComposeUiTest {
+        val page = SelectionPage("before beta after")
+        setContent { page.Content() }
+        for ((source, expected) in listOf(
+            "before beta after" to "beta",
+            "before ==highlight== after" to "highlight",
+            "before 😀 after" to "😀",
+        )) {
+            runOnIdle { page.source = source }
+            waitUntil(timeoutMillis = 10_000) {
+                onAllNodes(hasText(expected, substring = true)).fetchSemanticsNodes().isNotEmpty()
+            }
+            val text = onAllNodes(
+                hasText(expected, substring = true) and SemanticsMatcher.keyIsDefined(SemanticsActions.GetTextLayoutResult),
+                useUnmergedTree = true,
+            )[0]
+            val layouts = mutableListOf<TextLayoutResult>()
+            text.performSemanticsAction(SemanticsActions.GetTextLayoutResult) { assertTrue(it(layouts)) }
+            val layout = layouts.single()
+            val glyph = layout.getBoundingBox(layout.layoutInput.text.text.indexOf(expected))
+            text.performTouchInput { longClick(glyph.center) }
+            waitForIdle()
+            runOnIdle {
+                assertEquals(expected, page.controller.selectedText)
+                assertTrue(page.controller.hasSelection)
+                assertEquals(SelectionActiveHandle.None, page.controller.state.activeHandle)
+                assertTrue(page.controller.state.toolbarRequestKey > 0)
+                page.controller.copySelection()
+                assertEquals(expected, page.clipboard.copied.last())
+                page.controller.clearSelection()
+            }
+        }
+    }
+
     @Test
     fun should_copyWholeCharacters_when_replacementMovesSelectionEndpointIntoASurrogatePair() = runComposeUiTest {
         val page = SelectionPage("AB")

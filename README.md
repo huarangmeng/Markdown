@@ -308,7 +308,7 @@ The host implements `runCode`. Images use Coil by default; customize them with `
 
 Keep slot content within its declared height; toolbar text is excluded from Markdown copy. `MarkdownTableInfo.rowCount` includes the header row.
 
-Set `enableScroll = false` when a parent container handles vertical scrolling.
+Set `enableScroll = false` when a parent container handles vertical scrolling. Pass that parent's `ScrollState` as `externalScrollState` to restore its exact position when following a footnote backlink; this does not add a second scroll container. Inline click observers preserve the built-in footnote action.
 
 Soft breaks default to `Space`. Use `LineBreak` to preserve line breaks in display and copy. HTML export also accepts `softBreakPolicy`.
 

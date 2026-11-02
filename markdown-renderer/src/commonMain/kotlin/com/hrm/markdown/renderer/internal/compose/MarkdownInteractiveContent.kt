@@ -88,8 +88,11 @@ internal fun MarkdownInteractiveText(
                 val kind = parts.getOrNull(1).orEmpty()
                 val payload = decodePairs(parts.getOrNull(2))
                 val attributes = decodePairs(parts.getOrNull(3))
+                val originalLink = text.getLinkAnnotations(element.start, element.end)
+                    .firstOrNull { it.start <= element.start && it.end >= element.end }?.item
                 addLink(LinkAnnotation.Clickable(
                     tag = kind.ifEmpty { "inline-element" },
+                    styles = originalLink?.styles,
                     linkInteractionListener = {
                         interactions?.inlineElement(
                             kind,
@@ -99,6 +102,7 @@ internal fun MarkdownInteractiveText(
                             id,
                             geometry.bounds(element.start, element.end),
                         )
+                        originalLink?.linkInteractionListener?.onClick(originalLink)
                     },
                 ), element.start, element.end)
             }
