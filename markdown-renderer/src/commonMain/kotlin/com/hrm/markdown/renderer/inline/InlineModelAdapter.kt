@@ -28,6 +28,7 @@ import com.hrm.markdown.renderer.ResolvedMarkdownStyle
 import com.hrm.markdown.renderer.internal.adapter.createDirectiveInlineRenderScope
 import com.hrm.markdown.renderer.internal.compose.CitationAnnotationTag
 import com.hrm.markdown.renderer.internal.compose.InlineElementAnnotationTag
+import com.hrm.markdown.renderer.internal.compose.InlineElementRangeEndAnnotationTag
 import com.hrm.markdown.renderer.internal.compose.RenderInteractiveMarkdownImage
 import com.hrm.markdown.renderer.internal.core.model.DirectiveInlineWidgetModel
 import com.hrm.markdown.renderer.internal.core.model.ImageWidgetModel
@@ -267,6 +268,17 @@ private fun AnnotatedString.Builder.renderTextAtom(
                 }
 
                 else -> appendText()
+            }
+            if (interactiveMark?.isRangeEnd == true) {
+                val end = atom.text.indexOfLast { it != '\n' } + 1
+                if (end > 0) {
+                    addStringAnnotation(
+                        InlineElementRangeEndAnnotationTag,
+                        encodeInlineElementAnnotation(atom.identity.stableId, interactiveMark),
+                        end - 1,
+                        end,
+                    )
+                }
             }
         }
     context.emitTextAtom(

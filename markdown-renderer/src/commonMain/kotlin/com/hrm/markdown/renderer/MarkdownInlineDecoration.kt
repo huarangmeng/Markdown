@@ -2,6 +2,7 @@ package com.hrm.markdown.renderer
 
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
@@ -39,10 +40,7 @@ data class MarkdownInlineUnderline(
     val dotGap: Dp = 3.dp,
     /** 相对文本行底边向上抬升的距离。 */
     val offset: Dp = 2.dp,
-    /**
-     * 在装饰线**末尾**绘制一个标记点（例如“该片段有评论”）。
-     * null 表示不画；提供时画在最后一行装饰线的右端。
-     */
+    /** 仅在每个语义范围的最后一个文字端点绘制；不参与正文排版或文本投影。 */
     val endMarker: MarkdownInlineEndMarker? = null,
 ) {
     /** 圆点连成实线（[dotGap] 小于直径时视觉连续）；供只想区分线型的调用方快速构造。 */
@@ -52,11 +50,13 @@ data class MarkdownInlineUnderline(
     }
 }
 
-/** 装饰线末端的标记点（用于“有评论”等状态提示）。 */
+/** 装饰线末端的纯绘制标记；未提供 [painter] 时保持原有圆点样式。 */
 @Immutable
 data class MarkdownInlineEndMarker(
     val color: Color,
     val diameter: Dp = 4.dp,
-    /** 标记点与装饰线末端的间距。 */
+    /** 标记与文字末端的间距。 */
     val gap: Dp = 3.dp,
+    /** 绘制在 [diameter] 大小的方框内，由 [color] 着色，不插入正文字符或占位符。 */
+    val painter: Painter? = null,
 )
