@@ -1,5 +1,6 @@
 package com.hrm.markdown.renderer
 
+import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -33,6 +34,7 @@ import com.hrm.markdown.renderer.internal.toCompileEnvironment
 import com.hrm.markdown.runtime.MarkdownDirectiveRegistry
 import com.hrm.markdown.runtime.MarkdownSourceMap
 
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 internal fun MarkdownDocumentRenderer(
     document: Document,
@@ -202,6 +204,11 @@ internal fun MarkdownDocumentRenderer(
                 },
             ) {
                 CompositionLocalProvider(
+                    LocalBringIntoViewSpec provides if (enableScroll && textSearchState != null) {
+                        rememberMarkdownTextSearchBringIntoViewSpec(textSearchState)
+                    } else {
+                        LocalBringIntoViewSpec.current
+                    },
                     LocalMarkdownSelectionController provides selectionController,
                     LocalMarkdownTextSearchState provides textSearchState,
                     LocalMarkdownInteractions provides interactionController,

@@ -342,6 +342,23 @@ Column {
 `reveal(match)` 将首个实际匹配行滚动到视口内（包括内部 lazy 的屏外块），返回是否找到可用的真实文字几何。
 即使当前匹配未变，用户手动滚走后再次调用也会重新定位。
 
+内部滚动自动将完全屏外的搜索行居中，完全可见时不动，部分可见时滚到最近边缘；文档边界可能使精确居中不可达。
+外部滚动宿主可复用同一策略，在创建滚动容器前传入实际遮挡像素：
+
+```kotlin
+val spec = rememberMarkdownTextSearchBringIntoViewSpec(
+    search, obscuredTopPx = toolbarHeightPx, obscuredBottomPx = bottomBarHeightPx,
+)
+CompositionLocalProvider(LocalBringIntoViewSpec provides spec) {
+    Column(Modifier.verticalScroll(scrollState)) {
+        Markdown(markdown = text, enableScroll = false, textSearchState = search)
+    }
+}
+```
+
+策略只在本次搜索定位等待期间生效，选择手势接管时取消定位并使用原滚动策略。
+其他焦点或选择滚动原样交给 `fallback`；宿主可将已有避遮挡策略传入，不覆盖普通手势行为。
+
 - 按字面进行不重叠匹配，结果保持文档顺序。支持跨强调、链接等行内样式，不跨块、表格单元格或行内 widget。
 - 匹配时折叠 Unicode 空白并去除首尾空白。`setQuery(query, ignoreCase = false)` 区分大小写；
   默认使用 Kotlin 简单的忽略大小写比较，不做地区相关转换或 Unicode 规范化。

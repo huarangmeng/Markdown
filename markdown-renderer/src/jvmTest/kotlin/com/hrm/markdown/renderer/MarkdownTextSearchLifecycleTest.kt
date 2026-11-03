@@ -1,6 +1,8 @@
 package com.hrm.markdown.renderer
 
 import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -45,7 +47,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
-@OptIn(ExperimentalTestApi::class)
+@OptIn(ExperimentalTestApi::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
 class MarkdownTextSearchLifecycleTest {
     @Test
     fun should_reveal_real_match_line_in_external_scroll_and_reveal_it_again() = runComposeUiTest {
@@ -368,6 +370,81 @@ class MarkdownTextSearchLifecycleTest {
         assertNull(page.search.activeMatch)
     }
 
+    @Test
+    fun should_center_offscreen_match_in_owned_lazy_scroll_without_moving_visible_match() = runComposeUiTest {
+        val page = SearchPage(
+            (0 until 80).joinToString("\n\n") { "Filler paragraph $it" } +
+                "\n\nneedle at first line\n\n" + (0 until 20).joinToString("\n\n") { "Following paragraph $it" },
+            internalScroll = true,
+        )
+        setContent { page.Content() }
+        waitForIdle()
+        runOnIdle { page.search.setQuery("needle") }
+        val match = page.search.matches.single()
+        assertNull(page.controller.registry.coordinatesOf(match.geometryStableId))
+        assertTrue(reveal(page, match))
+        page.assertMatchCentered(match)
+        val top = page.matchLineTop(match)
+        assertTrue(reveal(page, match))
+        assertEquals(top, page.matchLineTop(match))
+        assertNull(page.search.relocation)
+    }
+
+    @Test
+    fun should_reuse_search_alignment_with_external_occlusion_and_keep_partial_match_at_nearest_edge() = runComposeUiTest {
+        val page = SearchPage("before ".repeat(250) + "needle " + "after ".repeat(250), externalOcclusion = 20f to 40f)
+        setContent { page.Content() }
+        waitForIdle()
+        runOnIdle { page.search.setQuery("needle") }
+        val match = page.search.matches.single()
+        assertTrue(reveal(page, match))
+        page.assertMatchCentered(match)
+        val top = page.matchLineTop(match)
+        assertTrue(reveal(page, match))
+        assertEquals(top, page.matchLineTop(match))
+        val box = page.controller.highlightBoxesFor(match.geometryStableId, match.logicalRange, textOnly = true).first()
+        val bottom = page.viewport.size.height - 40f
+        lateinit var moving: Deferred<Float>
+        runOnIdle {
+            val wantedTop = bottom - box.height / 2f
+            moving = page.scope.async { page.scroll.scrollTo((page.scroll.value + top - wantedTop).toInt()) }
+        }
+        waitUntil { moving.isCompleted }
+        waitForIdle()
+        assertTrue(reveal(page, match))
+        assertTrue(kotlin.math.abs(page.matchLineTop(match) + box.height - bottom) <= 2f)
+        runOnIdle { moving = page.scope.async { page.scroll.scrollTo(0) } }
+        waitUntil { moving.isCompleted }
+        assertTrue(reveal(page, match))
+        page.assertMatchCentered(match)
+    }
+
+    @Test
+    fun should_cancel_search_relocation_when_selection_gesture_takes_over() = runComposeUiTest {
+        val page = SearchPage("before ".repeat(500) + "needle " + "after ".repeat(100), enableSelection = true, externalOcclusion = 0f to 0f)
+        setContent { page.Content() }
+        waitForIdle()
+        runOnIdle { page.search.setQuery("needle") }
+        lateinit var request: Deferred<Boolean>
+        runOnIdle {
+            request = page.scope.async(start = CoroutineStart.UNDISPATCHED) { page.search.reveal(page.search.matches.single()) }
+            page.controller.state.activeHandle = SelectionActiveHandle.End
+        }
+        waitUntil { request.isCompleted }
+        assertFalse(runBlocking { request.await() })
+        assertNull(page.search.relocation)
+        lateinit var reset: Deferred<Float>
+        runOnIdle {
+            page.controller.state.activeHandle = SelectionActiveHandle.None
+            reset = page.scope.async { page.scroll.scrollTo(0) }
+        }
+        waitUntil { reset.isCompleted }
+        waitForIdle()
+        assertTrue(page.matchLineTop(page.search.matches.single()) >= page.viewport.size.height, "The next request must begin offscreen")
+        assertTrue(reveal(page, page.search.matches.single()))
+        page.assertMatchCentered(page.search.matches.single())
+    }
+
     private fun ComposeUiTest.reveal(page: SearchPage, match: MarkdownTextSearchMatch): Boolean {
         lateinit var result: Deferred<Boolean>
         runOnIdle { result = page.scope.async { page.search.reveal(match) } }
@@ -380,6 +457,7 @@ class MarkdownTextSearchLifecycleTest {
         source: String,
         val enableSelection: Boolean = false,
         val internalScroll: Boolean = false,
+        val externalOcclusion: Pair<Float, Float>? = null,
         initiallyAttached: Boolean = true,
     ) {
         var document by mutableStateOf(MarkdownParser().parse(source))
@@ -425,8 +503,29 @@ class MarkdownTextSearchLifecycleTest {
                     )
                 }
                 if (internalScroll) content()
-                else Column(Modifier.fillMaxWidth().verticalScroll(externalScroll)) { content() }
+                else {
+                    val spec = externalOcclusion?.let { (top, bottom) ->
+                        rememberMarkdownTextSearchBringIntoViewSpec(state, top, bottom)
+                    } ?: LocalBringIntoViewSpec.current
+                    CompositionLocalProvider(LocalBringIntoViewSpec provides spec) {
+                        Column(Modifier.fillMaxWidth().verticalScroll(externalScroll)) { content() }
+                    }
+                }
             }
+        }
+
+        fun matchLineTop(match: MarkdownTextSearchMatch): Float {
+            val box = controller.highlightBoxesFor(match.geometryStableId, match.logicalRange, textOnly = true).first()
+            val block = assertNotNull(controller.registry.coordinatesOf(match.geometryStableId))
+            return viewport.windowToLocal(block.localToWindow(box.topLeft)).y
+        }
+
+        fun assertMatchCentered(match: MarkdownTextSearchMatch) {
+            val box = controller.highlightBoxesFor(match.geometryStableId, match.logicalRange, textOnly = true).first()
+            val (top, bottom) = externalOcclusion ?: (0f to 0f)
+            val center = (top + viewport.size.height - bottom) / 2f
+            assertTrue(kotlin.math.abs(matchLineTop(match) + box.height / 2f - center) <= 2f, "Match must reach the usable viewport center")
+            assertEquals(match, search.activeMatch)
         }
 
         fun assertMatchVisible(match: MarkdownTextSearchMatch) {

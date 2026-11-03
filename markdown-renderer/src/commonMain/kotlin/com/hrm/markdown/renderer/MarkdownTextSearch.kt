@@ -12,6 +12,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.graphics.Color
 import com.hrm.markdown.renderer.internal.selection.MarkdownSelectionController
+import com.hrm.markdown.renderer.internal.selection.SelectionActiveHandle
 import com.hrm.markdown.renderer.internal.selection.SelectionAnchor
 import com.hrm.markdown.renderer.internal.selection.SelectionModelIndex
 import com.hrm.markdown.renderer.internal.selection.SelectionRange
@@ -23,6 +24,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.job
 
 /**
  * 正文中的一次字面匹配。偏移为渲染器逻辑块内的 UTF-16 半开区间，不是 Markdown/HTML 源码下标。
@@ -81,11 +83,16 @@ class MarkdownTextSearchState internal constructor() {
     private var documentToken: Any = Any()
     private var documentRevision = 0L
     private var pendingReveal: Deferred<Boolean>? = null
+    internal var relocation: MarkdownTextSearchRelocation? by mutableStateOf(null)
+        private set
+    internal val selectionInProgress: Boolean
+        get() = controller?.state?.activeHandle?.let { it != SelectionActiveHandle.None } == true
 
     /** Unicode 空白按 [Char.isWhitespace] 折叠并去首尾；大小写匹配遵循 Kotlin 的 ignoreCase。 */
     fun setQuery(query: String, ignoreCase: Boolean = true) {
         if (this.query == query && this.ignoreCase == ignoreCase) return
         pendingReveal?.cancel()
+        relocation = null
         documentToken = Any()
         activeMatch = null
         this.query = query
@@ -96,6 +103,7 @@ class MarkdownTextSearchState internal constructor() {
     /** 关闭搜索：清除查询、结果、高亮，并取消尚未完成的定位。 */
     fun clear() {
         pendingReveal?.cancel()
+        relocation = null
         documentToken = Any()
         query = ""
         matches = emptyList()
@@ -114,22 +122,34 @@ class MarkdownTextSearchState internal constructor() {
      */
     suspend fun reveal(match: MarkdownTextSearchMatch): Boolean = coroutineScope {
         val target = controller ?: return@coroutineScope false
-        if (match.documentToken !== documentToken || match !in matches) return@coroutineScope false
+        if (match.documentToken !== documentToken || match !in matches || selectionInProgress) return@coroutineScope false
         pendingReveal?.cancel()
+        relocation = null
         val request = async(start = CoroutineStart.UNDISPATCHED) {
+            var centerAfterMaterialization = false
             if (target.registry.coordinatesOf(match.geometryStableId) == null) {
-                // Reuse the existing block-navigation/footnote two-stage lazy reveal.
                 val entry = target.index.entryOf(match.blockStableId) ?: return@async false
-                markdownState?.scrollToBlock(entry.topLevelIndex)
+                val navigation = markdownState
+                val lazyLayout = navigation?.lazyListState?.layoutInfo
+                val itemIndex = entry.topLevelIndex + (navigation?.headerItems ?: 0)
+                val itemVisible = lazyLayout?.visibleItemsInfo?.any { it.index == itemIndex } == true
+                centerAfterMaterialization = lazyLayout != null && lazyLayout.totalItemsCount > 0 && !itemVisible
+                if (!itemVisible) navigation?.scrollToBlock(entry.topLevelIndex)
                 withFrameNanos { }
             }
-            if (controller !== target || match.documentToken !== documentToken || match !in matches) {
+            if (controller !== target || match.documentToken !== documentToken || match !in matches || selectionInProgress) {
                 return@async false
             }
             val requester = target.registry.requesterOf(match.geometryStableId) ?: return@async false
             val rect = target.highlightBoxesFor(match.geometryStableId, match.logicalRange, textOnly = true)
                 .firstOrNull { it.width > 0f && it.height > 0f } ?: return@async false
-            requester.bringIntoView(rect)
+            val relocating = MarkdownTextSearchRelocation(currentCoroutineContext().job, centerAfterMaterialization)
+            relocation = relocating
+            try {
+                requester.bringIntoView(rect)
+            } finally {
+                if (relocation === relocating) relocation = null
+            }
             if (controller !== target || match.documentToken !== documentToken || match !in matches) {
                 return@async false
             }
@@ -159,6 +179,7 @@ class MarkdownTextSearchState internal constructor() {
         this.markdownState = markdownState
         if (this.controller === controller && this.documentKey === documentKey) return
         pendingReveal?.cancel()
+        relocation = null
         this.controller = controller
         this.documentKey = documentKey
         documentRevision = revision
@@ -170,6 +191,7 @@ class MarkdownTextSearchState internal constructor() {
     internal fun unbind(controller: MarkdownSelectionController) {
         if (this.controller !== controller) return
         pendingReveal?.cancel()
+        relocation = null
         this.controller = null
         markdownState = null
         documentKey = null

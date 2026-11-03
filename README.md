@@ -347,6 +347,26 @@ scrolling `Column` and use `Markdown(..., modifier = Modifier.weight(1f), textSe
 blocks, and returns whether usable rendered geometry was found. Calling it again reveals the
 same match again, even after the user scrolls away.
 
+Internal scrolling automatically centers fully offscreen search lines, leaves visible matches
+still, and brings partially visible matches to the nearest edge. Document boundaries may prevent
+exact centering. External scrolling hosts can reuse the same policy, supplying their actual
+occlusion in pixels before creating the scrolling container:
+
+```kotlin
+val spec = rememberMarkdownTextSearchBringIntoViewSpec(
+    search, obscuredTopPx = toolbarHeightPx, obscuredBottomPx = bottomBarHeightPx,
+)
+CompositionLocalProvider(LocalBringIntoViewSpec provides spec) {
+    Column(Modifier.verticalScroll(scrollState)) {
+        Markdown(markdown = text, enableScroll = false, textSearchState = search)
+    }
+}
+```
+
+The policy runs only while a search relocation is pending. Selection gestures cancel that
+relocation and use the original `BringIntoViewSpec`; ordinary focus and selection scrolling are
+otherwise delegated unchanged. Hosts may pass their existing policy as `fallback`.
+
 - Matches are literal, non-overlapping, and in document order. Inline emphasis/link boundaries
   can be crossed, but blocks, table cells, and inline widgets cannot.
 - Unicode whitespace is trimmed/collapsed for matching. `setQuery(query, ignoreCase = false)`
