@@ -20,6 +20,7 @@ import com.hrm.markdown.renderer.MarkdownSelectionInfo
 import com.hrm.markdown.renderer.internal.core.model.CodeBlockModel
 import com.hrm.markdown.renderer.internal.core.model.InternalRenderBlockModel
 import com.hrm.markdown.renderer.internal.layout.inline.LayoutInlineRunPlacement
+import com.hrm.markdown.renderer.internal.layout.inline.runPlacements
 import com.hrm.markdown.renderer.internal.layout.inline.textMeasurementStyle
 import com.hrm.markdown.renderer.internal.layout.model.InternalLayoutBlockModel
 import com.hrm.markdown.renderer.internal.layout.model.LayoutColumnsBlockModel
@@ -260,8 +261,8 @@ internal class MarkdownSelectionController(
         return listOf(Rect(0f, top, width, height))
     }
 
-    fun beginSelectionAt(windowOffset: Offset) {
-        val anchor = anchorFromWindow(windowOffset) ?: return
+    fun beginSelectionAt(windowOffset: Offset, requireTextHit: Boolean = false): Boolean {
+        val anchor = anchorFromWindow(windowOffset, requireTextHit) ?: return false
         startAnchor = anchor
         draggedHandleAnchor = null
         fixedHandleAnchor = null
@@ -269,6 +270,7 @@ internal class MarkdownSelectionController(
         state.isHandleDrag = false
         state.toolbarRequestKey = 0
         state.range = SelectionRange(anchor, anchor)
+        return true
     }
 
     fun extendSelectionTo(windowOffset: Offset) {
@@ -312,9 +314,9 @@ internal class MarkdownSelectionController(
     }
 
     /** 把根容器 local 坐标（来自 pointerInput）转成 window 坐标后开始选区。 */
-    fun beginSelectionAtRootLocal(rootLocal: Offset) {
-        val root = registry.rootCoordinates?.takeIf { it.isAttached } ?: return
-        beginSelectionAt(root.localToWindow(rootLocal))
+    fun beginSelectionAtRootLocal(rootLocal: Offset, requireTextHit: Boolean = false): Boolean {
+        val root = registry.rootCoordinates?.takeIf { it.isAttached } ?: return false
+        return beginSelectionAt(root.localToWindow(rootLocal), requireTextHit)
     }
 
     /** 把根容器 local 坐标（来自 pointerInput）转成 window 坐标后延展选区。 */
@@ -328,6 +330,22 @@ internal class MarkdownSelectionController(
         draggedHandleAnchor = null
         fixedHandleAnchor = null
         state.clear()
+    }
+
+    fun selectRange(blockId: Long, start: Int, end: Int): Boolean {
+        val entry = index.entryOf(blockId) ?: return false
+        if (start < 0 || start >= end || end > entry.text.length) return false
+        val first = index.clampAnchor(SelectionAnchor(blockId, start)) ?: return false
+        val last = index.clampAnchor(SelectionAnchor(blockId, end)) ?: return false
+        val range = index.normalize(first, last)
+        if (range.start == range.end) return false
+        startAnchor = range.start
+        draggedHandleAnchor = null
+        fixedHandleAnchor = null
+        state.isHandleDrag = false
+        state.range = range
+        finishSelectionGesture()
+        return true
     }
 
     fun selectAll() {
@@ -517,7 +535,7 @@ internal class MarkdownSelectionController(
      * 把 window 坐标解析为逻辑锚点：
      * 选择纵向最接近的可见 block，命中其 run，再用与布局一致的测量口径求字符偏移。
      */
-    private fun anchorFromWindow(windowOffset: Offset): SelectionAnchor? {
+    private fun anchorFromWindow(windowOffset: Offset, requireTextHit: Boolean = false): SelectionAnchor? {
         val visible = registry.visibleEntries(index)
         if (visible.isEmpty()) return null
 
@@ -551,7 +569,15 @@ internal class MarkdownSelectionController(
         val geometry = geometryByStableId[entry.stableId] ?: return null
         val inlineBlock = geometry.block as? LayoutInlineBlockModel
         if (inlineBlock == null) {
+            if (requireTextHit) return null
             return SelectionAnchor(entry.stableId, textOnlyBlockOffset(entry, geometry, bestLocal))
+        }
+        if (requireTextHit) {
+            val placement = inlineBlock.runPlacements().firstOrNull {
+                bestLocal.x in it.x.toFloat()..(it.x + it.width).toFloat() &&
+                    bestLocal.y in it.y.toFloat()..(it.y + it.height).toFloat()
+            } ?: return null
+            if (placement.run !is LayoutTextRun) return null
         }
         val hit = hitTestRunInBlock(inlineBlock, bestLocal.x, bestLocal.y) ?: run {
             // No runs at all; snap to block boundary by horizontal side.

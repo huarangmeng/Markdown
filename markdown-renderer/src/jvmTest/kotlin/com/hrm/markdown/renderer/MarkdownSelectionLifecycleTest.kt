@@ -153,6 +153,44 @@ class MarkdownSelectionLifecycleTest {
         }
     }
 
+    @Test
+    fun should_expandHostRangeAndResetHandles_when_annotationContainsSelection() = runComposeUiTest {
+        val page = SelectionPage("before 😀 after")
+        setContent { page.Content() }
+        awaitText("before 😀 after")
+        runOnIdle { page.controller.selectAll() }
+        waitForIdle()
+        runOnIdle {
+            val block = assertNotNull(page.controller.selectionInfo()).ranges.single()
+            val actions = assertNotNull(page.actions)
+            assertTrue(actions.selectRange(block.blockStableId, 7, 9))
+            assertEquals("😀", page.controller.selectedText)
+            page.controller.beginSelectionHandleDrag(SelectionActiveHandle.End)
+            page.controller.dragSelectionHandleTo(SelectionAnchor(block.blockStableId, 10))
+            val toolbarKey = page.controller.state.toolbarRequestKey
+            assertTrue(actions.selectRange(block.blockStableId, 0, block.blockText.length))
+            assertEquals(block.blockText, page.controller.selectedText)
+            assertEquals(SelectionActiveHandle.None, page.controller.state.activeHandle)
+            assertFalse(page.controller.state.isHandleDrag)
+            assertTrue(page.controller.state.toolbarRequestKey > toolbarKey)
+            page.controller.dragSelectionHandleTo(SelectionAnchor(block.blockStableId, 1))
+            assertEquals(block.blockText, page.controller.selectedText)
+            assertFalse(actions.selectRange(Long.MIN_VALUE, 0, 1))
+            assertFalse(actions.selectRange(block.blockStableId, -1, 9))
+            assertFalse(actions.selectRange(block.blockStableId, 0, block.blockText.length + 1))
+            assertFalse(actions.selectRange(block.blockStableId, 9, 7))
+            assertFalse(actions.selectRange(block.blockStableId, 7, 7))
+            assertEquals(block.blockText, page.controller.selectedText)
+            page.controller.copySelection()
+            assertEquals(block.blockText, page.clipboard.copied.last())
+            assertTrue(actions.selectRange(block.blockStableId, 8, 9))
+            assertEquals("😀", page.controller.selectedText)
+            actions.copySelection()
+            assertEquals("😀", page.clipboard.copied.last())
+            assertFalse(page.controller.hasSelection)
+        }
+    }
+
     private fun ComposeUiTest.awaitText(text: String) {
         waitUntil(timeoutMillis = 10_000) { onAllNodes(hasText(text)).fetchSemanticsNodes().isNotEmpty() }
         waitForIdle()
@@ -161,6 +199,7 @@ class MarkdownSelectionLifecycleTest {
     private class SelectionPage(source: String) {
         var source by mutableStateOf(source)
         val clipboard = RecordingClipboard()
+        var actions: MarkdownSelectionActions? = null
         private var currentController: MarkdownSelectionController? = null
         val controller: MarkdownSelectionController get() = assertNotNull(currentController)
 
@@ -171,10 +210,15 @@ class MarkdownSelectionLifecycleTest {
                     markdown = source,
                     enableSelection = true,
                     enableScroll = false,
-                    components = MarkdownComponents(header = {
-                        val controller = LocalMarkdownSelectionController.current
-                        SideEffect { currentController = controller }
-                    }),
+                    components = MarkdownComponents(
+                        header = {
+                            val controller = LocalMarkdownSelectionController.current
+                            SideEffect { currentController = controller }
+                        },
+                        selectionToolbar = { _, currentActions ->
+                            SideEffect { actions = currentActions }
+                        },
+                    ),
                 )
             }
         }

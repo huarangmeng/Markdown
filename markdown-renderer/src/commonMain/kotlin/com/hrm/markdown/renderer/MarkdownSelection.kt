@@ -36,11 +36,22 @@ class MarkdownSelectionActions(
     private val onCopy: () -> Unit,
     private val onSelectAll: () -> Unit,
     private val onDismiss: () -> Unit,
+    private val onSelectRange: (Long, Int, Int) -> Boolean,
 ) {
+    constructor(
+        onCopy: () -> Unit,
+        onSelectAll: () -> Unit,
+        onDismiss: () -> Unit,
+    ) : this(onCopy, onSelectAll, onDismiss, { _, _, _ -> false })
+
     /** 复制选中文本并清除选区（与平台工具栏行为一致）。 */
     fun copySelection() = onCopy()
 
     fun selectAll() = onSelectAll()
+
+    /** Selects a non-empty half-open UTF-16 range in the current block; invalid input leaves selection unchanged. */
+    fun selectRange(blockStableId: Long, start: Int, end: Int): Boolean =
+        onSelectRange(blockStableId, start, end)
 
     /** 清除选区并隐藏自定义工具栏。 */
     fun dismiss() = onDismiss()

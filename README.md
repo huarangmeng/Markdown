@@ -266,6 +266,27 @@ When the document changes during text selection, selection endpoints and active 
 clamped to valid UTF-16 character boundaries. Removing a selected block clears the selection and
 drag state, so copying cannot use stale endpoints.
 
+A custom `MarkdownComponents.selectionToolbar` can replace the selection with
+`actions.selectRange(blockStableId, start, end)`. Offsets describe a non-empty half-open UTF-16
+range `[start, end)` in `blockText`. Unknown block IDs or invalid ranges return `false` without
+changing the current selection. Invoke the action from a user event, not during composition:
+
+```kotlin
+import androidx.compose.material3.Button
+import androidx.compose.material3.Text
+import com.hrm.markdown.renderer.MarkdownComponents
+
+MarkdownComponents(selectionToolbar = { info, actions ->
+    info.ranges.singleOrNull()?.let { block ->
+        Button(onClick = {
+            actions.selectRange(block.blockStableId, 0, block.blockText.length)
+        }) {
+            Text("Select block")
+        }
+    }
+})
+```
+
 ---
 
 ## Interaction and standard block slots
