@@ -376,5 +376,6 @@ private fun com.hrm.markdown.renderer.internal.core.model.InlineWidgetModel.plai
         is ImageWidgetModel -> altText.ifEmpty { title ?: url }
         is SpoilerWidgetModel -> alternateText
         is DirectiveInlineWidgetModel -> alternateText
+        is com.hrm.markdown.renderer.internal.core.model.InlineEndMarkerWidgetModel -> ""
         is RubyTextWidgetModel -> base
     }

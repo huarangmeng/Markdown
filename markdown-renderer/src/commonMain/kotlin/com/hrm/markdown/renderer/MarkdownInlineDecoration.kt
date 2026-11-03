@@ -1,6 +1,10 @@
 package com.hrm.markdown.renderer
 
 import androidx.compose.runtime.Immutable
+import com.hrm.markdown.renderer.internal.core.model.*
+import com.hrm.markdown.renderer.internal.core.identity.RenderIdentity
+import com.hrm.markdown.renderer.internal.core.identity.renderIdentityMix
+import com.hrm.markdown.renderer.inline.InteractiveInlineMarkKinds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.unit.Dp
@@ -8,7 +12,8 @@ import androidx.compose.ui.unit.dp
 
 /**
  * 行内元素装饰请求。与 [MarkdownInlineElementClickEvent] 同源分发：
- * 每个命中语义 mark（`==highlight==`、`<mark>` 等）的文本 run 在绘制前询问一次，
+ * 命中语义 mark（`==highlight==`、`<mark>` 等）的末端在排版前解析 painter；
+ * 文本 run 在绘制前解析装饰线，
  * 返回 null 表示保持默认渲染。
  */
 @Immutable
@@ -40,7 +45,7 @@ data class MarkdownInlineUnderline(
     val dotGap: Dp = 3.dp,
     /** 相对文本行底边向上抬升的距离。 */
     val offset: Dp = 2.dp,
-    /** 仅在每个语义范围的最后一个文字端点绘制；不参与正文排版或文本投影。 */
+    /** 仅在每个语义范围的最后一个文字端点绘制；painter 真实占据行内宽度，不增加源字符或复制偏移。 */
     val endMarker: MarkdownInlineEndMarker? = null,
 ) {
     /** 圆点连成实线（[dotGap] 小于直径时视觉连续）；供只想区分线型的调用方快速构造。 */
@@ -50,13 +55,64 @@ data class MarkdownInlineUnderline(
     }
 }
 
-/** 装饰线末端的纯绘制标记；未提供 [painter] 时保持原有圆点样式。 */
+/** 装饰线末端的行内标记；未提供 [painter] 时保持原有圆点样式。 */
 @Immutable
 data class MarkdownInlineEndMarker(
     val color: Color,
     val diameter: Dp = 4.dp,
     /** 标记与文字末端的间距。 */
     val gap: Dp = 3.dp,
-    /** 绘制在 [diameter] 大小的方框内，由 [color] 着色，不插入正文字符或占位符。 */
+    /** 绘制在 [diameter] 大小的方框内，由 [color] 着色，真实占据 gap + diameter 的宽度，不插入源字符或可复制字符。 */
     val painter: Painter? = null,
 )
+
+internal fun resolveInlineEndMarkers(document: InternalRenderDocumentModel, decorate: ((MarkdownInlineDecorationRequest) -> MarkdownInlineUnderline?)?): InternalRenderDocumentModel {
+    if (decorate == null) return document
+    fun id(v: RenderIdentity, c: Any) = v.copy(layoutRevision = renderIdentityMix(v.layoutRevision, c.hashCode().toLong()), paintRevision = renderIdentityMix(v.paintRevision, c.hashCode().toLong()))
+    fun inline(m: InlineModel): InlineModel {
+        val atoms = buildList<InlineAtom> {
+            for (atom in m.atoms) {
+                add(atom)
+                if (atom !is TextAtom || atom.text.isEmpty()) continue
+                val mark = atom.marks.lastOrNull { it.kind in InteractiveInlineMarkKinds } ?: continue
+                if (!mark.isRangeEnd) continue
+                val marker = decorate(MarkdownInlineDecorationRequest(mark.kind, atom.text, mark.payload, mark.attributes))?.endMarker?.takeIf { it.painter != null } ?: continue
+                require(marker.diameter.value.isFinite() && marker.diameter.value > 0f)
+                require(marker.gap.value.isFinite() && marker.gap.value >= 0f)
+                val identity = id(atom.identity, marker).copy(stableId = renderIdentityMix(atom.identity.stableId, 0x454e444d41524bL))
+                add(WidgetAtom(identity, InlineEndMarkerWidgetModel(identity, marker)))
+            }
+        }
+        val identity = id(m.identity, atoms)
+        return if (atoms == m.atoms) m else m.copy(identity = identity.copy(contentRevision = identity.layoutRevision), atoms = atoms)
+    }
+    fun block(b: InternalRenderBlockModel): InternalRenderBlockModel = when (b) {
+        is ParagraphBlockModel -> inline(b.inline).let { if (it == b.inline) b else b.copy(identity = id(b.identity, it), inline = it) }
+        is HtmlParagraphBlockModel -> inline(b.inline).let { if (it == b.inline) b else b.copy(identity = id(b.identity, it), inline = it) }
+        is HeadingBlockModel -> inline(b.inline).let { if (it == b.inline) b else b.copy(identity = id(b.identity, it), inline = it) }
+        is BlockQuoteBlockModel -> b.children.map(::block).let { if (it == b.children) b else b.copy(identity = id(b.identity, it), children = it) }
+        is AdmonitionBlockModel -> b.children.map(::block).let { if (it == b.children) b else b.copy(identity = id(b.identity, it), children = it) }
+        is HtmlContainerBlockModel -> b.children.map(::block).let { if (it == b.children) b else b.copy(identity = id(b.identity, it), children = it) }
+        is CustomContainerBlockModel -> b.children.map(::block).let { if (it == b.children) b else b.copy(identity = id(b.identity, it), children = it) }
+        is FootnoteDefinitionBlockModel -> b.children.map(::block).let { if (it == b.children) b else b.copy(identity = id(b.identity, it), children = it) }
+        is DirectiveBlockModel -> b.children.map(::block).let { if (it == b.children) b else b.copy(identity = id(b.identity, it), children = it) }
+        is FallbackContainerBlockModel -> b.children.map(::block).let { if (it == b.children) b else b.copy(identity = id(b.identity, it), children = it) }
+        is ListBlockModel -> b.items.map { it.copy(children = it.children.map(::block)) }.let { if (it == b.items) b else b.copy(identity = id(b.identity, it), items = it) }
+        is ColumnsLayoutBlockModel -> b.columns.map { it.copy(children = it.children.map(::block)) }.let { if (it == b.columns) b else b.copy(identity = id(b.identity, it), columns = it) }
+        is TabBlockModel -> b.items.map { it.copy(children = it.children.map(::block)) }.let { if (it == b.items) b else b.copy(identity = id(b.identity, it), items = it) }
+        is DefinitionListBlockModel -> b.items.map {
+            when (it) {
+                is DefinitionTermBlockModel -> inline(it.inline).let { content ->
+                    if (content == it.inline) it else it.copy(identity = id(it.identity, content), inline = content)
+                }
+                is DefinitionDescriptionBlockModel -> it.children.map(::block).let { children ->
+                    if (children == it.children) it else it.copy(identity = id(it.identity, children), children = children)
+                }
+            }
+        }.let { if (it == b.items) b else b.copy(identity = id(b.identity, it), items = it) }
+        is TableBlockModel -> b.rows.map { row -> row.copy(cells = row.cells.map { it.copy(inline = inline(it.inline)) }) }.let { if (it == b.rows) b else b.copy(identity = id(b.identity, it), rows = it) }
+        else -> b
+    }
+    val blocks = document.blocks.map(::block)
+    return if (blocks == document.blocks) document else document.copy(identity = id(document.identity, blocks), blocks = blocks)
+}

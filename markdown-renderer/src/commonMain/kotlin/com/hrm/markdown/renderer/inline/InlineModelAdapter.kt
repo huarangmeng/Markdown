@@ -1,5 +1,14 @@
 package com.hrm.markdown.renderer.inline
 
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.graphics.drawscope.translate
+import com.hrm.markdown.renderer.internal.core.model.InlineEndMarkerWidgetModel
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.AnnotatedString
@@ -133,7 +142,7 @@ internal fun AnnotatedString.Builder.renderInlineModel(
 }
 
 /** 参与行内元素点击分发的 mark kind（与 [InlineElementKinds] 一一对应）。 */
-private val InteractiveInlineMarkKinds = setOf(
+internal val InteractiveInlineMarkKinds = setOf(
     "highlight", "citation", "footnote", "abbreviation", "inline_html", "kbd", "spoiler",
 )
 
@@ -373,6 +382,21 @@ private fun AnnotatedString.Builder.renderWidgetAtom(
             density
         )
 
+        is InlineEndMarkerWidgetModel -> {
+            val marker = widget.marker
+            val diameter = with(density) { marker.diameter.toPx() }
+            val gap = with(density) { marker.gap.toPx() }
+            context.emitEndMarkerWidget(InlinePlaceholderId.from(widget), gap + diameter, diameter) {
+                val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
+                Canvas(Modifier.fillMaxSize()) {
+                    translate(left = if (rtl) 0f else gap) {
+                        clipRect(right = diameter, bottom = diameter) {
+                            with(requireNotNull(marker.painter)) { draw(Size(diameter, diameter), colorFilter = ColorFilter.tint(marker.color)) }
+                        }
+                    }
+                }
+            }
+        }
         is RubyTextWidgetModel -> renderRubyTextWidget(widget, theme, context, density)
     }
 }

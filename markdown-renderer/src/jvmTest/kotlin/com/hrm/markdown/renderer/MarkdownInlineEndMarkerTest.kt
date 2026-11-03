@@ -99,8 +99,16 @@ class MarkdownInlineEndMarkerTest {
         val terminal = textFragments().single { "BOLD" in it.layout.layoutInput.text.text }
         val offset = terminal.layout.layoutInput.text.text.indexOf("BOLD") + 3
         val endX = terminal.bounds.left + terminal.layout.getBoundingBox(offset).right
-        assertTrue(abs(marker.bounds.left - (endX + 3f)) <= 1f, "Painter must follow the final bold character")
-        assertEquals(before, textFragments().map { it.layout.layoutInput.text.text to it.bounds })
+        assertTrue(
+            abs(marker.bounds.left - (endX + 3f)) <= 1f,
+            "Painter must follow the final bold character: expectedLeft=${endX + 3f}, actualLeft=${marker.bounds.left}, " +
+                "lineEnd=${terminal.bounds.left + terminal.layout.getLineRight(0)}, allocatedEnd=${terminal.bounds.right}, " +
+                "text='${terminal.layout.layoutInput.text.text}'",
+        )
+        assertTrue(
+            textFragments().last().bounds.right >= before.last().second.right + 10f,
+            "the marker must reserve gap plus diameter before the suffix",
+        )
 
         runOnIdle { page.decorated = false }
         waitForIdle()
@@ -183,7 +191,7 @@ class MarkdownInlineEndMarkerTest {
     }
 
     @Test
-    fun should_keepPainterInsideColumn_when_gapExceedsRightBoundaryAndPainterOverdraws() = runComposeUiTest {
+    fun should_wrapPainterInsideColumn_when_endpointHasNoRemainingSpaceAndPainterOverdraws() = runComposeUiTest {
         val painter = object : Painter() {
             override val intrinsicSize = Size.Unspecified
             override fun applyColorFilter(colorFilter: ColorFilter?) = true
@@ -191,7 +199,7 @@ class MarkdownInlineEndMarkerTest {
                 drawRect(MARKER, topLeft = Offset(-20f, -20f), size = Size(size.width + 40f, size.height + 40f))
             }
         }
-        val page = MarkerPage("==edge==", painter = painter, columnWidth = 128.dp, gap = 144.dp)
+        val page = MarkerPage("==edge==", painter = painter, columnWidth = 40.dp)
         setContent { page.Content() }
         waitForIdle()
 
@@ -201,7 +209,8 @@ class MarkdownInlineEndMarkerTest {
         val marker = markerBlobs().single()
         val right = column.right - viewport.left
         assertTrue(marker.bounds.right <= right, "Painter must not spill into the adjacent column")
-        assertTrue(abs(marker.bounds.left - (right - 8f)) <= 1f, "marker must clamp to the actual content-column boundary")
+        assertTrue(marker.bounds.top >= textFragments().single().bounds.bottom, "the measured marker must wrap onto a new line")
+        assertTrue(abs(marker.bounds.left - (column.left - viewport.left + 3f)) <= 1f, "wrapped marker must use the next line origin")
         assertTrue(marker.bounds.width <= 8 && marker.bounds.height <= 8, "Painter output must be clipped to its declared square")
     }
 
@@ -234,10 +243,10 @@ class MarkdownInlineEndMarkerTest {
             val offset = end - start - 1
             val box = fragment.layout.getBoundingBox(offset)
             val left = fragment.bounds.left + box.right + 3f
-            val top = fragment.bounds.top + fragment.layout.getLineBottom(fragment.layout.getLineForOffset(offset)) - 6f
+            val top = fragment.bounds.top + (fragment.bounds.height - 8f) / 2f
             Rect(left - 1f, top - 1f, left + 9f, top + 9f)
         }
-        // 相邻范围的第一个 marker 在下一段文字下方，字形会把其像素拆成多个连通片。
+        // 标记拥有独立行内框，不能与下一段文字重叠。
         val blobs = markerBlobs()
         fun contains(rect: Rect, blob: MarkerBlob) = blob.bounds.left >= rect.left && blob.bounds.right <= rect.right &&
             blob.bounds.top >= rect.top && blob.bounds.bottom <= rect.bottom

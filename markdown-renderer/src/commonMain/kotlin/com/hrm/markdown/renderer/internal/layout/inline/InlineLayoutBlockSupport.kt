@@ -46,7 +46,18 @@ internal fun buildInlineLayoutLines(
         val lineOffset = resolveInlineLineStartOffset(line.textAlign, remainingWidth, layoutDirection)
         val lineLeft = contentLeft + lineOffset
         var cursorX = lineLeft
+        // Preserve default RTL geometry; only a marker flow needs visual ordering of its objects.
+        val markerFlowRtl = layoutDirection == LayoutDirection.Rtl && line.items.any {
+            it is LineItem.InlineItem && widgetById[it.id] is com.hrm.markdown.renderer.internal.core.model.InlineEndMarkerWidgetModel
+        }
         val runs = line.items.map { item ->
+            val itemWidth = when (item) {
+                is LineItem.TextItem -> item.widthPx
+                is LineItem.InlineItem -> item.widthPx
+            }
+            val runLeft = if (markerFlowRtl) {
+                lineLeft + line.lineWidthPx - (cursorX - lineLeft) - itemWidth
+            } else cursorX
             when (item) {
                 is LineItem.TextItem -> {
                     val runTop = lineTop + line.baselinePx - item.baselinePx
@@ -60,7 +71,7 @@ internal fun buildInlineLayoutLines(
                             layoutRevision = identity.layoutRevision,
                             paintRevision = identity.paintRevision,
                         ),
-                        frame = LayoutRect(cursorX, runTop, item.widthPx, item.heightPx),
+                        frame = LayoutRect(runLeft, runTop, item.widthPx, item.heightPx),
                         text = item.text,
                         sourceStart = item.sourceStart,
                         sourceEnd = item.sourceEnd,
@@ -75,7 +86,7 @@ internal fun buildInlineLayoutLines(
                         ((line.lineHeightPx - item.heightPx) / 2f).coerceAtLeast(0f)
                     val run = LayoutWidgetRun(
                         identity = widget?.identity ?: identity,
-                        frame = LayoutRect(cursorX, runTop, item.widthPx, item.heightPx),
+                        frame = LayoutRect(runLeft, runTop, item.widthPx, item.heightPx),
                         id = item.id,
                         widget = widget
                             ?: throw IllegalStateException("Missing inline widget for placeholder ${item.id}"),

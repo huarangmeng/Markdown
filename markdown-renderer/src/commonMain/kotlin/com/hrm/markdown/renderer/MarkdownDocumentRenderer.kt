@@ -103,6 +103,7 @@ internal fun MarkdownDocumentRenderer(
                 facadeState = facadeState,
             )
         }
+        val layoutRenderDocument = resolveInlineEndMarkers(internalRenderDocument, interactions.inlineDecoration)
         SideEffect { interactionController.update(internalRenderDocument, interactions) }
         val density = LocalDensity.current
         val layoutDirection = LocalLayoutDirection.current
@@ -132,7 +133,7 @@ internal fun MarkdownDocumentRenderer(
             )
             val layoutSource = remember(
                 engineHost,
-                internalRenderDocument,
+                layoutRenderDocument,
                 facadeState,
                 renderMode,
                 viewportWidthPx,
@@ -147,7 +148,7 @@ internal fun MarkdownDocumentRenderer(
             ) {
                 if (renderMode == MarkdownRenderMode.LazyColumn) {
                     engineHost.layoutSession(
-                        renderDocument = internalRenderDocument,
+                        renderDocument = layoutRenderDocument,
                         facadeState = facadeState,
                         viewportWidth = viewportWidthPx,
                         blockSpacing = blockSpacingPx,
@@ -163,7 +164,7 @@ internal fun MarkdownDocumentRenderer(
                 } else {
                     EagerMarkdownLayoutSource(
                         engineHost.layout(
-                            renderDocument = internalRenderDocument,
+                            renderDocument = layoutRenderDocument,
                             facadeState = facadeState,
                             viewportWidth = viewportWidthPx,
                             blockSpacing = blockSpacingPx,

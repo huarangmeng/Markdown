@@ -341,8 +341,8 @@ Markdown(
 
 - A Painter is tinted by `color` and clipped to a `diameter` square. Omitting `painter` preserves the original circle, including its default 4.dp diameter and 3.dp gap.
 - Each semantic range has one textual endpoint. Bold, italic, wrapping, and line breaks do not create extra markers; adjacent independent ranges remain separate even when their contents and attributes match.
-- Markers are Compose draw-only decorations: no characters or placeholders are inserted, and display text, copy, selection, and text-search projections are unchanged. State can show or hide a marker without replacing the source. Return `null` from `inlineDecoration` to remove the entire custom decoration, or set `endMarker = null` to retain the underline.
-- **No layout space is reserved.** Placement stays within the content column horizontally; when the gap does not fit, the marker moves inward, and a diameter wider than the column is reduced. A marker may overlap text or be clipped by an ancestor vertically, so use a compact Painter rather than a text badge.
+- Painter markers are measured inline objects after the semantic range. They add no source, copy, selection, or search characters or offsets. State changes trigger layout without replacing the source; `null` removes the decoration, while `endMarker = null` retains the underline.
+- **Painter markers reserve `gap + diameter` of inline width.** The flow engine wraps them when the line has insufficient space, so following text cannot overlap their box. Without a painter, the original draw-only circle behavior is preserved.
 - The anchor follows the final glyph's bidi direction; this is not a general RTL paragraph-layout implementation. Markers attach to text, not inline widgets. Check complex mixed-direction content in the host.
 
 ---

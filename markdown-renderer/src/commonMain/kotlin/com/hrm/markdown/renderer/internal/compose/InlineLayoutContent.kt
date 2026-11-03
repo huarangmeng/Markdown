@@ -98,7 +98,7 @@ internal fun PaintInlineLayoutContent(
                         onTextLayout != null || onTextItemLayout != null,
                     ) {
                         val underlines = rememberMarkdownInlineUnderlines(item.text)
-                        // marker 开关只改变绘制；只有文字布局输入改变才丢弃旧几何。
+                        // painter 占位已经计入 flow 布局；此处只缓存文字装饰线几何。
                         val decorationGeometry = remember(item.text, textPaintStyle, item.width, item.height, LocalDensity.current) {
                             mutableStateOf<TextLayoutResult?>(null)
                         }
@@ -301,7 +301,9 @@ private fun buildInlineTextPaintItems(
         maxLines = 1,
         softWrap = false,
     )
-    if (measured.size.width <= merged.width + 1 && measured.size.height <= merged.height + 1) {
+    // Use the fractional advance in both directions: ceil(size.width) can hide a narrower merged run.
+    val measuredWidth = measured.getLineRight(0) - measured.getLineLeft(0)
+    if (kotlin.math.abs(measuredWidth - merged.width) <= 1f && measured.size.height <= merged.height + 1) {
         return listOf(merged)
     }
     return placements.map { placement -> buildInlineTextPaintItem(listOf(placement)) }
@@ -471,6 +473,7 @@ private fun DrawScope.drawEndMarker(
     markerBounds: ClosedFloatingPointRange<Float>,
 ) {
     val marker = underline.endMarker ?: return
+    if (marker.painter != null) return // Painter belongs to the measured flow widget.
     val diameter = marker.diameter.toPx().coerceAtMost(markerBounds.endInclusive - markerBounds.start)
     if (!diameter.isFinite() || diameter <= 0f) return
     val radius = diameter / 2f
@@ -478,20 +481,9 @@ private fun DrawScope.drawEndMarker(
     val left = preferredLeft.coerceIn(markerBounds.start, markerBounds.endInclusive - diameter)
     // 使用正文栏目边界而非单个文本 run 的宽度；放不下时贴末字下方。
     val top = if (left == preferredLeft) baselineY - radius else baselineY
-    val painter = marker.painter
-    if (painter == null) {
-        drawCircle(
-            color = marker.color,
-            radius = radius,
-            center = Offset(left + radius, top + radius),
-        )
-    } else {
-        translate(left = left, top = top) {
-            clipRect(right = diameter, bottom = diameter) {
-                with(painter) {
-                    draw(Size(diameter, diameter), colorFilter = ColorFilter.tint(marker.color))
-                }
-            }
-        }
-    }
+    drawCircle(
+        color = marker.color,
+        radius = radius,
+        center = Offset(left + radius, top + radius),
+    )
 }
