@@ -21,7 +21,7 @@
 
 ## ✨ 为什么选择 KMP Markdown？
 
-`macosArm64` 库目标属于实验特性，需要配置 `org.jetbrains.compose.experimental.macos.enabled=true`。Native 渲染还需要 LaTeX、codehigh、diagram 的 macOS Native Maven 构件，现有 JVM/iOS 构件不能替代。桌面示例应用仍使用 JVM。macOS CI 检查原生测试和 Maven 变体元数据；仅添加目标不代表已完成原生链接与渲染验证。
+实验性 `macosArm64` 目标需要开启 `org.jetbrains.compose.experimental.macos.enabled=true`，并依赖 LaTeX、codehigh、diagram 的 macOS Native 构件，不能用 JVM/iOS 构件替代。桌面 Demo 仍使用 JVM；Native 支持情况以 macOS CI 的原生测试和 Maven 变体检查结果为准。
 
 |  | 特性 | 描述 |
 |--|------|------|
@@ -311,9 +311,8 @@ Markdown(
 
 ### 文档内文本查找
 
-`Markdown(markdown = ...)` 和 `Markdown(document = ...)` 都支持可选的 `textSearchState`。
-渲染器提供匹配结果与滚动定位；输入框、结果计数、上一个/下一个按钮由宿主应用实现。
-查找不会修改选区、打开选区工具栏，也不会重新解析文档。
+两个 `Markdown` 重载均支持 `textSearchState`，提供正文查找、滚动定位与独立高亮。
+输入框和结果切换由应用实现，查找不会修改选区或重新解析文档。
 
 ```kotlin
 import com.hrm.markdown.renderer.rememberMarkdownTextSearchState
@@ -339,51 +338,21 @@ Column {
 }
 ```
 
-外层 `Column` 需要有限高度。也可使用内部滚动：去掉内层滚动 `Column`，改为
+外层 `Column` 需要有限高度。使用组件内部滚动时，去掉内层滚动容器，改为
 `Markdown(..., modifier = Modifier.weight(1f), textSearchState = search)`。
-`reveal(match)` 将首个实际匹配行滚动到视口内（包括内部 lazy 的屏外块），返回是否找到可用的真实文字几何。
-即使当前匹配未变，用户手动滚走后再次调用也会重新定位。
 
-内部滚动自动将完全屏外的搜索行居中，完全可见时不动，部分可见时滚到最近边缘；文档边界可能使精确居中不可达。
-外部滚动宿主可复用同一策略，在创建滚动容器前传入实际遮挡像素：
-
-```kotlin
-val spec = rememberMarkdownTextSearchBringIntoViewSpec(
-    search, obscuredTopPx = toolbarHeightPx, obscuredBottomPx = bottomBarHeightPx,
-)
-CompositionLocalProvider(LocalBringIntoViewSpec provides spec) {
-    Column(Modifier.verticalScroll(scrollState)) {
-        Markdown(markdown = text, enableScroll = false, textSearchState = search)
-    }
-}
-```
-
-策略只在本次搜索定位等待期间生效，选择手势接管时取消定位并使用原滚动策略。
-其他焦点或选择滚动原样交给 `fallback`；宿主可将已有避遮挡策略传入，不覆盖普通手势行为。
-
-- 按字面进行不重叠匹配，结果保持文档顺序。支持跨强调、链接等行内样式，不跨块、表格单元格或行内 widget。
-- 匹配时折叠 Unicode 空白并去除首尾空白。`setQuery(query, ignoreCase = false)` 区分大小写；
-  默认使用 Kotlin 简单的忽略大小写比较，不做地区相关转换或 Unicode 规范化。
-- 每个结果提供 `excerpt`、`blockStableId`、`documentRevision` 和 UTF-16 半开区间
-  `startInBlock ..< endInBlock`，偏移相对于渲染逻辑文本，而不是 Markdown 源码。
-- 支持段落、标题、嵌套正文和表格单元格文字。不索引图片替代文本、公式/图表源码、行内 widget 或代码块。
-  当前 CodeHigh 代码块公共 API 未开放文本布局几何，查找不会估算坐标。隐藏 tab 中可能存在逻辑匹配，
-  但需要显示该 tab 后才能定位。
-- 当前匹配默认使用 30% 不透明度的黄色背景，可通过 `highlightColor` 调整。
-  设置 `highlightAllMatches = true` 可同时高亮其余匹配，默认关闭；其颜色默认是 15% 不透明度的黄色，
-  可通过 `allMatchHighlightColor` 调整。当前颜色替代普通命中颜色，不叠色。
-  `highlightActiveMatch = false` 只关闭当前匹配的特殊样式；若开启全部高亮，该匹配仍使用普通命中颜色。
-  两种样式均独立于 `enableSelection`，不会为高亮而排版离屏文本。
-- 每个 Markdown 实例使用独立状态，并在 UI 线程操作。`clear()` 清除查询、结果、高亮并取消定位。
-  新查询、文档修订、解绑或后续定位会使旧请求失效；调用协程取消仍向上传播。不要缓存旧匹配结果。
-- 关闭查找面板后传 `textSearchState = null`，避免搜索索引、几何回调和定位 requester。
-  重新绑定前设置的查询会在绑定后自动匹配。
+- 按字面匹配，默认忽略大小写并折叠连续空白；通过 `setQuery(query, ignoreCase = false)` 区分大小写。
+- 支持段落、标题、嵌套正文和表格单元格，可跨行内样式，不跨块、单元格或行内组件；代码块、图片替代文本及公式/图表源码不参与查找。
+- `reveal(match)` 将首个匹配行滚动到可见区域，返回是否定位成功；完全屏外的结果在空间允许时居中，可见结果保持不动。外部滚动可通过 `rememberMarkdownTextSearchBringIntoViewSpec` 复用该策略并传入遮挡像素。
+- 当前结果通过 `highlightColor` 配色；设置 `highlightAllMatches = true` 可高亮全部结果，其他结果使用 `allMatchHighlightColor`，均独立于文本选择。
+- 每个 Markdown 实例使用独立状态，不缓存旧查询或旧文档的结果。`clear()` 清除查找；关闭面板后传入 `textSearchState = null`。
 
 软换行默认为 `Space`；使用 `LineBreak` 可在显示与复制时保留换行。HTML 导出同样支持 `softBreakPolicy`。
 
 ### 行内装饰与末端标记
 
-通过 `inlineDecoration` 装饰 `==highlight==`、`<mark>` 等语义文本。回调接收每个实际绘制的文本片段，而非整个范围。示例中的 `showMarker` 是宿主持有的 Compose 状态；需要图标时，把 `ColorPainter` 换成自己的资源或矢量 Painter。
+通过 `inlineDecoration` 为语义文本添加下划线和可选末端标记。`showMarker` 是宿主持有的 Compose 状态，
+示例中的 `ColorPainter` 可替换为资源或矢量 Painter。
 
 ```kotlin
 import androidx.compose.runtime.remember
@@ -408,11 +377,9 @@ Markdown(
 )
 ```
 
-- Painter 使用 `color` 着色，并裁到 `diameter` 大小的方框内。不传 `painter` 时保留原圆点，包括默认的 4.dp 直径与 3.dp 间距。
-- 每个语义范围只有一个文本末端。粗体、斜体、自动折行和换行不会增加标记；相邻独立范围即使内容与属性相同，也不会合并。
-- Painter 标记在语义范围之后作为行内对象参与排版，不增加源字符、复制、选区或搜索文本及索引。无需替换正文即可随状态重新排版；`inlineDecoration` 返回 `null` 会撤掉装饰，`endMarker = null` 则保留下划线。
-- **Painter 标记真实预留 `gap + diameter` 的行内宽度。** 行尾不足时由 flow 引擎换行，后续文字不能覆盖标记框；无 painter 时保留原圆点的纯绘制行为。
-- 锚点跟随最后一个字形的双向文本方向，不代表实现了通用 RTL 段落排版。标记附着于文本，而非行内 widget；复杂双向混排需由宿主检查。
+- Painter 标记按 `color` 着色、裁剪到 `diameter` 方框，真实预留 `gap + diameter` 的行内宽度，空间不足时自动换行。
+- 每个语义范围仅在文字末端显示一个标记，跨格式或换行不会重复；标记不增加源码、复制、选区或搜索字符。
+- 状态变化无需替换正文；返回 `null` 移除装饰，`endMarker = null` 仅移除标记。不传 `painter` 时保留原有纯绘制圆点，不预留行内宽度。
 
 ---
 
