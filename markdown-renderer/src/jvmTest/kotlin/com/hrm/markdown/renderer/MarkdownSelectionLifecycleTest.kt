@@ -17,8 +17,14 @@ import androidx.compose.ui.platform.NativeClipboard
 import androidx.compose.ui.platform.asAwtTransferable
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.longClick
+import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.v2.runComposeUiTest
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.dp
 import com.hrm.markdown.renderer.internal.selection.LocalMarkdownSelectionController
 import com.hrm.markdown.renderer.internal.selection.MarkdownSelectionController
@@ -34,6 +40,42 @@ import kotlin.test.assertTrue
 
 @OptIn(ExperimentalTestApi::class)
 class MarkdownSelectionLifecycleTest {
+    /** 原地长按真实字形必须留下完整词选区，不能要求用户额外拖动才允许复制。 */
+    @Test
+    fun should_selectAndCopyPaintedWord_when_longPressIsReleasedWithoutDragging() = runComposeUiTest {
+        val page = SelectionPage("before beta after")
+        setContent { page.Content() }
+        for ((source, expected) in listOf(
+            "before beta after" to "beta",
+            "before ==highlight== after" to "highlight",
+            "before 😀 after" to "😀",
+        )) {
+            runOnIdle { page.source = source }
+            waitUntil(timeoutMillis = 10_000) {
+                onAllNodes(hasText(expected, substring = true)).fetchSemanticsNodes().isNotEmpty()
+            }
+            val text = onAllNodes(
+                hasText(expected, substring = true) and SemanticsMatcher.keyIsDefined(SemanticsActions.GetTextLayoutResult),
+                useUnmergedTree = true,
+            )[0]
+            val layouts = mutableListOf<TextLayoutResult>()
+            text.performSemanticsAction(SemanticsActions.GetTextLayoutResult) { assertTrue(it(layouts)) }
+            val layout = layouts.single()
+            val glyph = layout.getBoundingBox(layout.layoutInput.text.text.indexOf(expected))
+            text.performTouchInput { longClick(glyph.center) }
+            waitForIdle()
+            runOnIdle {
+                assertEquals(expected, page.controller.selectedText)
+                assertTrue(page.controller.hasSelection)
+                assertEquals(SelectionActiveHandle.None, page.controller.state.activeHandle)
+                assertTrue(page.controller.state.toolbarRequestKey > 0)
+                page.controller.copySelection()
+                assertEquals(expected, page.clipboard.copied.last())
+                page.controller.clearSelection()
+            }
+        }
+    }
+
     @Test
     fun should_copyWholeCharacters_when_replacementMovesSelectionEndpointIntoASurrogatePair() = runComposeUiTest {
         val page = SelectionPage("AB")
@@ -111,6 +153,44 @@ class MarkdownSelectionLifecycleTest {
         }
     }
 
+    @Test
+    fun should_expandHostRangeAndResetHandles_when_annotationContainsSelection() = runComposeUiTest {
+        val page = SelectionPage("before 😀 after")
+        setContent { page.Content() }
+        awaitText("before 😀 after")
+        runOnIdle { page.controller.selectAll() }
+        waitForIdle()
+        runOnIdle {
+            val block = assertNotNull(page.controller.selectionInfo()).ranges.single()
+            val actions = assertNotNull(page.actions)
+            assertTrue(actions.selectRange(block.blockStableId, 7, 9))
+            assertEquals("😀", page.controller.selectedText)
+            page.controller.beginSelectionHandleDrag(SelectionActiveHandle.End)
+            page.controller.dragSelectionHandleTo(SelectionAnchor(block.blockStableId, 10))
+            val toolbarKey = page.controller.state.toolbarRequestKey
+            assertTrue(actions.selectRange(block.blockStableId, 0, block.blockText.length))
+            assertEquals(block.blockText, page.controller.selectedText)
+            assertEquals(SelectionActiveHandle.None, page.controller.state.activeHandle)
+            assertFalse(page.controller.state.isHandleDrag)
+            assertTrue(page.controller.state.toolbarRequestKey > toolbarKey)
+            page.controller.dragSelectionHandleTo(SelectionAnchor(block.blockStableId, 1))
+            assertEquals(block.blockText, page.controller.selectedText)
+            assertFalse(actions.selectRange(Long.MIN_VALUE, 0, 1))
+            assertFalse(actions.selectRange(block.blockStableId, -1, 9))
+            assertFalse(actions.selectRange(block.blockStableId, 0, block.blockText.length + 1))
+            assertFalse(actions.selectRange(block.blockStableId, 9, 7))
+            assertFalse(actions.selectRange(block.blockStableId, 7, 7))
+            assertEquals(block.blockText, page.controller.selectedText)
+            page.controller.copySelection()
+            assertEquals(block.blockText, page.clipboard.copied.last())
+            assertTrue(actions.selectRange(block.blockStableId, 8, 9))
+            assertEquals("😀", page.controller.selectedText)
+            actions.copySelection()
+            assertEquals("😀", page.clipboard.copied.last())
+            assertFalse(page.controller.hasSelection)
+        }
+    }
+
     private fun ComposeUiTest.awaitText(text: String) {
         waitUntil(timeoutMillis = 10_000) { onAllNodes(hasText(text)).fetchSemanticsNodes().isNotEmpty() }
         waitForIdle()
@@ -119,6 +199,7 @@ class MarkdownSelectionLifecycleTest {
     private class SelectionPage(source: String) {
         var source by mutableStateOf(source)
         val clipboard = RecordingClipboard()
+        var actions: MarkdownSelectionActions? = null
         private var currentController: MarkdownSelectionController? = null
         val controller: MarkdownSelectionController get() = assertNotNull(currentController)
 
@@ -129,10 +210,15 @@ class MarkdownSelectionLifecycleTest {
                     markdown = source,
                     enableSelection = true,
                     enableScroll = false,
-                    components = MarkdownComponents(header = {
-                        val controller = LocalMarkdownSelectionController.current
-                        SideEffect { currentController = controller }
-                    }),
+                    components = MarkdownComponents(
+                        header = {
+                            val controller = LocalMarkdownSelectionController.current
+                            SideEffect { currentController = controller }
+                        },
+                        selectionToolbar = { _, currentActions ->
+                            SideEffect { actions = currentActions }
+                        },
+                    ),
                 )
             }
         }

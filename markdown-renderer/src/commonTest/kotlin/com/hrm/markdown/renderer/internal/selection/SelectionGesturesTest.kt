@@ -1,5 +1,6 @@
 package com.hrm.markdown.renderer.internal.selection
 
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
@@ -21,6 +22,9 @@ import androidx.compose.ui.test.swipe
 import androidx.compose.ui.test.v2.runComposeUiTest
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
+import com.hrm.markdown.renderer.inline.InlinePlaceholderId
+import com.hrm.markdown.renderer.internal.core.model.ImageWidgetModel
+import com.hrm.markdown.renderer.internal.layout.model.LayoutWidgetRun
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -29,6 +33,36 @@ import kotlin.test.assertTrue
 
 @OptIn(ExperimentalTestApi::class)
 class SelectionGesturesTest {
+    @Test
+    fun should_leaveRootSelectionUntouched_when_childConsumesLongPress() = runComposeUiTest {
+        val fixture = SelectionGestureFixture(consumeChildLongPress = true)
+        setContent { fixture.Content() }
+        waitForIdle()
+        onNodeWithTag(SelectionRootTag).performTouchInput {
+            down(Offset(230f, 10f))
+            advanceEventTime(1000L)
+            up()
+        }
+        waitForIdle()
+        runOnIdle {
+            assertEquals(1, fixture.childLongPresses)
+            assertFalse(fixture.controller.hasSelection)
+            assertTrue(fixture.controller.selectRange(1, 2, 8))
+        }
+        val selection = runOnIdle { fixture.controller.state.range }
+        onNodeWithTag(SelectionRootTag).performTouchInput {
+            // Stay inside the child but outside the selected range's handle popups.
+            down(Offset(230f, 10f))
+            advanceEventTime(1000L)
+            up()
+        }
+        waitForIdle()
+        runOnIdle {
+            assertEquals(2, fixture.childLongPresses)
+            assertEquals(selection, fixture.controller.state.range)
+        }
+    }
+
     @Test
     fun should_clearSelectionOnFirstTap_when_longPressDragHasFinished() = runComposeUiTest {
         val fixture = SelectionGestureFixture()
@@ -117,10 +151,26 @@ private fun TouchInjectionScope.selectText() {
     up()
 }
 
-private class SelectionGestureFixture {
-    private val block = inlineTextBlock(id = 1, text = "abcdefghijklmnopqrstuvwxyz", width = 260f, height = 30f)
+private class SelectionGestureFixture(private val consumeChildLongPress: Boolean = false) {
+    private val block = inlineTextBlock(id = 1, text = "abcdefghijklmnopqrstuvwxyz", width = 260f, height = 30f).let { textBlock ->
+        if (!consumeChildLongPress) textBlock else {
+            val line = textBlock.lines.single()
+            val textRun = line.runs.single() as com.hrm.markdown.renderer.internal.layout.model.LayoutTextRun
+            val image = ImageWidgetModel(selIdentity(1002), "image", "", null, null, null)
+            textBlock.copy(lines = listOf(line.copy(runs = listOf(
+                textRun.copy(frame = textRun.frame.copy(width = 180f)),
+                LayoutWidgetRun(
+                    identity = image.identity,
+                    frame = selRect(left = 200f, width = 60f, height = 30f),
+                    id = InlinePlaceholderId.from(image),
+                    widget = image,
+                ),
+            ))))
+        }
+    }
     lateinit var controller: MarkdownSelectionController
     var consumeDrag = false
+    var childLongPresses = 0
 
     @Composable
     fun Content() {
@@ -150,6 +200,9 @@ private class SelectionGestureFixture {
                 Modifier
                     .size(width = 260.dp, height = 30.dp)
                     .onGloballyPositioned { current.registry.register(block.identity.stableId, it) }
+                    .pointerInput(consumeChildLongPress) {
+                        if (consumeChildLongPress) detectTapGestures(onLongPress = { childLongPresses++ })
+                    }
             )
             SelectionHandlesHost(current)
         }

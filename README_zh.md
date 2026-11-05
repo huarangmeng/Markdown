@@ -265,6 +265,27 @@ Markdown(
 选择文字期间更新正文时，选区端点和正在拖动的手柄都会校正到有效的 UTF-16 字符边界。
 删除选中块会同时清除选区与拖动状态，复制不会使用已经失效的端点。
 
+自定义 `MarkdownComponents.selectionToolbar` 可以调用
+`actions.selectRange(blockStableId, start, end)` 替换选区。偏移对应 `blockText` 内非空的
+UTF-16 半开区间 `[start, end)`。块 ID 不存在或范围无效时返回 `false`，当前选区保持不变。
+请在用户操作回调中调用，避免在重组期间修改选区：
+
+```kotlin
+import androidx.compose.material3.Button
+import androidx.compose.material3.Text
+import com.hrm.markdown.renderer.MarkdownComponents
+
+MarkdownComponents(selectionToolbar = { info, actions ->
+    info.ranges.singleOrNull()?.let { block ->
+        Button(onClick = {
+            actions.selectRange(block.blockStableId, 0, block.blockText.length)
+        }) {
+            Text("选择整块")
+        }
+    }
+})
+```
+
 ---
 
 ## 交互与标准组件插槽
@@ -307,7 +328,7 @@ Markdown(
 
 插槽内容应保持在声明高度内，工具栏文字不计入 Markdown 复制内容。`MarkdownTableInfo.rowCount` 包含表头行。
 
-外层容器负责垂直滚动时，设置 `enableScroll = false`。
+外层容器负责垂直滚动时，设置 `enableScroll = false`；将父容器的 `ScrollState` 作为 `externalScrollState` 传入，可在点击脚注返回箭头时恢复原滚动位置，不会增加第二个滚动容器。监听行内点击不会替换内置脚注跳转。
 
 ### 文档内文本查找
 

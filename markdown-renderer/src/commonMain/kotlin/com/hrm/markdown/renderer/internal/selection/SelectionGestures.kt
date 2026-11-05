@@ -1,7 +1,10 @@
 package com.hrm.markdown.renderer.internal.selection
 
-import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
-import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.awaitLongPressOrCancellation
+import androidx.compose.foundation.gestures.drag
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -36,8 +39,8 @@ import com.hrm.markdown.renderer.LocalMarkdownStyle
 
 /**
  * 把自研选区层的交互手势挂到根容器：
- * - 长按拖拽进入并延展选区（[detectDragGesturesAfterLongPress]）；
- * - 点击空白处清除选区（[detectTapGestures]）。
+ * - 长按拖拽进入并延展选区（[awaitLongPressOrCancellation]）；
+ * - 点击空白处清除选区（[waitForUpOrCancellation]）。
  *
  * 手势节点与 [SelectionCoordinateRegistry.setRoot] 处于同一根 Box，
  * 因此 pointer 的 local 坐标即根容器坐标，交给控制器换算成 window → 逻辑锚点。
@@ -47,22 +50,35 @@ internal fun Modifier.markdownSelectionGestures(
 ): Modifier =
     this
         .pointerInput(controller) {
-            detectDragGesturesAfterLongPress(
-                onDragStart = { offset -> controller.beginSelectionAtRootLocal(offset) },
-                onDragEnd = { controller.finishSelectionGesture() },
-                onDragCancel = { controller.finishSelectionGesture() },
-                onDrag = { change, _ ->
-                    controller.extendSelectionToRootLocal(change.position)
-                    change.consume()
-                },
-            )
+            awaitEachGesture {
+                val down = awaitFirstDown(requireUnconsumed = false)
+                val longPress = awaitLongPressOrCancellation(down.id) ?: return@awaitEachGesture
+                // Clickable text consumes down too; only a direct text hit can override child ownership.
+                if (!controller.beginSelectionAtRootLocal(longPress.position, requireTextHit = down.isConsumed)) {
+                    return@awaitEachGesture
+                }
+                try {
+                    val completed = drag(longPress.id) { change ->
+                        controller.extendSelectionToRootLocal(change.position)
+                        change.consume()
+                    }
+                    if (completed) {
+                        currentEvent.changes.forEach { if (it.previousPressed && !it.pressed) it.consume() }
+                    }
+                } finally {
+                    controller.finishSelectionGesture()
+                }
+            }
         }
         .pointerInput(controller) {
-            // Consumed drag events cancel tap detection for the same gesture;
-            // the next independent tap should always clear the selection.
-            detectTapGestures(
-                onTap = { controller.clearSelection() },
-            )
+            awaitEachGesture {
+                awaitFirstDown(requireUnconsumed = true)
+                val selectionAtPress = controller.state.range
+                // Do not consume down: selection and child long presses must arbitrate first.
+                if (waitForUpOrCancellation() != null && controller.state.range === selectionAtPress) {
+                    controller.clearSelection()
+                }
+            }
         }
 
 /**
@@ -143,6 +159,7 @@ private fun CustomSelectionToolbarHost(
             },
             onSelectAll = { controller.selectAll() },
             onDismiss = { controller.clearSelection() },
+            onSelectRange = controller::selectRange,
         )
     }
     selectionToolbar(info, actions)

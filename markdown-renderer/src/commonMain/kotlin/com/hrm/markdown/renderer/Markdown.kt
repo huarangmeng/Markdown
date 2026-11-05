@@ -2,6 +2,7 @@ package com.hrm.markdown.renderer
 
 import com.hrm.markdown.parser.MarkdownParserConfig
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
@@ -48,6 +49,7 @@ import com.hrm.markdown.runtime.MarkdownSourceMap
  * @param enableHeadingNumbering 是否为文档顶层标题添加 `1`、`1.1` 等层级编号，默认为 `false`。
  * @param enableScroll 是否启用组件内部的垂直滚动，默认为 `true`，此时父布局应提供有限的高度约束。
  * 外层容器负责滚动时设为 `false`，Markdown 将按完整内容高度布局。
+ * @param externalScrollState 外层垂直滚动状态，仅在 enableScroll=false 时用于保存和恢复脚注返回位置，不增加滚动容器。
  * @param enableSelection 是否允许用户选择 Markdown 文本进行复制，默认为 `true`。
  * @param textSearchState 可选正文精确搜索与定位状态，独立于选区；外部滚动容器配合 enableScroll=false 可定位整篇正文。
  * @param isStreaming 是否仍在接收流式内容，默认为 `false`。启用后对追加的源码进行增量解析，并启用流式渲染效果；
@@ -88,6 +90,7 @@ fun Markdown(
     directivePlugins: List<MarkdownDirectivePlugin> = emptyList(),
     parserConfig: MarkdownParserConfig = MarkdownParserConfig.Default,
     textSearchState: MarkdownTextSearchState? = null,
+    externalScrollState: ScrollState? = null,
 ) {
     val directiveRegistry = rememberDirectiveRegistry(directivePlugins)
     val runtimePipeline = remember(directiveRegistry.inputPipeline) { directiveRegistry.inputPipeline }
@@ -119,6 +122,7 @@ fun Markdown(
             components = components,
             interactions = interactions,
             textSearchState = textSearchState,
+            externalScrollState = externalScrollState,
         )
     }
 }
@@ -151,6 +155,7 @@ fun Markdown(
  * @param enableHeadingNumbering 是否为文档顶层标题添加 `1`、`1.1` 等层级编号，默认为 `false`。
  * @param enableScroll 是否启用组件内部的垂直滚动，默认为 `true`，此时父布局应提供有限的高度约束。
  * 外层容器负责滚动时设为 `false`，Markdown 将按完整内容高度布局。
+ * @param externalScrollState 外层垂直滚动状态，仅在 enableScroll=false 时用于保存和恢复脚注返回位置，不增加滚动容器。
  * @param enableSelection 是否允许用户选择 Markdown 文本进行复制，默认为 `true`。
  * @param textSearchState 可选正文精确搜索与定位状态，独立于选区；外部滚动容器配合 enableScroll=false 可定位整篇正文。
  * @param isStreaming 是否仍在更新流式文档，默认为 `false`。启用后显示流式渲染效果，结束时设为 `false`。
@@ -187,6 +192,7 @@ fun Markdown(
     interactions: MarkdownInteractions = MarkdownInteractions.Default,
     directivePlugins: List<MarkdownDirectivePlugin> = emptyList(),
     textSearchState: MarkdownTextSearchState? = null,
+    externalScrollState: ScrollState? = null,
 ) {
     val directiveRegistry = rememberDirectiveRegistry(directivePlugins)
     MarkdownDocumentRenderer(
@@ -207,6 +213,7 @@ fun Markdown(
         components = components,
         interactions = interactions,
         textSearchState = textSearchState,
+        externalScrollState = externalScrollState,
     )
 }
 
