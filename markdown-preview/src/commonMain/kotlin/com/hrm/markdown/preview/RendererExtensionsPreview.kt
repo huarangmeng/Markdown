@@ -8,6 +8,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
+import androidx.compose.runtime.rememberCoroutineScope
+import com.hrm.markdown.renderer.rememberMarkdownTextSearchState
+import kotlinx.coroutines.launch
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -33,6 +37,52 @@ internal val rendererExtensionsPreviewGroup = PreviewGroup(
     title = "交互与标准组件插槽",
     description = "引用来源、图片图集、软换行和代码/表格操作栏",
     items = listOf(
+        PreviewItem("document_text_find", "正文查找与定位", content = {
+            val search = rememberMarkdownTextSearchState()
+            val scope = rememberCoroutineScope()
+            var visible by remember { mutableStateOf(true) }
+            Column {
+                if (visible) {
+                    TextField(
+                        value = search.query,
+                        onValueChange = { search.setQuery(it) },
+                        label = { Text("查找正文（试试：针叶林）") },
+                        singleLine = true,
+                    )
+                    Row {
+                        TextButton(enabled = search.matches.isNotEmpty(), onClick = {
+                            val results = search.matches
+                            if (results.isNotEmpty()) {
+                                val current = results.indexOf(search.activeMatch)
+                                val previous = if (current <= 0) results.lastIndex else current - 1
+                                scope.launch { search.reveal(results[previous]) }
+                            }
+                        }) { Text("上一个") }
+                        TextButton(enabled = search.matches.isNotEmpty(), onClick = {
+                            val results = search.matches
+                            if (results.isNotEmpty()) {
+                                val next = (results.indexOf(search.activeMatch) + 1) % results.size
+                                scope.launch { search.reveal(results[next]) }
+                            }
+                        }) { Text("下一个") }
+                        Text("${search.matches.indexOf(search.activeMatch) + 1} / ${search.matches.size}")
+                        TextButton(onClick = { search.clear(); visible = false }) { Text("关闭查找") }
+                    }
+                } else {
+                    TextButton(onClick = { visible = true }) { Text("打开查找") }
+                }
+                Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+                    Markdown(
+                        markdown = "# 正文查找\n\n针**叶**[林](https://example.invalid)可以跨行内样式匹配。" +
+                            "\n\n" + "向下滚动后再次点击同一个结果也会重新定位。".repeat(20) +
+                            "\n\n| 类型 | 描述 |\n| --- | --- |\n| 树林 | 针叶林 |" +
+                            "\n\n> 引用中的针叶林也可以找到。\n\n`针叶林` 是 widget，不计入结果。",
+                        enableScroll = false,
+                        textSearchState = if (visible) search else null,
+                    )
+                }
+            }
+        }),
         PreviewItem("public_api_styles", "颜色、排版与代码尺寸", content = {
             var large by remember { mutableStateOf(false) }
             Column(Modifier.verticalScroll(rememberScrollState())) {

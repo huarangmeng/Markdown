@@ -52,7 +52,10 @@ internal class MarkdownSelectionController(
     val state = MarkdownSelectionState()
     val registry = SelectionCoordinateRegistry()
 
-    private var index: SelectionModelIndex = SelectionModelIndex(emptyList())
+    internal var index: SelectionModelIndex = SelectionModelIndex(emptyList())
+        private set
+    private var documentBlocks: List<InternalRenderBlockModel>? = null
+    private var searchEnabled = false
     private val incrementalIndexBuilder = IncrementalSelectionIndexBuilder()
     private val visibleLayoutBlocks = mutableMapOf<Long, InternalLayoutBlockModel>()
     private val geometryByStableId = mutableMapOf<Long, SelectionBlockGeometry>()
@@ -72,8 +75,11 @@ internal class MarkdownSelectionController(
     }
 
     /** Refresh the lightweight whole-document index without laying out offscreen blocks. */
-    fun updateDocument(blocks: List<InternalRenderBlockModel>) {
-        replaceIndex(incrementalIndexBuilder.build(blocks))
+    fun updateDocument(blocks: List<InternalRenderBlockModel>, includeSearch: Boolean = false) {
+        if (documentBlocks === blocks && searchEnabled == includeSearch) return
+        documentBlocks = blocks
+        searchEnabled = includeSearch
+        replaceIndex(incrementalIndexBuilder.build(blocks, includeSearch))
     }
 
     /** Legacy/test entry point for callers that already own an eager layout tree. */
@@ -108,6 +114,7 @@ internal class MarkdownSelectionController(
 
     fun registerVisibleBlock(block: InternalLayoutBlockModel) {
         val stableId = block.identity.stableId
+        if (visibleLayoutBlocks[stableId] === block) return
         val previous = visibleLayoutBlocks.put(stableId, block)
         if (previous != null &&
             (previous.identity.contentRevision != block.identity.contentRevision ||
@@ -176,14 +183,14 @@ internal class MarkdownSelectionController(
 
     private fun rebuildGeometry(stableId: Long) {
         val block = visibleLayoutBlocks[stableId] ?: return
-        val entry = index.entryOf(stableId) ?: return
+        val entry = index.geometryEntryOf(stableId) ?: return
         geometryByStableId[stableId] = buildSelectionGeometry(block, entry)
     }
 
     /** 返回某 block 内字符区间对应的 run 切片，供高亮绘制使用。 */
-    fun runSlicesFor(stableId: Long): List<RunCharSlice> {
-        val range = state.range ?: return emptyList()
-        val entry = index.entryOf(stableId) ?: return emptyList()
+    fun runSlicesFor(stableId: Long, range: SelectionRange? = state.range): List<RunCharSlice> {
+        if (range == null) return emptyList()
+        val entry = index.geometryEntryOf(stableId) ?: return emptyList()
         val geometry = geometryByStableId[stableId] ?: return emptyList()
         val order = entry.order
         if (order < (index.orderOf(range.start.blockStableId) ?: return emptyList())) return emptyList()
@@ -198,19 +205,25 @@ internal class MarkdownSelectionController(
      * 返回某 block 内选区高亮矩形（block-local 坐标，原点为 block.frame 左上），
      * 坐标公式与 [PaintInlineLayoutContent] 放置一致：`left = run.frame.left - block.frame.left`。
      */
-    fun highlightBoxesFor(stableId: Long): List<Rect> {
-        val entry = index.entryOf(stableId) ?: return emptyList()
+    fun highlightBoxesFor(
+        stableId: Long,
+        range: SelectionRange? = state.range,
+        textOnly: Boolean = false,
+    ): List<Rect> {
+        if (range == null) return emptyList()
+        val entry = index.geometryEntryOf(stableId) ?: return emptyList()
         val geometry = geometryByStableId[stableId] ?: return emptyList()
-        val slices = runSlicesFor(stableId)
+        val slices = runSlicesFor(stableId, range)
         if (slices.isEmpty()) {
-            return if (geometry.runs.isEmpty()) wholeBlockHighlightBox(entry, geometry) else emptyList()
+            return if (!textOnly && geometry.runs.isEmpty()) wholeBlockHighlightBox(entry, geometry, range) else emptyList()
         }
         val block = geometry.block as? LayoutInlineBlockModel
-            ?: return wholeBlockHighlightBox(entry, geometry)
+            ?: return if (textOnly) emptyList() else wholeBlockHighlightBox(entry, geometry, range)
 
         val boxes = ArrayList<Rect>(slices.size)
         for (slice in slices) {
             val run = slice.span.run
+            if (textOnly && run !is LayoutTextRun) continue
             val runLeft = run.frame.left - block.frame.left
             val runTop = run.frame.top - block.frame.top
             val text = slice.span.text
@@ -220,9 +233,28 @@ internal class MarkdownSelectionController(
                 startX = 0f
                 endX = run.frame.width
             } else {
-                val layout = textLayoutFor(geometry, slice.span) ?: continue
+                val layout = if (textOnly) {
+                    // Search must use painted geometry, never the selection fallback measurement.
+                    textLayoutsByBlock[stableId]?.get(run.visibleTextLayoutKey())
+                } else {
+                    textLayoutFor(geometry, slice.span)
+                } ?: continue
                 val s = slice.startInRun.coerceIn(0, text.length)
                 val e = slice.endInRun.coerceIn(0, text.length)
+                if (textOnly) {
+                    // 搜索使用真实 glyph 区间；双向文本的两端 caret 可能同侧，不能只减两个 x。
+                    val result = layout.result
+                    val start = layout.textStart + s
+                    val end = layout.textStart + e
+                    for (line in result.getLineForOffset(start)..result.getLineForOffset(end - 1)) {
+                        val from = maxOf(start, result.getLineStart(line))
+                        val to = minOf(end, result.getLineEnd(line))
+                        if (to <= from) continue
+                        val bounds = result.getPathForRange(from, to).getBounds()
+                        boxes += bounds.translate(Offset(runLeft - layout.runX, runTop - layout.runY))
+                    }
+                    continue
+                }
                 startX = layout.horizontalPosition(s)
                 endX = layout.horizontalPosition(e)
             }
@@ -236,8 +268,8 @@ internal class MarkdownSelectionController(
     private fun wholeBlockHighlightBox(
         entry: SelectionBlockEntry,
         geometry: SelectionBlockGeometry,
+        range: SelectionRange,
     ): List<Rect> {
-        val range = state.range ?: return emptyList()
         val order = entry.order
         if (order < (index.orderOf(range.start.blockStableId) ?: return emptyList())) return emptyList()
         if (order > (index.orderOf(range.end.blockStableId) ?: return emptyList())) return emptyList()

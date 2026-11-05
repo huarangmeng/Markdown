@@ -24,6 +24,9 @@ import com.hrm.markdown.renderer.LocalMarkdownDirectiveRegistry
 import com.hrm.markdown.renderer.LocalMarkdownRenderOptions
 import com.hrm.markdown.renderer.LocalMarkdownLatexState
 import com.hrm.markdown.renderer.LocalMarkdownStyle
+import com.hrm.markdown.renderer.LocalMarkdownTextSearchState
+import com.hrm.markdown.renderer.internal.selection.LocalMarkdownSelectionController
+import com.hrm.markdown.renderer.internal.selection.selectableBlock
 import com.hrm.markdown.renderer.LocalOnFootnoteClick
 import com.hrm.markdown.renderer.LocalOnLinkClick
 import com.hrm.markdown.renderer.ResolvedMarkdownStyle
@@ -43,6 +46,7 @@ internal fun InlineLayoutBlockText(
     modifier: Modifier = Modifier,
     maxLines: Int = Int.MAX_VALUE,
     isHeading: Boolean = false,
+    searchable: Boolean = false,
 ) {
     val theme = LocalMarkdownStyle.current
     val directiveRegistry = LocalMarkdownDirectiveRegistry.current
@@ -117,6 +121,7 @@ internal fun InlineLayoutBlockText(
                 inlineLayoutEpoch = inlineLayoutEpoch,
                 layoutDirection = layoutDirection,
                 isHeading = isHeading,
+                searchable = searchable,
             )
         },
         measurePolicy = measurePolicy,
@@ -140,6 +145,7 @@ private fun InlineLayoutBlockMeasuredContent(
     inlineLayoutEpoch: InlineLayoutEpoch,
     layoutDirection: LayoutDirection,
     isHeading: Boolean,
+    searchable: Boolean,
 ) {
     BoxWithConstraints {
         val maxWidthPx = with(density) { maxWidth.toPx() }
@@ -178,9 +184,16 @@ private fun InlineLayoutBlockMeasuredContent(
             )
         }
 
+        // Table cells use this exact painted layout; keep table-wide selection/copy unchanged.
+        val controller = if (searchable && LocalMarkdownTextSearchState.current != null) {
+            LocalMarkdownSelectionController.current
+        } else null
         PaintInlineLayoutContent(
             block = layoutBlock.copy(isHeading = isHeading),
-            modifier = Modifier,
+            modifier = Modifier.selectableBlock(layoutBlock, controller, selectionHighlight = false),
+            onTextItemLayout = if (controller == null) null else { placements, result ->
+                controller.registerTextLayout(layoutBlock.identity.stableId, placements, result)
+            },
         )
     }
 }

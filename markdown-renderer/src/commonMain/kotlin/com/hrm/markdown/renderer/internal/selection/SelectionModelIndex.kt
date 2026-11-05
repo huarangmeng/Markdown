@@ -1,5 +1,8 @@
 package com.hrm.markdown.renderer.internal.selection
 
+import com.hrm.markdown.renderer.internal.childBlocks
+import com.hrm.markdown.renderer.internal.core.identity.renderIdentityFromText
+import com.hrm.markdown.renderer.internal.core.identity.renderIdentityFromValues
 import com.hrm.markdown.renderer.internal.core.model.AdmonitionBlockModel
 import com.hrm.markdown.renderer.internal.core.model.BibliographyDefinitionBlockModel
 import com.hrm.markdown.renderer.internal.core.model.BlockQuoteBlockModel
@@ -58,6 +61,17 @@ internal data class SelectionBlockEntry(
     val totalChars: Int,
     val text: String,
     val attributes: Map<String, String> = emptyMap(),
+    /** 仅真实文本 run 可精确定位；widget 的替代文本仍占逻辑偏移，但不参与正文搜索。 */
+    val searchableRanges: List<SelectionSearchRange> = emptyList(),
+    val topLevelIndex: Int = 0,
+)
+
+/** Text-only eligibility and its existing painted inline block, not a second text index. */
+internal data class SelectionSearchRange(
+    val chars: IntRange,
+    val geometryStableId: Long,
+    val geometryStart: Int,
+    val geometryEnd: Int,
 )
 
 /** A visible layout run mapped back into its block's logical character space. */
@@ -84,15 +98,28 @@ internal data class SelectionBlockGeometry(
  */
 internal class SelectionModelIndex(
     val entries: List<SelectionBlockEntry>,
+    includeSearch: Boolean = false,
 ) {
     private val orderByStableId = entries.associate { it.stableId to it.order }
     private val entryByStableId = entries.associateBy { it.stableId }
+    private val searchGeometryOwners = if (!includeSearch) emptyMap() else buildMap<Long, Pair<SelectionBlockEntry, SelectionSearchRange>> {
+        for (entry in this@SelectionModelIndex.entries) for (range in entry.searchableRanges) {
+            put(range.geometryStableId, entry to range)
+        }
+    }
+
+    fun geometryEntryOf(stableId: Long): SelectionBlockEntry? {
+        entryByStableId[stableId]?.let { return it }
+        val (entry, range) = searchGeometryOwners[stableId] ?: return null
+        val text = entry.text.substring(range.geometryStart, range.geometryEnd)
+        return SelectionBlockEntry(stableId, entry.order, text.length, text)
+    }
 
     val isEmpty: Boolean get() = entries.isEmpty()
 
     fun entryOf(stableId: Long): SelectionBlockEntry? = entryByStableId[stableId]
 
-    fun orderOf(stableId: Long): Int? = orderByStableId[stableId]
+    fun orderOf(stableId: Long): Int? = orderByStableId[stableId] ?: searchGeometryOwners[stableId]?.first?.order
 
     fun clampAnchor(anchor: SelectionAnchor): SelectionAnchor? {
         val entry = entryByStableId[anchor.blockStableId] ?: return null
@@ -118,9 +145,10 @@ internal class SelectionModelIndex(
 }
 
 /** Build the full logical index directly from the cheap render model. */
-internal fun buildSelectionIndex(blocks: List<InternalRenderBlockModel>): SelectionModelIndex {
-    return IncrementalSelectionIndexBuilder().build(blocks)
-}
+internal fun buildSelectionIndex(
+    blocks: List<InternalRenderBlockModel>,
+    includeSearch: Boolean = false,
+): SelectionModelIndex = IncrementalSelectionIndexBuilder().build(blocks, includeSearch)
 
 internal data class SelectionIndexBuildMetrics(
     val computedTopLevelBlocks: Int = 0,
@@ -133,10 +161,17 @@ internal data class SelectionIndexBuildMetrics(
  * extraction and recursive traversal are limited to changed blocks.
  */
 internal class IncrementalSelectionIndexBuilder {
-    private data class RawEntry(val stableId: Long, val text: String, val attributes: Map<String, String>)
+    private data class RawEntry(
+        val stableId: Long,
+        val text: String,
+        val attributes: Map<String, String>,
+        val searchableRanges: List<SelectionSearchRange>,
+    )
 
     private data class CachedFragment(
+        val block: InternalRenderBlockModel,
         val contentRevision: Long,
+        val headingNumberings: List<Pair<Long, String>>,
         val entries: List<RawEntry>,
     )
 
@@ -145,22 +180,31 @@ internal class IncrementalSelectionIndexBuilder {
     var lastMetrics: SelectionIndexBuildMetrics = SelectionIndexBuildMetrics()
         private set
 
-    fun build(blocks: List<InternalRenderBlockModel>): SelectionModelIndex {
+    private var searchEnabled = false
+
+    fun build(blocks: List<InternalRenderBlockModel>, includeSearch: Boolean = false): SelectionModelIndex {
+        if (searchEnabled != includeSearch) fragmentsByStableId = emptyMap()
+        searchEnabled = includeSearch
         val nextFragments = HashMap<Long, CachedFragment>(blocks.size)
         val entries = ArrayList<SelectionBlockEntry>()
         var computed = 0
         var reused = 0
 
-        for (block in blocks) {
+        for ((topLevelIndex, block) in blocks.withIndex()) {
             val stableId = block.identity.stableId
             val cached = fragmentsByStableId[stableId]
-            val fragment = if (cached?.contentRevision == block.identity.contentRevision) {
+            val headingNumberings = if (cached?.block === block) cached.headingNumberings else headingNumberings(block)
+            val fragment = if (cached?.contentRevision == block.identity.contentRevision &&
+                cached.headingNumberings == headingNumberings
+            ) {
                 reused++
-                cached
+                if (cached.block === block) cached else cached.copy(block = block)
             } else {
                 computed++
                 CachedFragment(
+                    block = block,
                     contentRevision = block.identity.contentRevision,
+                    headingNumberings = headingNumberings,
                     entries = selectionEntriesForBlock(block),
                 )
             }
@@ -172,6 +216,8 @@ internal class IncrementalSelectionIndexBuilder {
                     totalChars = entry.text.length,
                     text = entry.text,
                     attributes = entry.attributes,
+                    searchableRanges = entry.searchableRanges,
+                    topLevelIndex = topLevelIndex,
                 )
             }
         }
@@ -181,32 +227,82 @@ internal class IncrementalSelectionIndexBuilder {
             computedTopLevelBlocks = computed,
             reusedTopLevelBlocks = reused,
         )
-        return SelectionModelIndex(entries)
+        return SelectionModelIndex(entries, includeSearch)
+    }
+
+    private fun headingNumberings(block: InternalRenderBlockModel): List<Pair<Long, String>> = buildList {
+        fun visit(current: InternalRenderBlockModel) {
+            if (current is HeadingBlockModel) {
+                add(current.identity.stableId to current.numbering?.takeIf { it.isNotBlank() }?.plus(' ').orEmpty())
+            }
+            current.childBlocks().forEach(::visit)
+        }
+        visit(block)
     }
 
     private fun selectionEntriesForBlock(block: InternalRenderBlockModel): List<RawEntry> {
         val entries = ArrayList<RawEntry>()
 
         fun add(stableId: Long, text: String, attributes: Map<String, String> = emptyMap()) {
-            if (text.isNotEmpty()) entries += RawEntry(stableId, text, attributes)
+            if (text.isNotEmpty()) entries += RawEntry(stableId, text, attributes, emptyList())
+        }
+
+        fun addInline(
+            stableId: Long,
+            inline: InlineModel,
+            attributes: Map<String, String> = emptyMap(),
+            prefix: String = "",
+        ) {
+            if (!searchEnabled) {
+                add(stableId, prefix + inline.plainText(), attributes)
+                return
+            }
+            val text = StringBuilder(prefix)
+            val ranges = ArrayList<IntRange>()
+            appendInline(text, inline, ranges)
+            // Numbering is painted as text before the inline model.
+            if (prefix.isNotEmpty()) {
+                if (ranges.firstOrNull()?.first == prefix.length) ranges[0] = 0..ranges[0].last
+                else ranges.add(0, prefix.indices)
+            }
+            if (text.isNotEmpty()) entries += RawEntry(stableId, text.toString(), attributes,
+                ranges.map { SelectionSearchRange(it, stableId, 0, text.length) })
         }
 
         fun visit(current: InternalRenderBlockModel) {
             when (current) {
-                is ParagraphBlockModel -> add(current.identity.stableId, current.inline.plainText(), current.sourceAttributes)
-                is HtmlParagraphBlockModel -> add(current.identity.stableId, current.inline.plainText())
-                is HeadingBlockModel -> add(
+                is ParagraphBlockModel -> addInline(current.identity.stableId, current.inline, current.sourceAttributes)
+                is HtmlParagraphBlockModel -> addInline(current.identity.stableId, current.inline)
+                is HeadingBlockModel -> addInline(
                     current.identity.stableId,
-                    buildString {
-                        current.numbering?.takeIf { it.isNotBlank() }?.let { append(it).append(' ') }
-                        append(current.inline.plainText())
-                    },
+                    current.inline,
+                    prefix = current.numbering?.takeIf { it.isNotBlank() }?.plus(' ').orEmpty(),
                 )
                 is CodeBlockModel -> add(current.identity.stableId, current.code)
                 is MathBlockModel -> add(current.identity.stableId, current.latex)
                 is DiagramBlockModel -> add(current.identity.stableId, current.code)
                 is HtmlBlockModel -> add(current.identity.stableId, current.html)
-                is TableBlockModel -> add(current.identity.stableId, current.plainText())
+                is TableBlockModel -> {
+                    if (!searchEnabled) {
+                        add(current.identity.stableId, current.plainText())
+                    } else {
+                        val text = StringBuilder()
+                        val ranges = ArrayList<SelectionSearchRange>()
+                        current.rows.forEachIndexed { rowIndex, row ->
+                            if (rowIndex > 0) text.append('\n')
+                            row.cells.forEachIndexed { cellIndex, cell ->
+                                if (cellIndex > 0) text.append('\t')
+                                val start = text.length
+                                val cellRanges = ArrayList<IntRange>()
+                                appendInline(text, cell.inline, cellRanges)
+                                ranges += cellRanges.map {
+                                    SelectionSearchRange(it, cell.inline.identity.stableId, start, text.length)
+                                }
+                            }
+                        }
+                        if (text.isNotEmpty()) entries += RawEntry(current.identity.stableId, text.toString(), emptyMap(), ranges)
+                    }
+                }
                 is BlockQuoteBlockModel -> current.children.forEach(::visit)
                 is AdmonitionBlockModel -> current.children.forEach(::visit)
                 is CustomContainerBlockModel -> current.children.forEach(::visit)
@@ -220,7 +316,7 @@ internal class IncrementalSelectionIndexBuilder {
                 is DefinitionListBlockModel -> current.items.forEach { item ->
                     when (item) {
                         is com.hrm.markdown.renderer.internal.core.model.DefinitionTermBlockModel ->
-                            add(item.identity.stableId, item.inline.plainText())
+                            addInline(item.identity.stableId, item.inline)
                         is DefinitionDescriptionBlockModel -> item.children.forEach(::visit)
                     }
                 }
@@ -246,6 +342,21 @@ internal class IncrementalSelectionIndexBuilder {
 
         visit(block)
         return entries
+    }
+
+    private fun appendInline(text: StringBuilder, inline: InlineModel, ranges: MutableList<IntRange>) {
+        var start = text.length
+        for (atom in inline.atoms) {
+            when (atom) {
+                is TextAtom -> text.append(atom.text)
+                is WidgetAtom -> {
+                    if (text.length > start) ranges += start until text.length
+                    text.append(atom.widget.plainText())
+                    start = text.length
+                }
+            }
+        }
+        if (text.length > start) ranges += start until text.length
     }
 }
 

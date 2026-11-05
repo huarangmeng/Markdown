@@ -22,6 +22,7 @@ import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.dp
 import com.hrm.markdown.renderer.LocalMarkdownDirectiveRegistry
 import com.hrm.markdown.renderer.LocalMarkdownStyle
+import com.hrm.markdown.renderer.LocalMarkdownTextSearchState
 import com.hrm.markdown.renderer.MarkdownRenderMode
 import com.hrm.markdown.renderer.block.FencedCodeBlockRenderer
 import com.hrm.markdown.renderer.block.MathBlockRenderer
@@ -478,9 +479,10 @@ private fun PaintRenderBlock(block: LayoutRenderBlockModel) {
 @Composable
 private fun PaintInlineBlock(block: LayoutInlineBlockModel) {
     val selectionController = LocalMarkdownSelectionController.current
-    // Keep the normal rendering path callback-free. Starting a selection recreates BasicText
-    // once so its existing layout result can serve all subsequent highlights and handle drags.
-    val onTextItemLayout = if (selectionController?.hasSelection != true) {
+    // 普通路径不注册回调；启用搜索时复用 BasicText 的真实布局，避免匹配行定位再次测量。
+    val onTextItemLayout = if (selectionController == null ||
+        (!selectionController.hasSelection && LocalMarkdownTextSearchState.current == null)
+    ) {
         null
     } else {
         remember(block.identity.stableId, selectionController) {

@@ -1,11 +1,11 @@
 package com.hrm.markdown.renderer
 
+import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
@@ -34,6 +34,7 @@ import com.hrm.markdown.renderer.internal.toCompileEnvironment
 import com.hrm.markdown.runtime.MarkdownDirectiveRegistry
 import com.hrm.markdown.runtime.MarkdownSourceMap
 
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 internal fun MarkdownDocumentRenderer(
     document: Document,
@@ -48,6 +49,7 @@ internal fun MarkdownDocumentRenderer(
     sourceMap: MarkdownSourceMap = MarkdownSourceMap.Identity,
     components: MarkdownComponents = MarkdownComponents.Default,
     interactions: MarkdownInteractions = MarkdownInteractions.Default,
+    textSearchState: MarkdownTextSearchState? = null,
 ) {
     DisposableEffect(state) { onDispose { state.clearSelectionAction = null; state.scrollEnabled = false } }
     val latexState = rememberMarkdownLatexState(config.latexConfig)
@@ -112,7 +114,7 @@ internal fun MarkdownDocumentRenderer(
             val viewportWidthPx = with(density) { maxWidth.toPx() }
             val blockSpacingPx = with(density) { theme.layout.blockSpacing.toPx() }
             val textMeasurer = rememberTextMeasurer()
-            val selectionController = if (enableSelection) {
+            val selectionController = if (enableSelection || textSearchState != null) {
                 val selectionScope = rememberCoroutineScope()
                 rememberMarkdownSelectionController(selectionScope, textMeasurer)
             } else {
@@ -183,21 +185,32 @@ internal fun MarkdownDocumentRenderer(
                 layoutSource.metadata.footnoteDefinitionItemIndexes
             navigationController.documentStartIndex = if (header == null) 0 else 1
             if (selectionController != null) {
-                LaunchedEffect(internalRenderDocument) {
-                    selectionController.updateDocument(internalRenderDocument.blocks)
+                val searchDocumentKey = remember(internalRenderDocument, publication) { Any() }
+                SideEffect {
+                    selectionController.updateDocument(internalRenderDocument.blocks, textSearchState != null)
+                    textSearchState?.bind(selectionController, searchDocumentKey, publication.revision, state)
+                }
+                DisposableEffect(selectionController, textSearchState) {
+                    onDispose { textSearchState?.unbind(selectionController) }
                 }
             }
             Box(
                 modifier = if (selectionController != null) {
                     Modifier
                         .onGloballyPositioned { selectionController.registry.setRoot(it) }
-                        .markdownSelectionGestures(selectionController)
+                        .then(if (enableSelection) Modifier.markdownSelectionGestures(selectionController) else Modifier)
                 } else {
                     Modifier
                 },
             ) {
                 CompositionLocalProvider(
+                    LocalBringIntoViewSpec provides if (enableScroll && textSearchState != null) {
+                        rememberMarkdownTextSearchBringIntoViewSpec(textSearchState)
+                    } else {
+                        LocalBringIntoViewSpec.current
+                    },
                     LocalMarkdownSelectionController provides selectionController,
+                    LocalMarkdownTextSearchState provides textSearchState,
                     LocalMarkdownInteractions provides interactionController,
                     LocalMarkdownComponents provides components,
                     LocalMarkdownSourceMap provides sourceMap,
@@ -229,7 +242,7 @@ internal fun MarkdownDocumentRenderer(
                         )
                     }
                 }
-                if (selectionController != null) {
+                if (enableSelection && selectionController != null) {
                     SelectionHandlesHost(selectionController)
                     SelectionToolbarHost(selectionController, components.selectionToolbar)
                 }
