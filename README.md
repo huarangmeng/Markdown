@@ -1,171 +1,585 @@
 <div align="center">
 
-# KMP Markdown
+# 🖊️ KMP Markdown
 
-**Markdown rendering for Compose Multiplatform, with incremental updates and LLM streaming.**
+**A Blazing-Fast, Cross-Platform Markdown Engine for Compose Multiplatform**
 
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.4.0-7F52FF?logo=kotlin&logoColor=white)](https://kotlinlang.org)
 [![Compose Multiplatform](https://img.shields.io/badge/Compose%20Multiplatform-1.11.1-4285F4?logo=jetpackcompose&logoColor=white)](https://www.jetbrains.com/lp/compose-multiplatform/)
 [![Maven Central](https://img.shields.io/maven-central/v/io.github.huarangmeng/markdown-renderer.svg?color=orange&label=Maven%20Central)](https://central.sonatype.com/search?q=io.github.huarangmeng.markdown)
+[![CommonMark](https://img.shields.io/badge/CommonMark%200.31.2-652%2F652%20✓-brightgreen)](https://spec.commonmark.org/0.31.2/)
+[![Android API](https://img.shields.io/badge/Android%20API-23%2B-34A853?logo=android&logoColor=white)](https://android-arsenal.com/api?level=24)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-Android · iOS · Desktop (JVM) · Web (Wasm/JS) · experimental macOS Native
+*One library. One codebase. Pixel-perfect Markdown on Android, iOS, Desktop & Web.*
 
-[English](README.md) · [中文](README_zh.md) · [Usage guide](docs/USAGE.md)
+[English](./README.md) · [中文](./README_zh.md)
 
 </div>
 
-## What it supports
+---
 
-| Capability | Includes |
-|---|---|
-| Markdown and extensions | CommonMark, GFM tables and task lists, footnotes, admonitions, TOC, tabs, and custom containers |
-| Rich content | LaTeX math, syntax-highlighted code, Mermaid / PlantUML / DOT diagrams, and Coil3 image loading |
-| Streaming and editing | Incremental updates, temporary completion of unfinished syntax, and coalesced streaming updates |
-| Reading interactions | Cross-block selection, custom selection menus, link/image/citation actions, and semantic inline decorations |
-| Document search | Literal text matching, scrolling to results, and independent active/all-result highlighting |
-| Customization | Colors, typography, layout, component slots, and directive plugins |
-| Export and diagnostics | HTML export with shared parser settings, plus optional source diagnostics |
+## ✨ Why KMP Markdown?
+
+The experimental `macosArm64` target requires `org.jetbrains.compose.experimental.macos.enabled=true` and macOS Native publications of LaTeX, codehigh, and diagram; JVM/iOS artifacts cannot substitute for them. The desktop demo remains JVM-based. Check the macOS CI native tests and Maven variant checks for native support status.
+
+|  | Feature | Description |
+|--|---------|-------------|
+| 🚀 | **Incremental Updates** | Reuses unchanged content when editing documents or receiving streaming output |
+| 🌍 | **True Cross-Platform** | One codebase renders identically on **Android**, **iOS**, **Desktop (JVM)**, **Web (Wasm/JS)**; experimental **macOS (Kotlin/Native)** target |
+| 📐 | **Syntax Support** | 413 supported syntax and behavior items, **652/652 CommonMark Spec** examples passing, plus GFM & 20+ extensions |
+| 🤖 | **LLM-Ready Streaming** | First-class token-by-token rendering with display-frame coalescing — zero flicker during AI generation |
+| 🎨 | **Fully Themeable** | 30+ configurable properties, built-in GitHub light/dark themes, auto system detection |
+| 📊 | **LaTeX Math** | Inline `$...$` and block `$$...$$` formulas via integrated LaTeX rendering engine |
+| 🔍 | **Built-in Linting** | 13+ diagnostic rules including WCAG accessibility checks — catch issues at parse time |
+| 🖼️ | **Image Loading** | Coil3 + Ktor3 out-of-the-box, with size specification and custom renderer support |
+| 🖱️ | **Cross-Block Selection** | Select text across blocks with the system copy/translate menu |
+
+Long-press and drag to select text. After releasing the gesture or adjusting a selection handle, tap a blank area inside the Markdown content once to clear the selection.
+
+---
+
+## 🎬 See It in Action
+
+### 🤖 LLM Streaming Rendering
+
+Real-time token-by-token output with incremental parsing — no flicker, no re-render.
 
 <p align="center">
-  <img src="images/llm_stream.png" width="220" alt="LLM streaming" />
-  <img src="images/Diagnostic.png" width="220" alt="Source diagnostics" />
-  <img src="images/html_support.png" width="220" alt="HTML and extensions" />
+  <img src="./images/llm_stream.png" width="260" alt="LLM Streaming Rendering Demo" />
 </p>
 
-## Quick start
+### 🔍 Syntax Diagnostics & Linting
 
-Add the renderer to your version catalog and shared module:
+Built-in linting with WCAG accessibility checks — heading jumps, broken footnotes, empty links, and more.
+
+<p align="center">
+  <img src="./images/Diagnostic.png" width="260" alt="Markdown Diagnostics & Linting" />
+</p>
+
+### 🌐 Rich HTML & Extension Support
+
+Full CommonMark HTML parsing/export, safe Compose rendering for common inline and container HTML tags, GFM tables, admonitions, math, code highlighting, and 20+ extensions.
+
+<p align="center">
+  <img src="./images/html_support.png" width="260" alt="HTML & Extension Support" />
+</p>
+
+---
+
+## 🚀 Quick Start
+
+### Installation
+
+Add to your `gradle/libs.versions.toml`:
 
 ```toml
-# gradle/libs.versions.toml
 [versions]
-markdown = "1.6.2"
+markdown = "1.5.0"
 
 [libraries]
 markdown-renderer = { module = "io.github.huarangmeng:markdown-renderer", version.ref = "markdown" }
 ```
 
+Then in your module's `build.gradle.kts`:
+
 ```kotlin
-// build.gradle.kts
-kotlin {
-    sourceSets {
-        commonMain.dependencies {
-            implementation(libs.markdown.renderer)
-        }
-    }
+dependencies {
+    implementation(libs.markdown.renderer)
 }
 ```
 
-The renderer includes the parser, plugin APIs, image loading, math, code highlighting, and diagrams.
-Applications do not need the preview or demo modules.
+> 💡 This single dependency includes syntax support, plugin APIs, Coil3 + Ktor3 image loading, and Mermaid / PlantUML / DOT rendering.
 
-This documentation describes the current source. Search, custom selection menus, and inline decorations
-were added after the `release-1.6.2` tag; use a release containing them or build from source.
+### Basic Usage
 
 ```kotlin
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import androidx.compose.foundation.layout.fillMaxSize
 import com.hrm.markdown.renderer.Markdown
 
 @Composable
-fun Article() {
+fun MyScreen() {
     Markdown(
-        markdown = "# Hello\n\nMarkdown with **Compose Multiplatform**.",
+        markdown = """
+            # Hello World
+            
+            This is a paragraph with **bold** and *italic* text.
+            
+            - Item 1
+            - Item 2
+            
+            ```kotlin
+            fun hello() = println("Hello")
+            ```
+        """.trimIndent(),
         modifier = Modifier.fillMaxSize(),
     )
 }
 ```
 
-Internal scrolling is enabled by default and needs a bounded height. Set `enableScroll = false`
-when a parent container handles vertical scrolling. Text selection is enabled by default;
-after selecting, tap a blank area within the content to clear it.
+That's it — **3 lines** to render beautiful Markdown across all platforms.
 
-### Platform notes
+### LaTeX configuration
 
-Android requires API 23+. The desktop demo uses JVM. The experimental `macosArm64` library target
-requires `org.jetbrains.compose.experimental.macos.enabled=true` and macOS Native publications of
-LaTeX (including `latex-fonts-katex`), codehigh, and diagram. JVM or iOS artifacts cannot replace
-missing macOS publications. Target declarations alone do not establish successful native rendering;
-check the native test results for the revision you use.
-
-## Streaming output
-
-Pass the accumulated full text on every update, and set `isStreaming = false` when generation
-finishes or is cancelled:
+Pass the native `LatexConfig` directly. Inline and block formulas share its fonts, theme, callbacks, and measurements.
 
 ```kotlin
-import androidx.compose.runtime.*
+import com.hrm.latex.renderer.model.LatexConfig
+import com.hrm.latex.renderer.model.LatexTheme
+
+Markdown(
+    markdown = text,
+    latexConfig = LatexConfig(
+        fontSize = 24.sp,
+        theme = LatexTheme.material3(),
+        accessibilityEnabled = true,
+        onHyperlinkClick = { url -> /* host navigation */ },
+    ),
+)
+```
+
+The default is `LatexConfig()` (20.sp, system light/dark, transparent background). Markdown colors do not override it.
+
+**We recommend keeping the bundled KaTeX fonts**: system fonts may have missing glyphs or layout differences.
+If you need to omit the font resources, exclude `latex-fonts-katex`. The default configuration safely falls back to system fonts without crashing when fonts are missing:
+
+```kotlin
+implementation(libs.markdown.renderer) {
+    exclude(group = "io.github.huarangmeng", module = "latex-fonts-katex")
+}
+```
+
+---
+
+## 🔌 Plugin Extensions
+
+Use `directivePlugins` to add custom syntax such as video embeds and render it with native Compose
+components. Plugins can also handle the standard `{% tag ... %}` directive syntax and HTML export.
+
+Basic usage:
+
+```kotlin
+Markdown(
+    markdown = """
+Custom syntax:
+
+!VIDEO[Demo](https://cdn.example.com/a.mp4){poster=https://cdn.example.com/a.jpg}
+    """.trimIndent(),
+    directivePlugins = listOf(VideoDirectivePlugin),
+)
+```
+
+Plugin skeleton:
+
+```kotlin
+object VideoDirectivePlugin : MarkdownDirectivePlugin {
+    override val id: String = "video"
+
+    override val inputTransformers = listOf(VideoSyntaxTransformer())
+
+    override val blockDirectiveRenderers = mapOf(
+        "video" to { scope ->
+            VideoPlayer(
+                url = scope.directive.args.getValue("url"),
+                poster = scope.directive.args["poster"],
+                title = scope.directive.args["title"],
+            )
+        }
+    )
+}
+
+class VideoSyntaxTransformer : MarkdownInputTransformer {
+    override val id: String = "video-syntax"
+
+    override fun transform(input: String): MarkdownTransformResult {
+        val normalized = input.replace(
+            Regex("""!VIDEO\[(.*?)\]\((.*?)\)\{poster=(.*?)\}""")
+        ) { match ->
+            val title = match.groupValues[1]
+            val url = match.groupValues[2]
+            val poster = match.groupValues[3]
+            """{% video title="$title" url="$url" poster="$poster" %}"""
+        }
+        return MarkdownTransformResult(markdown = normalized)
+    }
+}
+```
+
+Input transformers support streaming by default with
+`MarkdownTransformerStreamingSupport.RestartOnRewrite`. The component automatically refreshes content
+when a transformation rewrites earlier text. Declare `AppendSafe` only when appending input always
+preserves the entire previous transformed output, or `Unsupported` to request full-content updates
+instead of incremental streaming. `LocalMarkdownSourceMap` maps transformed positions back to the original input.
+
+Treat plugins and transformers as configuration: reuse instances while their behavior stays the same,
+and provide new instances when it changes. Replacing rendering callbacks updates the presentation
+without interrupting streaming; replacing input transformers refreshes the content and source mappings.
+
+Use `scope.directive` to read directive names, arguments, and content information in
+`DirectiveBlockRenderScope` and `DirectiveInlineRenderScope`. For HTML export,
+`HtmlDirectiveFallback` and `HtmlInlineDirectiveFallback` receive the corresponding directive data.
+
+HTML export uses the same directive pipeline:
+
+```kotlin
+val html = MarkdownHtml.render(
+    markdown = markdown,
+    directivePlugins = listOf(VideoDirectivePlugin),
+)
+```
+
+---
+
+## 🤖 LLM Streaming Integration
+
+Purpose-built for AI/LLM scenarios. Enable `isStreaming` for flicker-free incremental rendering:
+
+```kotlin
 import com.hrm.markdown.parser.MarkdownParserConfig
-import com.hrm.markdown.renderer.Markdown
 
 var text by remember { mutableStateOf("") }
-var generating by remember { mutableStateOf(true) }
+var isStreaming by remember { mutableStateOf(true) }
 
 LaunchedEffect(Unit) {
-    try {
-        llmTokenFlow.collect { text += it }
-    } finally {
-        generating = false
+    llmTokenFlow.collect { token ->
+        text += token
     }
+    isStreaming = false
 }
 
 Markdown(
     markdown = text,
-    isStreaming = generating,
+    isStreaming = isStreaming,
     parserConfig = MarkdownParserConfig.LlmStreaming,
 )
 ```
 
-`llmTokenFlow` is your app's token stream. `LlmStreaming` batches short appends and updates early
-at newlines. The component can display unfinished fences, formulas, and emphasis while receiving
-text. Clearing, replacing, or retrying the input updates the same component.
+`LlmStreaming` batches short updates using a 16-character threshold and updates early at newlines.
+Set `isStreaming = false` when generation finishes or is cancelled to display all remaining text.
+Code appears as it arrives, including inside unclosed fences.
 
-## Appearance and configuration
+- Retry, clear, or replace the text during generation; the displayed document follows the latest input.
+- Unclosed fences, math blocks, and emphasis receive temporary display completion during streaming.
+- Multiple token updates in one display frame are combined into the latest document update.
 
-All settings are optional. The default palette follows the system light/dark theme.
+Pass the latest complete text to `markdown` for both streaming output and document edits.
+The component handles incremental updates and any required refreshes automatically.
+
+When the document changes during text selection, selection endpoints and active drag handles are
+clamped to valid UTF-16 character boundaries. Removing a selected block clears the selection and
+drag state, so copying cannot use stale endpoints.
+
+---
+
+## Interaction and standard block slots
+
+`MarkdownInteractions` groups typed link, citation (`[@key]`) and image callbacks. When no link callback is supplied, links use Compose `LocalUriHandler`.
 
 ```kotlin
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import com.hrm.markdown.renderer.Markdown
+import com.hrm.markdown.renderer.MarkdownBlockSlot
+import com.hrm.markdown.renderer.MarkdownComponents
+import com.hrm.markdown.parser.MarkdownParserConfig
+import com.hrm.markdown.renderer.MarkdownInteractions
+import com.hrm.markdown.renderer.MarkdownSoftBreakPolicy
+
+Markdown(
+    markdown = text,
+    interactions = MarkdownInteractions(
+        onLinkClick = { url -> /* navigate */ },
+        onCitationClick = { event -> /* event.key, event.anchorBoundsInWindow */ },
+        onImageClick = { event ->
+            // Read event.gallery only when opening a document-order image viewer.
+            val gallery = event.gallery
+            // gallery.images[gallery.initialIndex] is the clicked occurrence.
+        },
+    ),
+    softBreakPolicy = MarkdownSoftBreakPolicy.LineBreak,
+    components = MarkdownComponents(
+        codeBlockHeader = MarkdownBlockSlot(48.dp) { code ->
+            TextButton(onClick = { runCode(code.code, code.language) }) { Text("Run") }
+        },
+        tableToolbar = MarkdownBlockSlot(48.dp) { table ->
+            Text("${table.rowCount} rows / ${table.columnCount} columns")
+        },
+    ),
+)
+```
+
+The host implements `runCode`. Images use Coil by default; customize them with `components.image`. `event.gallery` provides the document image gallery.
+
+Keep slot content within its declared height; toolbar text is excluded from Markdown copy. `MarkdownTableInfo.rowCount` includes the header row.
+
+Set `enableScroll = false` when a parent container handles vertical scrolling.
+
+### Find text in a document
+
+Both `Markdown` overloads accept `textSearchState` for body-text search, scrolling, and independent
+highlighting. Your app provides the query field and result controls; search does not change selection
+or reparse the document.
+
+```kotlin
+import com.hrm.markdown.renderer.rememberMarkdownTextSearchState
+import kotlinx.coroutines.launch
+
+val search = rememberMarkdownTextSearchState()
+val scope = rememberCoroutineScope()
+Column {
+    TextField(value = search.query, onValueChange = { search.setQuery(it) })
+    Button(
+        enabled = search.matches.isNotEmpty(),
+        onClick = {
+            val results = search.matches
+            if (results.isNotEmpty()) {
+                val next = (results.indexOf(search.activeMatch) + 1) % results.size
+                scope.launch { search.reveal(results[next]) }
+            }
+        },
+    ) { Text("Next (${search.matches.size})") }
+    Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+        Markdown(markdown = text, enableScroll = false, textSearchState = search)
+    }
+}
+```
+
+The outer `Column` needs a bounded height. For internal scrolling, remove the inner scroll container
+and use `Markdown(..., modifier = Modifier.weight(1f), textSearchState = search)`.
+
+- Matching is literal, case-insensitive by default, and folds consecutive whitespace. Use `setQuery(query, ignoreCase = false)` for case-sensitive search.
+- Search covers paragraphs, headings, nested prose, and table-cell text across inline styles, but not across blocks, cells, or widgets. Code blocks, image alt text, and math/diagram sources are excluded.
+- `reveal(match)` brings the first matching line into view and returns whether positioning succeeded. Fully offscreen results are centered where space permits; visible results stay still. External scroll hosts can reuse `rememberMarkdownTextSearchBringIntoViewSpec` with their occlusion in pixels.
+- Customize the active result with `highlightColor`; enable `highlightAllMatches` and set `allMatchHighlightColor` for other results. Both styles are independent of selection.
+- Use one state per Markdown instance and discard results from old queries/documents. `clear()` resets search; pass `textSearchState = null` when closing the panel.
+
+Soft breaks default to `Space`. Use `LineBreak` to preserve line breaks in display and copy. HTML export also accepts `softBreakPolicy`.
+
+### Inline decorations and end markers
+
+Use `inlineDecoration` to underline semantic text and add an optional end marker. `showMarker` is
+host-owned Compose state; replace `ColorPainter` with a resource or vector Painter for an icon.
+
+```kotlin
+import androidx.compose.runtime.remember
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.painter.ColorPainter
+import androidx.compose.ui.unit.dp
 import com.hrm.markdown.renderer.*
+
+val markerPainter = remember { ColorPainter(Color.White) }
+Markdown(
+    markdown = "==plain **bold** text==",
+    interactions = MarkdownInteractions(inlineDecoration = { request ->
+        if (request.kind != InlineElementKinds.Highlight) null else MarkdownInlineUnderline(
+            color = Color.Blue,
+            endMarker = if (showMarker) MarkdownInlineEndMarker(
+                color = Color.Blue,
+                diameter = 8.dp,
+                painter = markerPainter,
+            ) else null,
+        )
+    }),
+)
+```
+
+- Painter markers are tinted by `color`, clipped to a `diameter` square, and reserve `gap + diameter` of inline width, wrapping when needed.
+- Each semantic range has one marker at its text endpoint, even across formatting or line breaks. Markers add no source, copied, selected, or searched characters.
+- State changes do not require replacing the text. Return `null` to remove the decoration, or set `endMarker = null` to keep the underline. Omitting `painter` preserves the original draw-only circle without reserving inline width.
+
+---
+
+## 🎨 Colors, typography, layout, and state
+
+All settings are optional. `Markdown(markdown = text)` follows system colors. Native Markdown settings have three independent groups; code, LaTeX, and diagrams retain their native configuration types.
+
+```kotlin
+import androidx.compose.foundation.layout.PaddingValues
+import com.hrm.codehigh.renderer.CodeDefaults
+import com.hrm.codehigh.renderer.CodeTypography
+import com.hrm.codehigh.renderer.CodeLayout
 
 Markdown(
     markdown = text,
     colors = MarkdownDefaults.colors(link = Color(0xFF0969DA)),
     typography = MarkdownTypography(
+        h1 = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Bold),
         text = TextStyle(fontSize = 16.sp, lineHeight = 28.sp),
     ),
     layout = MarkdownLayout(blockSpacing = 12.dp),
+    codeColors = CodeDefaults.oneDarkProColors(),
+    codeTypography = CodeTypography(
+        text = TextStyle(fontSize = 18.sp, lineHeight = 28.sp),
+        inlineCode = TextStyle(fontSize = 15.sp),
+    ),
+    codeLayout = CodeLayout(contentPadding = PaddingValues(16.dp)),
+    interactions = MarkdownInteractions(
+        onLinkClick = { url -> /* host navigation */ },
+        onCodeTokenClick = { token -> /* codehigh CodeToken */ },
+    ),
 )
 ```
 
-Use `MarkdownDefaults.lightColors()`, `darkColors()`, or `material3Colors()` for palettes.
-`ProvideMarkdownDefaults` sets app-wide defaults; instance arguments take precedence.
+Choose palettes with `MarkdownDefaults.lightColors()`, `darkColors()`, or `material3Colors()`. `ProvideMarkdownDefaults` sets app defaults; instance arguments take precedence.
 
-| Need | API |
+Code settings reuse codehigh's `CodeColors`, `CodeTypography`, and `CodeLayout`, so the same configuration works with both Markdown and `CodeBlock`.
+
+| Purpose | Parameter |
 |---|---|
-| Syntax profile, emoji, diagnostics | `parserConfig = MarkdownParserConfig(...)` |
-| Preserve soft line breaks or number headings | `softBreakPolicy = MarkdownSoftBreakPolicy.LineBreak`, `enableHeadingNumbering` |
-| Scroll, select, or track generation | `enableScroll`, `enableSelection`, `isStreaming` |
-| Find and reveal text | `textSearchState = rememberMarkdownTextSearchState()` |
-| Handle clicks or decorate semantic text | `interactions = MarkdownInteractions(...)` |
-| Custom selection menu, images, headers, or block toolbars | `components = MarkdownComponents(...)` |
-| Style code, math, or diagrams | `codeColors`, `codeTypography`, `codeLayout`, `latexConfig`, `diagramTheme` |
-| Add custom syntax and rendering | `directivePlugins` |
-| Control scrolling or clear selection | `state = rememberMarkdownState()` |
+| Source parsing: flavour, emoji, lint, append coalescing | `parserConfig = MarkdownParserConfig(...)` |
+| Soft breaks and heading numbering | `softBreakPolicy`, `enableHeadingNumbering` |
+| Internal scroll and selection | `enableScroll`, `enableSelection` |
+| Generation in progress | `isStreaming` |
+| Link, citation, image, and code-token handlers | `interactions = MarkdownInteractions(...)` |
+| Header/footer, image renderer, code/table chrome, admonition icons | `components = MarkdownComponents(...)` |
+| Code appearance (native codehigh types) | `codeColors`, `codeTypography`, `codeLayout` |
+| LaTeX and diagram settings | `latexConfig`, `diagramTheme` |
+| Directive extensions | `directivePlugins` |
 
-Code, LaTeX, and diagram settings use their respective libraries' native types. See the
-[usage guide](docs/USAGE.md) for examples, font configuration, and interaction behavior.
+`onCodeTokenClick` receives codehigh's `CodeToken`; its `range` is relative to the containing code block.
 
-## Syntax and HTML
+```kotlin
+val state = rememberMarkdownState()
+val scope = rememberCoroutineScope()
+Button(onClick = { scope.launch { state.scrollToBlock(10) } }) { Text("Jump") }
+Markdown(markdown = text, state = state, components = MarkdownComponents(
+    header = { Text("Introduction") },
+    footer = { Text("End") },
+))
+```
 
-The default `ExtendedFlavour` enables all supported extensions. Choose `CommonMarkFlavour`,
-`GFMFlavour`, or `MarkdownExtraFlavour` for a narrower syntax profile. Compose rendering and
-HTML export accept the same parser configuration:
+Use `rememberMarkdownState()` to control scrolling and clear selection. Block indexes exclude header/footer.
+
+---
+
+## 📐 Comprehensive Syntax Support (413 Features)
+
+<details>
+<summary><b>📦 Block Elements</b> — Everything you need for structured content</summary>
+
+| Feature | Details |
+|---------|---------|
+| **Headings** | ATX (`# ~ ######`), Setext (`===`/`---`), custom IDs (`{#id}`), auto-generated anchors |
+| **Paragraphs** | Multi-line merging, blank line separation, lazy continuation |
+| **Code Blocks** | Fenced (`` ``` ``/`~~~`) with language highlight (20+ languages), indented, line numbers, line highlighting |
+| **Block Quotes** | Nested, lazy continuation, inner block elements |
+| **Lists** | Unordered/ordered/task lists, nested, tight/loose distinction; task checkboxes have an 8.dp gap before content |
+| **Tables (GFM)** | Column alignment, inline formatting in cells, escaped pipes |
+| **Thematic Breaks** | `---`, `***`, `___` |
+| **HTML Blocks** | All 7 CommonMark types; safe Compose fragments for common containers, headings, quotes, code blocks, lists, and text alignment |
+| **Link Reference Definitions** | Full support with title variants |
+
+</details>
+
+<details>
+<summary><b>✏️ Inline Elements</b> — Rich text formatting at your fingertips</summary>
+
+| Feature | Details |
+|---------|---------|
+| **Emphasis** | Bold, italic, bold-italic, nested, CJK-aware delimiter rules |
+| **Strikethrough** | `~~text~~`, `~text~` |
+| **Inline Code** | Single/multi backtick, space stripping |
+| **Links** | Inline, reference (full/collapsed/shortcut), autolinks, GFM bare URLs, attribute blocks |
+| **Images** | Inline, reference, `=WxH` size specification, attribute blocks, auto Figure conversion |
+| **Inline HTML** | CommonMark tags/comments/CDATA/processing instructions; safe Compose semantics for common formatting, links, breaks, and images |
+| **Escapes & Entities** | 32 escapable characters, named/numeric HTML entities |
+| **Line Breaks** | Hard (spaces/backslash), soft |
+
+</details>
+
+<details>
+<summary><b>🔌 Extensions</b> — Power features beyond standard Markdown</summary>
+
+| Feature | Syntax |
+|---------|--------|
+| **Math (LaTeX)** | `$...$` inline, `$$...$$` block, `\tag{}`, `\ref{}` |
+| **Footnotes** | `[^label]` references, multi-line definitions, block content |
+| **Admonitions** | `> [!NOTE]`, `> [!TIP]`, `> [!IMPORTANT]`, `> [!WARNING]`, `> [!CAUTION]` |
+| **Highlight** | `==text==` |
+| **Super/Subscript** | `^text^`, `~text~`, `<sup>`, `<sub>` |
+| **Insert Text** | `++text++` |
+| **Emoji** | `:smile:` shortcodes (200+), ASCII emoticons (40+), custom mappings |
+| **Definition Lists** | Term + `: definition` format |
+| **Front Matter** | YAML (`---`) and TOML (`+++`) |
+| **TOC** | `[TOC]` with depth, exclude, ordering options |
+| **Custom Containers** | `:::type` with nesting, CSS classes, IDs |
+| **Diagram Blocks** | Mermaid, PlantUML, Graphviz, and more |
+| **Multi-Column Layout** | `:::columns` with percentage/pixel widths |
+| **Tab Blocks** | `=== "Tab Title"` MkDocs Material style |
+| **Directives** | `{% tag args %}...{% endtag %}` with positional/keyword args |
+| **Spoiler Text** | `>!hidden text!<` Discord/Reddit style |
+| **Wiki Links** | `[[page]]`, `[[page\|display text]]` |
+| **Ruby Text** | `{漢字\|かんじ}` pronunciation annotations |
+| **Bibliography** | `[@key]` citations with `[^bibliography]` definitions |
+| **Block Attributes** | `{.class #id key=value}` kramdown/Pandoc style |
+| **Page Breaks** | `***pagebreak***` for print/PDF export |
+| **Styled Text** | `[text]{.red style="color:red"}` inline CSS |
+
+</details>
+
+---
+
+## 🔍 Built-in Linting & Diagnostics
+
+**13+ diagnostic rules:**
+
+| Rule | Severity | Description |
+|------|----------|-------------|
+| Heading level skip | ⚠️ WARNING | h1 → h3 without h2 |
+| Duplicate heading ID | ⚠️ WARNING | Multiple headings generate the same anchor |
+| Invalid footnote ref | ❌ ERROR | Reference to undefined footnote |
+| Unused footnote | ⚠️ WARNING | Footnote defined but never referenced |
+| Empty link target | ⚠️ WARNING | `[text]()` with no URL |
+| Missing alt text | ⚠️ WARNING | Images without description |
+| Empty link text | ⚠️ WARNING | Links invisible to screen readers |
+| Non-descriptive link | ⚠️ WARNING | "click here", "read more" links |
+| Missing code language | ℹ️ INFO | Fenced code without language tag |
+| Table missing header | ⚠️ WARNING | Screen readers need `<th>` |
+| Long alt text | ⚠️ WARNING | Alt text > 125 characters |
+
+> These rules check selected accessibility-related source issues; they do not certify full WCAG compliance.
+
+### Assistive technology semantics
+
+The Compose renderer provides basic reading semantics by default, independently of `enableLinting`:
+
+- ATX, Setext, and supported safe HTML headings expose heading navigation markers.
+- Inline paint fragments created by wrapping and styling merge into paragraph or list-item reading units in source order. Links and interactive widgets retain native actions.
+- Lists expose collection and item positions. Task items associate their text with checked state as read-only checkboxes, without an editing action.
+
+These semantics are supplied by the shared Compose rendering path. Platform screen readers, including TalkBack and VoiceOver, still need validation on target devices. The preview includes a mixed-content example under “渲染与质量 → 无障碍阅读”.
+
+---
+
+## 🧪 Spec Compliance
+
+| Spec | Status |
+|------|--------|
+| [CommonMark 0.31.2](https://spec.commonmark.org/0.31.2/) | **652/652 (100%)** ✅ |
+| [GFM 0.29](https://github.github.com/gfm/) | Tables, task lists, strikethrough, autolinks ✅ |
+| [Markdown Extra](https://michelf.ca/projects/php-markdown/extra/) | Footnotes, definition lists, abbreviations, fenced code ✅ |
+
+### Reliability
+
+| Area | Verified behavior |
+|------|-------------------|
+| Incremental and streaming parsing | Matches independent full parsing across four flavours, including continuous edits and streamed prefixes |
+| Asynchronous lifecycle | Regression coverage for full-text replacement, cancellation, configuration changes, and page disposal |
+| Extreme inputs | Isolated-process checks pass for 512 nested quotes, million-character lines, dense delimiters, and large unclosed blocks |
+| Regression checks | JVM tests and parser performance budgets pass; parser and renderer tests compile for JS and Wasm |
+
+See the [CI results](https://github.com/huarangmeng/Markdown/actions/workflows/test.yml) for the current revision.
+
+### Flavour System
+
+Choose a syntax profile through `parserConfig`:
+
+| Flavour | Syntax |
+|---|---|
+| `CommonMarkFlavour` | Strict CommonMark |
+| `GFMFlavour` | CommonMark, tables, task lists, and strikethrough |
+| `MarkdownExtraFlavour` | Footnotes, definition lists, abbreviations, and tables |
+| `ExtendedFlavour` | All supported extensions; the default |
+
+Share one configuration between the component and HTML export:
 
 ```kotlin
 import com.hrm.markdown.parser.MarkdownParserConfig
@@ -174,57 +588,174 @@ import com.hrm.markdown.renderer.Markdown
 import com.hrm.markdown.renderer.MarkdownHtml
 
 val config = MarkdownParserConfig(flavour = GFMFlavour)
-Markdown(markdown = text, parserConfig = config)
-val html = MarkdownHtml.render(markdown = text, parserConfig = config)
+Markdown(markdown = input, parserConfig = config)
+val html = MarkdownHtml.render(markdown = input, parserConfig = config)
 ```
 
-| Syntax | Examples |
-|---|---|
-| Standard Markdown | Headings, paragraphs, quotes, lists, links, images, code, and emphasis |
-| GFM | Tables, task lists, strikethrough, and autolinks |
-| Math and diagrams | `$...$`, `$$...$$`, and fenced Mermaid / PlantUML / DOT blocks |
-| References | `[^footnote]`, `[@citation]`, `[[wiki link]]`, and `[TOC]` |
-| Semantic text | `==highlight==`, super/subscript, `++inserted++`, spoilers, ruby, and emoji |
-| Structured content | Admonitions, definition lists, front matter, containers, columns, and tabs |
-| Attributes and plugins | `{.class #id key=value}`, image dimensions, and `{% tag args %}` directives |
+Configurations are immutable and preserve the supplied emoji aliases. Use `copy` to change settings,
+or `with` to add syntax starters or processors while retaining the other syntax settings.
+For example, this configuration limits heading levels in both display and export:
 
-Compose renders a safe HTML subset without a WebView, including common inline formatting,
-links, images, containers, headings, lists, and code blocks. Unsupported or malformed fragments
-remain visible as source. HTML export passes raw HTML through; the Compose rendering policy is
-not an HTML export sanitizer. See [HTML behavior](docs/USAGE.md#html-behavior) for supported attributes.
+```kotlin
+import androidx.compose.runtime.remember
+import com.hrm.markdown.parser.MarkdownParserConfig
+import com.hrm.markdown.parser.ast.Heading
+import com.hrm.markdown.parser.block.postprocessors.BlockPostProcessor
+import com.hrm.markdown.parser.flavour.CommonMarkFlavour
 
-## Accessibility and validation
+val config = remember {
+    MarkdownParserConfig(
+        flavour = CommonMarkFlavour.with(BlockPostProcessor { block ->
+            if (block is Heading) block.level = minOf(block.level, 3)
+            block
+        }),
+    )
+}
+Markdown(markdown = input, parserConfig = config)
+```
 
-The renderer supplies heading navigation, paragraph/list reading units, and read-only task states.
-Enable source diagnostics with `MarkdownParserConfig(enableLinting = true)` to check issues such
-as heading jumps, unresolved footnotes, empty links, and missing image descriptions. These checks
-do not certify WCAG compliance; screen-reader behavior needs validation on target devices.
+`BlockPostProcessor` transforms independent blocks: return the original block after modifying it,
+a replacement block, or `null` to remove it. Use `PostProcessor` for changes that depend on the whole
+document. The component applies these transformations automatically when content changes.
+Reuse configurations and extension instances while their behavior remains unchanged.
 
-The repository includes 652 CommonMark 0.31.2 examples, incremental/streaming regression tests,
-isolated extreme-input checks, and parser performance budgets. The
-[syntax checklist](markdown-parser/PARSER_COVERAGE_ANALYSIS.md) describes supported behavior;
-it is not measured code coverage. Check [CI results](https://github.com/huarangmeng/Markdown/actions/workflows/test.yml)
-for execution status. JVM tests, JS/Wasm test compilation, and macOS Native tests are separate checks;
-Web test compilation does not establish browser execution.
+### Safe HTML in Compose
 
-## More examples
+`Markdown()` renders a safe, cross-platform subset of HTML without a WebView:
 
-- [Usage guide](docs/USAGE.md): search, selection menus, inline decorations, block slots, images, and plugins.
-- [Preview cases](markdown-preview/src/commonMain/kotlin/com/hrm/markdown/preview): examples used by the demo apps.
-- Rendering libraries: [LaTeX](https://github.com/huarangmeng/latex), [codehigh](https://github.com/huarangmeng/codehigh), and [diagram](https://github.com/huarangmeng/diagram).
-- [Contributor guide](AGENTS.md): repository structure and verification commands.
+```markdown
+Text with <strong>bold</strong>, <em>italic</em>,
+<span style="color:red">styled text</span>, and <a href="https://example.com">a link</a>.<br>
+The next line can also contain an <img src="https://example.com/icon.png" alt="icon">.
+```
 
-Run a demo from the repository:
+Supported semantic tags are `strong`/`b`, `em`/`i`, `del`/`s`/`strike`, `mark`,
+`sup`, `sub`, `ins`, `u`, `code`, `kbd`, `span`, `a`, `br`, and `img`. Inline HTML
+comments are hidden. Formatting tags and `br` accept no attributes; `span` accepts only
+fully supported `style`/`class` values; `a` accepts only `href`; and `img` accepts only
+`src`, `alt`, `title`, `width`, and `height`. Supported `span` CSS is limited to colors,
+background colors, font weight/style, and underline/line-through. Any unknown attribute,
+CSS declaration, unsafe URL, mismatched tag, or unclosed tag causes that HTML source to
+remain visible instead of being partially rendered or silently losing content.
+
+Safe block fragments are supported for `p`, `div`, `center`, `article`, `section`, `main`,
+`header`, `footer`, `h1`-`h6`, `blockquote`, `hr`, safe `pre`/`code` code blocks, and safe
+`ul`/`ol`/`li` list structures. Containers can contain the safe inline tags above and use
+`align` or the limited `style="text-align:..."` form with `left`, `start`, `center`,
+`right`, or `end`. `ol` accepts an integer `start` attribute; `ul` and `li` accept no
+attributes. `pre` can contain text directly or a single `code` child; `code` accepts only
+`class="language-..."` or `class="lang-..."` to declare a language. `left`/`right` remain
+physical directions, while `start`/`end` follow the current layout direction. Compose
+routing is explicit by CommonMark HTML block type: comments (type 2) may be hidden, safe
+type 6/7 fragments may be mapped, and safe type 1 `pre` code fragments may be mapped;
+other type 1 fragments and types 3/4/5 stay raw. Malformed fragments, unknown attributes,
+or unsupported structures such as tables, forms, scripts, and arbitrary CSS fall back
+atomically to visible raw HTML.
+
+A block tag must start on its own line according to CommonMark rules. In particular,
+`text <p>block</p> text` is invalid block markup and remains inline source; put the `p` element
+on its own line. `MarkdownHtml.render` continues to pass raw HTML through when exporting HTML.
+
+---
+
+## 🖼️ Custom Image Rendering
+
+Built-in Coil3 handles images automatically. Need custom rendering? Easy:
+
+```kotlin
+Markdown(
+    markdown = markdownText,
+    components = MarkdownComponents(image = { data, modifier ->
+        // data.url, data.altText, data.width, data.height available
+        AsyncImage(
+            model = data.url,
+            contentDescription = data.altText,
+            modifier = modifier,
+        )
+    }),
+)
+```
+
+Supports size specification in Markdown:
+```markdown
+![Photo](https://example.com/photo.png =400x300)
+![Auto width](https://example.com/photo.png =x200)
+```
+
+---
+
+## ▶️ Running the Demo
 
 ```bash
-./gradlew :androidapp:assembleDebug                    # Android
-./gradlew :composeApp:run                             # Desktop (JVM)
-./gradlew :composeApp:wasmJsBrowserDevelopmentRun       # Web (Wasm)
-./gradlew :composeApp:jsBrowserDevelopmentRun           # Web (JS)
+# Android
+./gradlew :composeApp:assembleDebug
+
+# Desktop (JVM)
+./gradlew :composeApp:run
+
+# Web (Wasm)
+./gradlew :composeApp:wasmJsBrowserDevelopmentRun
+
+# Web (JS)
+./gradlew :composeApp:jsBrowserDevelopmentRun
+
+# iOS — open iosApp/ in Xcode
 ```
 
-For iOS, open `iosApp/` in Xcode.
+---
 
-## License
+## 📊 Feature Support Summary
 
-[MIT](LICENSE) · Copyright (c) 2026 huarangmeng
+| # | Category | Supported / Listed |
+|---|----------|----------|
+| 1 | Headings | 17/17 (100%) |
+| 2 | Paragraphs | 5/5 (100%) |
+| 3 | Code Blocks | 17/17 (100%) |
+| 4 | Block Quotes | 8/8 (100%) |
+| 5 | Lists | 20/20 (100%) |
+| 6 | Thematic Breaks | 6/6 (100%) |
+| 7 | Tables (GFM) | 11/11 (100%) |
+| 8 | HTML Blocks | 12/12 (100%) |
+| 9 | Link References | 12/12 (100%) |
+| 10 | Block Extensions | 85/85 (100%) |
+| 11 | Emphasis | 13/13 (100%) |
+| 12 | Strikethrough | 4/4 (100%) |
+| 13 | Inline Code | 8/8 (100%) |
+| 14 | Links | 27/27 (100%) |
+| 15 | Images | 17/17 (100%) |
+| 16 | Inline HTML | 10/10 (100%) |
+| 17 | Escapes & Entities | 10/10 (100%) |
+| 18 | Line Breaks | 5/5 (100%) |
+| 19 | Inline Extensions | 50/50 (100%) |
+| 20 | Streaming Engine | 27/27 (100%) |
+| 21 | Character & Encoding | 10/10 (100%) |
+| 22 | HTML Generator | 12/12 (100%) |
+| 23 | Linting / WCAG | 19/19 (100%) |
+| 24 | Directives | 8/8 (100%) |
+| | **Total** | **413/413 (100%)** |
+
+> 📖 Full details: [PARSER_COVERAGE_ANALYSIS.md](./markdown-parser/PARSER_COVERAGE_ANALYSIS.md)
+
+---
+
+## 🔗 Rendering Library Guide
+
+`markdown-renderer` integrates the following external libraries for math, code highlighting, and diagrams:
+
+| Capability | Maven modules used by this project | Repository |
+|------------|-----------------------------------|------------|
+| LaTeX math | `io.github.huarangmeng:latex-base`, `io.github.huarangmeng:latex-parser`, `io.github.huarangmeng:latex-renderer`, `io.github.huarangmeng:latex-fonts-katex` | [huarangmeng/latex](https://github.com/huarangmeng/latex) |
+| Code highlighting | `io.github.huarangmeng:codehighlight-parser`, `io.github.huarangmeng:codehighlight-render` | [huarangmeng/codehigh](https://github.com/huarangmeng/codehigh) |
+| Diagram blocks | `io.github.huarangmeng:diagram-core`, `io.github.huarangmeng:diagram-layout`, `io.github.huarangmeng:diagram-parser`, `io.github.huarangmeng:diagram-render` | [huarangmeng/diagram](https://github.com/huarangmeng/diagram) |
+
+If you only need a subset of the rendering stack, you can depend on the corresponding upstream library directly.
+
+---
+
+## 📄 License
+
+```
+MIT License · Copyright (c) 2026 huarangmeng
+```
+
+This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
