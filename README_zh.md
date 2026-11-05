@@ -21,10 +21,12 @@
 
 ## ✨ 为什么选择 KMP Markdown？
 
+`macosArm64` 库目标属于实验特性，需要配置 `org.jetbrains.compose.experimental.macos.enabled=true`。Native 渲染还需要 LaTeX、codehigh、diagram 的 macOS Native Maven 构件，现有 JVM/iOS 构件不能替代。桌面示例应用仍使用 JVM。macOS CI 检查原生测试和 Maven 变体元数据；仅添加目标不代表已完成原生链接与渲染验证。
+
 |  | 特性 | 描述 |
 |--|------|------|
 | 🚀 | **增量更新** | 编辑文档或接收流式输出时复用未变化的内容 |
-| 🌍 | **真正跨平台** | 一套代码，在 **Android**、**iOS**、**Desktop (JVM)**、**Web (Wasm/JS)** 上实现一致渲染 |
+| 🌍 | **真正跨平台** | 一套代码，在 **Android**、**iOS**、**Desktop (JVM)**、**Web (Wasm/JS)** 上实现一致渲染；新增实验性 **macOS (Kotlin/Native)** 目标 |
 | 📐 | **语法支持** | 支持 413 项语法与行为，**652/652 CommonMark 规范样例**全部通过，另支持 GFM 及 20+ 扩展 |
 | 🤖 | **LLM 流式渲染** | 一等公民级别的逐 token 渲染，按显示帧合并提交 — AI 生成过程中零闪烁 |
 | 🎨 | **完整主题系统** | 30+ 可配置属性，内置 GitHub 亮色/暗色主题，自动跟随系统模式 |

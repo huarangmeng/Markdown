@@ -6,7 +6,8 @@ Guidance for Codex when working in this repository.
 
 Kotlin Multiplatform Markdown engine for Compose Multiplatform.
 
-- Platforms: Android, iOS, Desktop (JVM), Web (Wasm/JS)
+- Platforms: Android, iOS, Desktop (JVM), Web (Wasm/JS), experimental macOS (Kotlin/Native, arm64)
+- macOS renderer support requires macosArm64 publications of LaTeX (including fonts-katex), codehigh and diagram. Do not replace missing publications with JVM or iOS artifacts.
 - Stack: Kotlin and Compose Multiplatform; use `gradle/libs.versions.toml` as the version source of truth
 
 ## Read This First
@@ -95,6 +96,8 @@ Benchmark commands and baseline maintenance live in [markdown-benchmark/AGENTS.m
 ```
 
 All tests must pass before commit.
+
+For macOS Native changes, run `:markdown-parser:macosArm64Test`, `:markdown-runtime:macosArm64Test` and `:markdown-renderer:macosArm64Test` on an arm64 Mac, with `org.jetbrains.compose.experimental.macos.enabled=true`. Windows metadata compilation is not native linking or test execution. The macOS CI job verifies both native tests and published variant metadata; missing transitive macOS publications must be fixed upstream before renderer support can be delivered.
 
 CI is defined in [test.yml](.github/workflows/test.yml): `JVM Tests` runs regular JVM tests and Web test
 compilation; `Parser Stress Tests` runs isolated extreme-input checks; `JVM Performance Gate` checks

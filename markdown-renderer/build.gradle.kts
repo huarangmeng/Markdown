@@ -30,6 +30,8 @@ kotlin {
         }
     }
 
+    macosArm64()
+
     jvm()
 
     js {
@@ -73,6 +75,9 @@ kotlin {
             implementation(libs.ktor.client.android)
         }
         iosMain.dependencies {
+            implementation(libs.ktor.client.darwin)
+        }
+        macosMain.dependencies {
             implementation(libs.ktor.client.darwin)
         }
         jvmMain.dependencies {
@@ -137,7 +142,7 @@ mavenPublishing {
             - Full Markdown syntax support
             - Compose Multiplatform UI integration
             - Custom rendering styles
-            - Multi-platform support (Android/iOS/JVM/JS/WasmJS)
+            - Multi-platform support (Android/iOS/macOS Native/JVM/JS/WasmJS)
         """.trimIndent()
         )
         inceptionYear.set("2026")

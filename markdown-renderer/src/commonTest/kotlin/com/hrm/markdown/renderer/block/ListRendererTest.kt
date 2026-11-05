@@ -101,16 +101,19 @@ class ListRendererTest {
     fun should_centerCheckboxOnFirstTextLine_when_fontSizeScriptOrWrappingChanges() {
         for (fontSize in listOf(16, 24, 32)) {
             for (checked in listOf(false, true)) {
-                for ((text, prefix) in listOf(
-                    "中文任务正文比较长，需要换行以后仍然对齐第一行。" to "中文任务",
-                    "English task text wraps onto multiple lines and stays aligned." to "English",
+                for (text in listOf(
+                    "中文任务正文比较长，需要换行以后仍然对齐第一行。",
+                    "English task text wraps onto multiple lines and stays aligned.",
                 )) runComposeUiTest {
                     setContent {
                         ListSample("- [${if (checked) "x" else " "}] $text", width = 180,
                             style = TextStyle(fontSize = fontSize.sp, lineHeight = (fontSize * 1.5f).sp))
                     }
                     waitForIdle()
-                    val firstLine = onNodeWithText(prefix, substring = true, useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+                    val textLines = onAllNodes(hasText("", substring = true), useUnmergedTree = true)
+                        .fetchSemanticsNodes()
+                    assertTrue(textLines.size > 1, "Expected wrapped task text: font=$fontSize, checked=$checked, text=$text")
+                    val firstLine = textLines.minBy { it.boundsInRoot.top }.boundsInRoot
                     assertTrue(abs(checkboxCenterInRoot(checked) - firstLine.center.y) <= 1f,
                         "Checkbox must align with the first line: font=$fontSize, checked=$checked, text=$text")
                 }
