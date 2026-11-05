@@ -34,13 +34,16 @@ kotlin {
 
     jvm()
 
+    // Compose browser tests require executable JS and Wasm binaries.
     js {
         browser()
+        binaries.executable()
     }
 
     @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
     wasmJs {
         browser()
+        binaries.executable()
     }
 
     sourceSets {
@@ -86,10 +89,8 @@ kotlin {
         jsMain.dependencies {
             implementation(libs.ktor.client.js)
         }
-        val wasmJsMain by getting {
-            dependencies {
-                implementation(libs.ktor.client.js)
-            }
+        wasmJsMain.dependencies {
+            implementation(libs.ktor.client.js)
         }
     }
 }

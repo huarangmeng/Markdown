@@ -97,7 +97,7 @@ val performanceGateBaseline = layout.projectDirectory.file("performance-baseline
 val performanceGateGeneratedClasses = layout.buildDirectory.dir("benchmarks/main/classes")
 val performanceGateGeneratedResources = layout.buildDirectory.dir("benchmarks/main/resources")
 
-val runPerformanceGateBenchmarks by tasks.registering(JavaExec::class) {
+val runPerformanceGateBenchmarks = tasks.register<JavaExec>("runPerformanceGateBenchmarks") {
     group = "verification"
     description = "Runs forked parser benchmarks with allocation and peak-heap profilers."
     dependsOn("mainBenchmarkCompile", tasks.named("classes"))

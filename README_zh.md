@@ -4,8 +4,8 @@
 
 **极速、跨平台的 Compose Multiplatform Markdown 引擎**
 
-[![Kotlin](https://img.shields.io/badge/Kotlin-2.4.0-7F52FF?logo=kotlin&logoColor=white)](https://kotlinlang.org)
-[![Compose Multiplatform](https://img.shields.io/badge/Compose%20Multiplatform-1.11.1-4285F4?logo=jetpackcompose&logoColor=white)](https://www.jetbrains.com/lp/compose-multiplatform/)
+[![Kotlin](https://img.shields.io/badge/Kotlin-2.4.21-7F52FF?logo=kotlin&logoColor=white)](https://kotlinlang.org)
+[![Compose Multiplatform](https://img.shields.io/badge/Compose%20Multiplatform-1.12.2-4285F4?logo=jetpackcompose&logoColor=white)](https://www.jetbrains.com/lp/compose-multiplatform/)
 [![Maven Central](https://img.shields.io/maven-central/v/io.github.huarangmeng/markdown-renderer.svg?color=orange&label=Maven%20Central)](https://central.sonatype.com/search?q=io.github.huarangmeng.markdown)
 [![CommonMark](https://img.shields.io/badge/CommonMark%200.31.2-652%2F652%20✓-brightgreen)](https://spec.commonmark.org/0.31.2/)
 [![Android API](https://img.shields.io/badge/Android%20API-23%2B-34A853?logo=android&logoColor=white)](https://android-arsenal.com/api?level=24)
@@ -71,11 +71,15 @@
 
 ### 安装
 
-在 `gradle/libs.versions.toml` 中添加依赖：
+从 `1.7.0` 起，主线使用 Kotlin **2.4.21** 和 Compose Multiplatform **1.12.2** 构建，Android 使用方需要 **compileSdk 37 或更高版本**。集成的子组件同步升级为 LaTeX `1.7.0`、CodeHigh `1.3.0` 和 Diagram `1.1.0`。
+
+需要继续使用较低版本工具链的项目，请切换到 **`1.6.3`**：这是使用 Kotlin **2.4.0**、Compose Multiplatform **1.11.1** 和 **compileSdk 36** 构建的最后一个版本。源码和发布流程保留在 [release-1.6.3](https://github.com/huarangmeng/Markdown/tree/release-1.6.3) 分支，后续主线不再维护该工具链。使用时请将所有 Markdown 模块统一固定为 `1.6.3`。
+
+在 `gradle/libs.versions.toml` 中添加依赖，将 `<version>` 替换为所需的已发布版本：
 
 ```toml
 [versions]
-markdown = "1.5.0"
+markdown = "<version>"
 
 [libraries]
 markdown-renderer = { module = "io.github.huarangmeng:markdown-renderer", version.ref = "markdown" }

@@ -4,8 +4,8 @@
 
 **A Blazing-Fast, Cross-Platform Markdown Engine for Compose Multiplatform**
 
-[![Kotlin](https://img.shields.io/badge/Kotlin-2.4.0-7F52FF?logo=kotlin&logoColor=white)](https://kotlinlang.org)
-[![Compose Multiplatform](https://img.shields.io/badge/Compose%20Multiplatform-1.11.1-4285F4?logo=jetpackcompose&logoColor=white)](https://www.jetbrains.com/lp/compose-multiplatform/)
+[![Kotlin](https://img.shields.io/badge/Kotlin-2.4.21-7F52FF?logo=kotlin&logoColor=white)](https://kotlinlang.org)
+[![Compose Multiplatform](https://img.shields.io/badge/Compose%20Multiplatform-1.12.2-4285F4?logo=jetpackcompose&logoColor=white)](https://www.jetbrains.com/lp/compose-multiplatform/)
 [![Maven Central](https://img.shields.io/maven-central/v/io.github.huarangmeng/markdown-renderer.svg?color=orange&label=Maven%20Central)](https://central.sonatype.com/search?q=io.github.huarangmeng.markdown)
 [![CommonMark](https://img.shields.io/badge/CommonMark%200.31.2-652%2F652%20✓-brightgreen)](https://spec.commonmark.org/0.31.2/)
 [![Android API](https://img.shields.io/badge/Android%20API-23%2B-34A853?logo=android&logoColor=white)](https://android-arsenal.com/api?level=24)
@@ -71,11 +71,15 @@ Full CommonMark HTML parsing/export, safe Compose rendering for common inline an
 
 ### Installation
 
-Add to your `gradle/libs.versions.toml`:
+Starting with `1.7.0`, the mainline is built with Kotlin **2.4.21** and Compose Multiplatform **1.12.2**. Android consumers need **compileSdk 37 or later**. The integrated components are LaTeX `1.7.0`, CodeHigh `1.3.0`, and Diagram `1.1.0`.
+
+For projects on the earlier toolchain, use **`1.6.3`**, the final release built with Kotlin **2.4.0**, Compose Multiplatform **1.11.1**, and **compileSdk 36**. Its source and release workflow are preserved on [release-1.6.3](https://github.com/huarangmeng/Markdown/tree/release-1.6.3); the mainline no longer maintains that toolchain. Pin all Markdown modules to `1.6.3` when using it.
+
+Add to your `gradle/libs.versions.toml`, replacing `<version>` with the published release you need:
 
 ```toml
 [versions]
-markdown = "1.5.0"
+markdown = "<version>"
 
 [libraries]
 markdown-renderer = { module = "io.github.huarangmeng:markdown-renderer", version.ref = "markdown" }
