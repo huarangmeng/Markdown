@@ -21,10 +21,12 @@
 
 ## ✨ Why KMP Markdown?
 
+The `macosArm64` library target is experimental and requires `org.jetbrains.compose.experimental.macos.enabled=true`. Native rendering also requires macOS Native Maven publications of the transitive LaTeX, codehigh and diagram libraries; existing JVM/iOS artifacts cannot substitute for them. The demo desktop application remains JVM-based. Native tests and Maven variant metadata are checked by the macOS CI job; adding this target alone does not establish successful native linking or rendering.
+
 |  | Feature | Description |
 |--|---------|-------------|
 | 🚀 | **Incremental Updates** | Reuses unchanged content when editing documents or receiving streaming output |
-| 🌍 | **True Cross-Platform** | One codebase renders identically on **Android**, **iOS**, **Desktop (JVM)**, **Web (Wasm/JS)** |
+| 🌍 | **True Cross-Platform** | One codebase renders identically on **Android**, **iOS**, **Desktop (JVM)**, **Web (Wasm/JS)**; experimental **macOS (Kotlin/Native)** target |
 | 📐 | **Syntax Support** | 413 supported syntax and behavior items, **652/652 CommonMark Spec** examples passing, plus GFM & 20+ extensions |
 | 🤖 | **LLM-Ready Streaming** | First-class token-by-token rendering with display-frame coalescing — zero flicker during AI generation |
 | 🎨 | **Fully Themeable** | 30+ configurable properties, built-in GitHub light/dark themes, auto system detection |
@@ -331,7 +333,120 @@ Keep slot content within its declared height; toolbar text is excluded from Mark
 
 Set `enableScroll = false` when a parent container handles vertical scrolling. Pass that parent's `ScrollState` as `externalScrollState` to restore its exact position when following a footnote backlink; this does not add a second scroll container. Inline click observers preserve the built-in footnote action.
 
+### Find text in a document
+
+Both `Markdown(markdown = ...)` and `Markdown(document = ...)` accept an optional
+`textSearchState`. The renderer supplies matches and scrolling; your app owns the query field,
+result counter, and previous/next buttons. Search does not change selection, open its toolbar,
+or reparse the document.
+
+```kotlin
+import com.hrm.markdown.renderer.rememberMarkdownTextSearchState
+import kotlinx.coroutines.launch
+
+val search = rememberMarkdownTextSearchState()
+val scope = rememberCoroutineScope()
+Column {
+    TextField(value = search.query, onValueChange = { search.setQuery(it) })
+    Button(
+        enabled = search.matches.isNotEmpty(),
+        onClick = {
+            val results = search.matches
+            if (results.isNotEmpty()) {
+                val next = (results.indexOf(search.activeMatch) + 1) % results.size
+                scope.launch { search.reveal(results[next]) }
+            }
+        },
+    ) { Text("Next (${search.matches.size})") }
+    Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+        Markdown(markdown = text, enableScroll = false, textSearchState = search)
+    }
+}
+```
+
+The outer `Column` must have a bounded height. Internal scrolling also works: omit the inner
+scrolling `Column` and use `Markdown(..., modifier = Modifier.weight(1f), textSearchState = search)`.
+`reveal(match)` brings the first matching text line into view, including offscreen internal-lazy
+blocks, and returns whether usable rendered geometry was found. Calling it again reveals the
+same match again, even after the user scrolls away.
+
+Internal scrolling automatically centers fully offscreen search lines, leaves visible matches
+still, and brings partially visible matches to the nearest edge. Document boundaries may prevent
+exact centering. External scrolling hosts can reuse the same policy, supplying their actual
+occlusion in pixels before creating the scrolling container:
+
+```kotlin
+val spec = rememberMarkdownTextSearchBringIntoViewSpec(
+    search, obscuredTopPx = toolbarHeightPx, obscuredBottomPx = bottomBarHeightPx,
+)
+CompositionLocalProvider(LocalBringIntoViewSpec provides spec) {
+    Column(Modifier.verticalScroll(scrollState)) {
+        Markdown(markdown = text, enableScroll = false, textSearchState = search)
+    }
+}
+```
+
+The policy runs only while a search relocation is pending. Selection gestures cancel that
+relocation and use the original `BringIntoViewSpec`; ordinary focus and selection scrolling are
+otherwise delegated unchanged. Hosts may pass their existing policy as `fallback`.
+
+- Matches are literal, non-overlapping, and in document order. Inline emphasis/link boundaries
+  can be crossed, but blocks, table cells, and inline widgets cannot.
+- Unicode whitespace is trimmed/collapsed for matching. `setQuery(query, ignoreCase = false)`
+  enables case-sensitive matching; the default uses Kotlin's simple case-insensitive comparison
+  (not locale-specific folding or Unicode normalization).
+- Each match exposes `excerpt`, `blockStableId`, `documentRevision`, and the half-open UTF-16
+  range `startInBlock ..< endInBlock` in rendered logical text, not source Markdown offsets.
+- Paragraphs, headings, nested prose, and table-cell text are searchable. Image alt text,
+  math/diagram sources, inline widgets, and code blocks are excluded. CodeHigh's current public
+  code-block API does not expose text-layout geometry; search does not estimate it. Hidden tab
+  content may have a logical match but cannot be revealed until the tab is shown.
+- The active match has a yellow background at 30% opacity, customizable with `highlightColor`.
+  Set `highlightAllMatches = true` to also highlight other matches at 15% opacity; this is off by
+  default and customizable with `allMatchHighlightColor`. The active color replaces, rather than
+  blends with, the other-match color. `highlightActiveMatch = false` disables only the active
+  style, so that match still uses the other-match color when all-match highlighting is enabled.
+  Both styles are independent of `enableSelection` and do not lay out offscreen text.
+- Use one state per Markdown instance, on the UI thread. `clear()` clears query/results/highlight
+  and cancels pending reveal. New queries, document revisions, detachment, or newer reveal calls
+  invalidate pending requests; caller cancellation still propagates. Do not retain old matches.
+- When the search panel is closed, pass `textSearchState = null` to avoid search indexing,
+  geometry callbacks, and requesters. A query set before reattachment is matched on attachment.
+
 Soft breaks default to `Space`. Use `LineBreak` to preserve line breaks in display and copy. HTML export also accepts `softBreakPolicy`.
+
+### Inline decorations and end markers
+
+Use `inlineDecoration` for semantic text such as `==highlight==` or `<mark>`. The callback receives each rendered text fragment, not the entire range. `showMarker` below is host-owned Compose state; replace `ColorPainter` with your own resource or vector Painter for an icon.
+
+```kotlin
+import androidx.compose.runtime.remember
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.painter.ColorPainter
+import androidx.compose.ui.unit.dp
+import com.hrm.markdown.renderer.*
+
+val markerPainter = remember { ColorPainter(Color.White) }
+Markdown(
+    markdown = "==plain **bold** text==",
+    interactions = MarkdownInteractions(inlineDecoration = { request ->
+        if (request.kind != InlineElementKinds.Highlight) null else MarkdownInlineUnderline(
+            color = Color.Blue,
+            endMarker = if (showMarker) MarkdownInlineEndMarker(
+                color = Color.Blue,
+                diameter = 8.dp,
+                painter = markerPainter,
+            ) else null,
+        )
+    }),
+)
+```
+
+- A Painter is tinted by `color` and clipped to a `diameter` square. Omitting `painter` preserves the original circle, including its default 4.dp diameter and 3.dp gap.
+- Each semantic range has one textual endpoint. Bold, italic, wrapping, and line breaks do not create extra markers; adjacent independent ranges remain separate even when their contents and attributes match.
+- Painter markers are measured inline objects after the semantic range. They add no source, copy, selection, or search characters or offsets. State changes trigger layout without replacing the source; `null` removes the decoration, while `endMarker = null` retains the underline.
+- **Painter markers reserve `gap + diameter` of inline width.** The flow engine wraps them when the line has insufficient space, so following text cannot overlap their box. Without a painter, the original draw-only circle behavior is preserved.
+- The anchor follows the final glyph's bidi direction; this is not a general RTL paragraph-layout implementation. Markers attach to text, not inline widgets. Check complex mixed-direction content in the host.
 
 ---
 

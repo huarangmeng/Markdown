@@ -1,5 +1,6 @@
 package com.hrm.markdown.renderer.internal.selection
 
+import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -24,6 +25,7 @@ internal data class SelectionLayoutSnapshot(
 @Stable
 internal class SelectionCoordinateRegistry {
     private val blockCoordinates = mutableStateMapOf<Long, LayoutCoordinates>()
+    private val bringIntoViewRequesters = mutableMapOf<Long, BringIntoViewRequester>()
     private val blockSnapshots = mutableStateMapOf<Long, SelectionLayoutSnapshot>()
     var rootCoordinates: LayoutCoordinates? = null
         private set
@@ -35,14 +37,20 @@ internal class SelectionCoordinateRegistry {
         rootSnapshot = coordinates?.takeIf { it.isAttached }?.toSelectionLayoutSnapshot()
     }
 
-    fun register(stableId: Long, coordinates: LayoutCoordinates) {
+    fun register(stableId: Long, coordinates: LayoutCoordinates, requester: BringIntoViewRequester? = null) {
         blockCoordinates[stableId] = coordinates
         blockSnapshots[stableId] = coordinates.toSelectionLayoutSnapshot()
+        if (requester != null) bringIntoViewRequesters[stableId] = requester
+        else bringIntoViewRequesters.remove(stableId)
     }
+
+    fun requesterOf(stableId: Long): BringIntoViewRequester? =
+        if (coordinatesOf(stableId) != null) bringIntoViewRequesters[stableId] else null
 
     fun unregister(stableId: Long) {
         blockCoordinates.remove(stableId)
         blockSnapshots.remove(stableId)
+        bringIntoViewRequesters.remove(stableId)
     }
 
     fun coordinatesOf(stableId: Long): LayoutCoordinates? =

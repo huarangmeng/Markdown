@@ -374,6 +374,7 @@ private fun TableBlockModelCellRenderer(
         InlineLayoutBlockText(
             model = cell.inline,
             style = style,
+            searchable = true,
         )
     }
 }

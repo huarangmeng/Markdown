@@ -118,12 +118,16 @@ private class InlineCompiler(private val softBreakPolicy: MarkdownSoftBreakPolic
                     sink = sink,
                     stableId = stableId,
                 )
-                is HtmlSpanInlineSource -> compileNormalizedInlineSources(
-                    sources = source.children,
-                    activeMarks = activeMarks + source.marks,
-                    sink = sink,
-                    parentStableId = stableId,
-                )
+                is HtmlSpanInlineSource -> {
+                    val firstAtom = sink.size
+                    compileNormalizedInlineSources(
+                        sources = source.children,
+                        activeMarks = activeMarks + source.marks.map { it.copy(isRangeEnd = false) },
+                        sink = sink,
+                        parentStableId = stableId,
+                    )
+                    markInlineRangeEnd(sink, firstAtom, activeMarks.size, source.marks.size)
+                }
                 is HtmlLineBreakInlineSource -> sink += snapshotTextAtom(identity, "\n", activeMarks)
                 is HtmlImageInlineSource -> sink += WidgetAtom(
                     identity = identity,
@@ -156,12 +160,16 @@ private class InlineCompiler(private val softBreakPolicy: MarkdownSoftBreakPolic
             is Emphasis -> compileInlineNodes(node.children, activeMarks + snapshotSpanMark("emphasis"), sink, stableId)
             is StrongEmphasis -> compileInlineNodes(node.children, activeMarks + snapshotSpanMark("strong"), sink, stableId)
             is Strikethrough -> compileInlineNodes(node.children, activeMarks + snapshotSpanMark("strikethrough"), sink, stableId)
-            is Highlight -> compileInlineNodes(
-                node.children,
-                activeMarks + snapshotSpanMark("highlight").copy(attributes = node.attributes),
-                sink,
-                stableId,
-            )
+            is Highlight -> {
+                val firstAtom = sink.size
+                compileInlineNodes(
+                    node.children,
+                    activeMarks + snapshotSpanMark("highlight").copy(attributes = node.attributes, isRangeEnd = false),
+                    sink,
+                    stableId,
+                )
+                markInlineRangeEnd(sink, firstAtom, activeMarks.size, 1)
+            }
             is Superscript -> compileInlineNodes(
                 node.children,
                 activeMarks + snapshotSpanMark("superscript").copy(attributes = node.attributes),
@@ -359,6 +367,23 @@ private class InlineCompiler(private val softBreakPolicy: MarkdownSoftBreakPolic
                     compileInlineNodes(node.children, activeMarks, sink, stableId)
                 }
             }
+        }
+    }
+
+    private fun markInlineRangeEnd(
+        sink: MutableList<InlineAtom>,
+        firstAtom: Int,
+        firstMark: Int,
+        markCount: Int,
+    ) {
+        if (markCount == 0) return
+        for (index in sink.lastIndex downTo firstAtom) {
+            val atom = sink[index] as? TextAtom ?: continue
+            if (atom.text.none { it != '\n' }) continue
+            sink[index] = atom.copy(marks = atom.marks.mapIndexed { markIndex, mark ->
+                if (markIndex in firstMark until firstMark + markCount) mark.copy(isRangeEnd = true) else mark
+            }.renderSnapshotList())
+            return
         }
     }
 

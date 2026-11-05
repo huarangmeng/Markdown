@@ -30,6 +30,8 @@ kotlin {
         }
     }
 
+    macosArm64()
+
     jvm()
 
     js {
@@ -99,7 +101,7 @@ mavenPublishing {
             - Full Markdown syntax support
             - AST (Abstract Syntax Tree) generation
             - Incremental parsing support
-            - Multi-platform support (Android/iOS/JVM/JS/WasmJS)
+            - Multi-platform support (Android/iOS/macOS Native/JVM/JS/WasmJS)
         """.trimIndent()
         )
         inceptionYear.set("2026")

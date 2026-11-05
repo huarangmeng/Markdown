@@ -9,6 +9,9 @@ sealed interface RenderWidgetModel {
 sealed interface InlineWidgetModel : RenderWidgetModel
 sealed interface BlockWidgetModel : RenderWidgetModel
 
+/** Render-only object with zero source characters. */
+data class InlineEndMarkerWidgetModel(override val identity: RenderIdentity, val marker: com.hrm.markdown.renderer.MarkdownInlineEndMarker) : InlineWidgetModel
+
 data class InlineCodeWidgetModel(
     override val identity: RenderIdentity,
     val code: String,

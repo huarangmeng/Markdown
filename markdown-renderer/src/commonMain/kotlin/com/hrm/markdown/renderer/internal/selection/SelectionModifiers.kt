@@ -1,7 +1,10 @@
 package com.hrm.markdown.renderer.internal.selection
 
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.draw.drawWithContent
@@ -9,6 +12,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.layout.onGloballyPositioned
 import com.hrm.markdown.renderer.LocalMarkdownStyle
+import com.hrm.markdown.renderer.LocalMarkdownTextSearchState
 import com.hrm.markdown.renderer.internal.layout.model.InternalLayoutBlockModel
 
 /**
@@ -20,12 +24,16 @@ import com.hrm.markdown.renderer.internal.layout.model.InternalLayoutBlockModel
 internal fun Modifier.selectableBlock(
     block: InternalLayoutBlockModel,
     controller: MarkdownSelectionController?,
+    selectionHighlight: Boolean = true,
 ): Modifier {
     if (controller == null) return this
     return this.composed {
         val stableId = block.identity.stableId
         val highlightColor = LocalMarkdownStyle.current.colors.link.copy(alpha = 0.3f)
-        // Model revisions need not move the Compose node, so they must not discard its coordinates.
+        val search = LocalMarkdownTextSearchState.current
+        val requester = if (search == null) null else remember(controller, stableId) { BringIntoViewRequester() }
+        // The Compose node outlives layout-model revisions. Disposing on each new model
+        // loses coordinates when its size/position are unchanged (no positioning callback).
         SideEffect { controller.registerVisibleBlock(block) }
         DisposableEffect(stableId, controller) {
             onDispose {
@@ -34,10 +42,26 @@ internal fun Modifier.selectableBlock(
             }
         }
         this
-            .onGloballyPositioned { controller.registry.register(stableId, it) }
+            .then(if (requester == null) Modifier else Modifier.bringIntoViewRequester(requester))
+            .onGloballyPositioned { controller.registry.register(stableId, it, requester) }
             .drawWithContent {
+                // 搜索只绘制背景，不写入 controller.state.range，因此不会触发选区菜单/手柄。
+                if (search != null) {
+                    val active = search.activeMatch.takeIf { search.highlightActiveMatch }
+                    for (match in search.matchesByGeometry[stableId].orEmpty()) {
+                        if (match == active) continue
+                        for (box in controller.highlightBoxesFor(stableId, match.logicalRange, textOnly = true)) {
+                            drawRect(search.allMatchHighlightColor, box.topLeft, box.size)
+                        }
+                    }
+                    if (active?.geometryStableId == stableId) {
+                        for (box in controller.highlightBoxesFor(stableId, active.logicalRange, textOnly = true)) {
+                            drawRect(search.highlightColor, box.topLeft, box.size)
+                        }
+                    }
+                }
                 drawContent()
-                val highlightBoxes = if (controller.state.range == null) {
+                val highlightBoxes = if (!selectionHighlight || controller.state.range == null) {
                     emptyList()
                 } else {
                     controller.highlightBoxesFor(stableId)
