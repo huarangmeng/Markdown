@@ -31,4 +31,6 @@ data class SpanMark(
      * 库不认识任何具体键名，也不参与样式或布局计算。
      */
     val attributes: Map<String, String> = emptyMap(),
+    /** 由原语义容器的末端确定；单个文本元素默认自身结束，不按内容或属性合并范围。 */
+    val isRangeEnd: Boolean = true,
 )

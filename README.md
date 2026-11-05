@@ -394,6 +394,39 @@ otherwise delegated unchanged. Hosts may pass their existing policy as `fallback
 
 Soft breaks default to `Space`. Use `LineBreak` to preserve line breaks in display and copy. HTML export also accepts `softBreakPolicy`.
 
+### Inline decorations and end markers
+
+Use `inlineDecoration` for semantic text such as `==highlight==` or `<mark>`. The callback receives each rendered text fragment, not the entire range. `showMarker` below is host-owned Compose state; replace `ColorPainter` with your own resource or vector Painter for an icon.
+
+```kotlin
+import androidx.compose.runtime.remember
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.painter.ColorPainter
+import androidx.compose.ui.unit.dp
+import com.hrm.markdown.renderer.*
+
+val markerPainter = remember { ColorPainter(Color.White) }
+Markdown(
+    markdown = "==plain **bold** text==",
+    interactions = MarkdownInteractions(inlineDecoration = { request ->
+        if (request.kind != InlineElementKinds.Highlight) null else MarkdownInlineUnderline(
+            color = Color.Blue,
+            endMarker = if (showMarker) MarkdownInlineEndMarker(
+                color = Color.Blue,
+                diameter = 8.dp,
+                painter = markerPainter,
+            ) else null,
+        )
+    }),
+)
+```
+
+- A Painter is tinted by `color` and clipped to a `diameter` square. Omitting `painter` preserves the original circle, including its default 4.dp diameter and 3.dp gap.
+- Each semantic range has one textual endpoint. Bold, italic, wrapping, and line breaks do not create extra markers; adjacent independent ranges remain separate even when their contents and attributes match.
+- Painter markers are measured inline objects after the semantic range. They add no source, copy, selection, or search characters or offsets. State changes trigger layout without replacing the source; `null` removes the decoration, while `endMarker = null` retains the underline.
+- **Painter markers reserve `gap + diameter` of inline width.** The flow engine wraps them when the line has insufficient space, so following text cannot overlap their box. Without a painter, the original draw-only circle behavior is preserved.
+- The anchor follows the final glyph's bidi direction; this is not a general RTL paragraph-layout implementation. Markers attach to text, not inline widgets. Check complex mixed-direction content in the host.
+
 ---
 
 ## 🎨 Colors, typography, layout, and state

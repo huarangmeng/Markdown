@@ -75,6 +75,13 @@ internal class InlineRenderBuildContext(
         registerWidgetPayload(id, payload)
     }
 
+    // Layout advances without advancing annotated text or the source cursor.
+    fun emitEndMarkerWidget(id: InlinePlaceholderId, widthPx: Float, heightPx: Float, content: @Composable () -> Unit) {
+        val payload = inlineWidgetPaintPayload("", widthPx, heightPx, content)
+        paintPayloads[id] = payload
+        flowSegments?.add(InlineFlowSegment.InlineRun(id, payload.placeholder, sourceCursor, sourceCursor))
+    }
+
     fun emitInlineCodeWidget(
         builder: AnnotatedString.Builder,
         widget: InlineCodeWidgetModel,

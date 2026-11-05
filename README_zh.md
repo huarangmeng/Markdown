@@ -381,6 +381,39 @@ CompositionLocalProvider(LocalBringIntoViewSpec provides spec) {
 
 软换行默认为 `Space`；使用 `LineBreak` 可在显示与复制时保留换行。HTML 导出同样支持 `softBreakPolicy`。
 
+### 行内装饰与末端标记
+
+通过 `inlineDecoration` 装饰 `==highlight==`、`<mark>` 等语义文本。回调接收每个实际绘制的文本片段，而非整个范围。示例中的 `showMarker` 是宿主持有的 Compose 状态；需要图标时，把 `ColorPainter` 换成自己的资源或矢量 Painter。
+
+```kotlin
+import androidx.compose.runtime.remember
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.painter.ColorPainter
+import androidx.compose.ui.unit.dp
+import com.hrm.markdown.renderer.*
+
+val markerPainter = remember { ColorPainter(Color.White) }
+Markdown(
+    markdown = "==普通 **粗体** 文本==",
+    interactions = MarkdownInteractions(inlineDecoration = { request ->
+        if (request.kind != InlineElementKinds.Highlight) null else MarkdownInlineUnderline(
+            color = Color.Blue,
+            endMarker = if (showMarker) MarkdownInlineEndMarker(
+                color = Color.Blue,
+                diameter = 8.dp,
+                painter = markerPainter,
+            ) else null,
+        )
+    }),
+)
+```
+
+- Painter 使用 `color` 着色，并裁到 `diameter` 大小的方框内。不传 `painter` 时保留原圆点，包括默认的 4.dp 直径与 3.dp 间距。
+- 每个语义范围只有一个文本末端。粗体、斜体、自动折行和换行不会增加标记；相邻独立范围即使内容与属性相同，也不会合并。
+- Painter 标记在语义范围之后作为行内对象参与排版，不增加源字符、复制、选区或搜索文本及索引。无需替换正文即可随状态重新排版；`inlineDecoration` 返回 `null` 会撤掉装饰，`endMarker = null` 则保留下划线。
+- **Painter 标记真实预留 `gap + diameter` 的行内宽度。** 行尾不足时由 flow 引擎换行，后续文字不能覆盖标记框；无 painter 时保留原圆点的纯绘制行为。
+- 锚点跟随最后一个字形的双向文本方向，不代表实现了通用 RTL 段落排版。标记附着于文本，而非行内 widget；复杂双向混排需由宿主检查。
+
 ---
 
 ## 🎨 颜色、排版、尺寸与状态

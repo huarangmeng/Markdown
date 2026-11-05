@@ -161,7 +161,13 @@ class MarkdownStreamingLifecycleTest {
                 runOnIdle { page.markdown = "fresh **live stream**" }
                 awaitHtml(page, paragraph("fresh <strong>live stream</strong>"))
                 runOnIdle { assertTrue(page.snapshots.none { it.html == paragraph("old") }) }
-                onNodeWithText("fresh live stream").assertExists()
+                // Exact-width text runs may stay separate; assert the complete rendered prose, not one Text item.
+                val renderedText = onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsProperties.Text))
+                    .fetchSemanticsNodes()
+                    .joinToString("") { node ->
+                        node.config[SemanticsProperties.Text].joinToString("") { it.text }
+                    }
+                assertEquals("fresh live stream", renderedText)
             } finally {
                 oldParse.release()
             }
