@@ -55,18 +55,109 @@ import com.hrm.markdown.parser.ast.Paragraph
 import com.hrm.markdown.parser.ast.Text
 import com.hrm.markdown.parser.block.postprocessors.BlockPostProcessor
 import com.hrm.markdown.parser.flavour.ExtendedFlavour
+import com.hrm.markdown.renderer.internal.core.compile.DefaultRenderModelCompiler
+import com.hrm.markdown.renderer.internal.core.compile.RenderCompileEnvironment
+import com.hrm.markdown.renderer.internal.core.model.InlineEndMarkerWidgetModel
+import com.hrm.markdown.renderer.internal.core.model.ParagraphBlockModel
+import com.hrm.markdown.renderer.internal.core.model.TextAtom
+import com.hrm.markdown.renderer.internal.core.model.WidgetAtom
 import com.hrm.markdown.renderer.internal.selection.LocalMarkdownSelectionController
 import com.hrm.markdown.renderer.internal.selection.MarkdownSelectionController
+import com.hrm.markdown.renderer.internal.selection.SelectionAnchor
 import com.hrm.markdown.renderer.internal.selection.SelectionRange
+import com.hrm.markdown.renderer.internal.selection.buildSelectionIndex
+import com.hrm.markdown.renderer.internal.selection.extractSelectedText
 import java.awt.datatransfer.DataFlavor
 import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertIs
+import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 @OptIn(ExperimentalTestApi::class)
 class MarkdownInlineEndMarkerTest {
+    @Test
+    fun should_resolveEachRangeWithStableIdentity_when_nestedMarksShareEndpoint() {
+        for (ids in listOf(listOf("outer", "inner"), listOf("same", "same"))) {
+            val parsed = MarkdownParserConfig.Default.newParser().parse(
+                """<mark data-id="${ids[0]}"><mark data-id="${ids[1]}">甲😀</mark></mark>乙""",
+            )
+            val compiled = DefaultRenderModelCompiler.compile(parsed, RenderCompileEnvironment())
+            val paragraph = assertIs<ParagraphBlockModel>(compiled.blocks.single())
+            val textAtoms = paragraph.inline.atoms.filterIsInstance<TextAtom>()
+            assertEquals(listOf("甲😀", "乙"), textAtoms.map { it.text })
+            val terminal = textAtoms.first()
+            assertEquals(ids, terminal.marks.map { it.attributes["data-id"] }, "real parser/compiler must retain both ranges")
+            assertTrue(terminal.marks.all { it.kind == InlineElementKinds.Highlight && it.isRangeEnd })
+
+            val marker = MarkdownInlineEndMarker(MARKER, diameter = 8.dp, painter = ColorPainter(Color.White))
+            val underline = MarkdownInlineUnderline(Color.Transparent, endMarker = marker)
+            val requests = mutableListOf<MarkdownInlineDecorationRequest>()
+            var disabledCallback: Int? = null
+            val decorate: (MarkdownInlineDecorationRequest) -> MarkdownInlineUnderline? = { request ->
+                val callbackIndex = requests.size
+                requests += request
+                if (callbackIndex == disabledCallback) null else underline
+            }
+            val expectedRequests = ids.asReversed().map {
+                MarkdownInlineDecorationRequest(InlineElementKinds.Highlight, "甲😀", attributes = mapOf("data-id" to it))
+            }
+            val resolved = resolveInlineEndMarkers(compiled, decorate)
+            val resolvedParagraph = assertIs<ParagraphBlockModel>(resolved.blocks.single())
+            val widgets = resolvedParagraph.inline.atoms.filterIsInstance<WidgetAtom>().map { assertIs<InlineEndMarkerWidgetModel>(it.widget) }
+            assertEquals(expectedRequests, requests, "callbacks must run inside-out, including identical attributes")
+            assertEquals(listOf(marker, marker), widgets.map { it.marker })
+            assertEquals(2, widgets.map { it.identity.stableId }.toSet().size)
+            requests.clear()
+            assertEquals(resolved, resolveInlineEndMarkers(compiled, decorate), "same source and painters must resolve identically")
+
+            val models = mutableListOf(resolved)
+            for (disabled in 0..1) {
+                disabledCallback = disabled
+                requests.clear()
+                val partial = resolveInlineEndMarkers(compiled, decorate)
+                val partialParagraph = assertIs<ParagraphBlockModel>(partial.blocks.single())
+                val remaining = partialParagraph.inline.atoms.filterIsInstance<WidgetAtom>().single()
+                assertEquals(expectedRequests, requests)
+                assertEquals(widgets[1 - disabled], remaining.widget, "disabling either callback must preserve the other marker identity")
+                assertNotEquals(resolved.identity.layoutRevision, partial.identity.layoutRevision)
+                assertNotEquals(resolved.identity.paintRevision, partial.identity.paintRevision)
+                models += partial
+            }
+            assertSame(compiled, resolveInlineEndMarkers(compiled, null))
+            assertSame(compiled, resolveInlineEndMarkers(compiled) { null })
+
+            val before = buildSelectionIndex(compiled.blocks)
+            val entry = before.entries.single()
+            assertEquals("甲😀乙", entry.text)
+            assertEquals(4, entry.totalChars)
+            val originalParents = listOf(compiled.identity, paragraph.identity, paragraph.inline.identity)
+            for (model in models) {
+                val current = assertIs<ParagraphBlockModel>(model.blocks.single())
+                assertEquals(textAtoms, current.inline.atoms.filterIsInstance<TextAtom>())
+                val parents = listOf(model.identity, current.identity, current.inline.identity)
+                for ((original, updated) in originalParents.zip(parents)) {
+                    assertEquals(original.stableId, updated.stableId)
+                    assertNotEquals(original.layoutRevision, updated.layoutRevision)
+                    assertNotEquals(original.paintRevision, updated.paintRevision)
+                }
+                assertEquals(compiled.identity.contentRevision, model.identity.contentRevision)
+                assertEquals(paragraph.identity.contentRevision, current.identity.contentRevision)
+                assertEquals(current.inline.identity.layoutRevision, current.inline.identity.contentRevision)
+                assertNotEquals(paragraph.inline.identity.contentRevision, current.inline.identity.contentRevision)
+                val after = buildSelectionIndex(model.blocks)
+                assertEquals(before.entries, after.entries)
+                for ((start, end, expected) in listOf(Triple(0, 4, "甲😀乙"), Triple(0, 3, "甲😀"), Triple(1, 3, "😀"))) {
+                    val range = SelectionRange(SelectionAnchor(entry.stableId, start), SelectionAnchor(entry.stableId, end))
+                    assertEquals(expected, extractSelectedText(after, range))
+                }
+            }
+        }
+    }
+
     @Test
     fun should_paintMarkerOnlyAtSemanticRangeEnd_when_rangeSpansBoldRuns() = runComposeUiTest {
         val page = MarkerPage("前缀 ==划线**加粗**== 后缀", painter = null)
@@ -155,11 +246,44 @@ class MarkdownInlineEndMarkerTest {
     }
 
     @Test
-    fun should_paintEachHtmlRange_when_adjacentMarkElementsHaveIdenticalContent() = runComposeUiTest {
-        val page = MarkerPage("<mark>SAME</mark><mark>SAME</mark>")
+    fun should_paintAndCopyEachHtmlRange_when_nestedMarkElementsHaveIdenticalAttributes() = runComposeUiTest {
+        val page = MarkerPage("""<mark data-state="same"><mark data-state="same">甲😀</mark></mark>乙""", initiallyDecorated = false)
         setContent { page.Content() }
         waitForIdle()
-        assertMarkerEndpoints(4, 8)
+        val plainEnd = textFragments().last().bounds.right
+        var originalRange: SelectionRange? = null
+
+        for (decorated in listOf(false, true, false)) {
+            runOnIdle { page.decorated = decorated }
+            waitForIdle()
+            val markers = markerBlobs().sortedBy { it.bounds.left }
+            assertEquals(if (decorated) 2 else 0, markers.size)
+            assertEquals("甲😀乙", textFragments().joinToString("") { it.layout.layoutInput.text.text })
+            if (decorated) {
+                val terminal = textFragments().single { "甲😀" in it.layout.layoutInput.text.text }
+                val endX = terminal.bounds.left + terminal.layout.getBoundingBox(1).right
+                assertTrue(abs(markers[0].bounds.left - (endX + 3f)) <= 1f)
+                assertTrue(abs(markers[1].bounds.left - (markers[0].bounds.right + 3f)) <= 1f)
+                assertTrue(markers.all { it.bounds.width >= 6 && it.bounds.height >= 6 })
+                assertTrue(textFragments().last().bounds.right >= plainEnd + 21f, "both markers must reserve gap plus diameter")
+            }
+            runOnIdle {
+                val controller = page.controller
+                controller.selectAll()
+                assertEquals("甲😀乙", controller.selectedText)
+                val range = assertNotNull(controller.state.range)
+                assertEquals(0, range.start.charInBlock)
+                assertEquals(4, range.end.charInBlock)
+                if (originalRange == null) originalRange = range else assertEquals(originalRange, range)
+                controller.copySelection()
+                assertTrue(controller.selectRange(range.start.blockStableId, 1, 3))
+                assertEquals("😀", controller.selectedText)
+                controller.copySelection()
+                controller.clearSelection()
+            }
+            waitForIdle()
+        }
+        assertEquals(listOf("甲😀乙", "😀", "甲😀乙", "😀", "甲😀乙", "😀"), page.clipboard.copied)
     }
 
     @Test

@@ -74,13 +74,18 @@ internal fun resolveInlineEndMarkers(document: InternalRenderDocumentModel, deco
             for (atom in m.atoms) {
                 add(atom)
                 if (atom !is TextAtom || atom.text.isEmpty()) continue
-                val mark = atom.marks.lastOrNull { it.kind in InteractiveInlineMarkKinds } ?: continue
-                if (!mark.isRangeEnd) continue
-                val marker = decorate(MarkdownInlineDecorationRequest(mark.kind, atom.text, mark.payload, mark.attributes))?.endMarker?.takeIf { it.painter != null } ?: continue
-                require(marker.diameter.value.isFinite() && marker.diameter.value > 0f)
-                require(marker.gap.value.isFinite() && marker.gap.value >= 0f)
-                val identity = id(atom.identity, marker).copy(stableId = renderIdentityMix(atom.identity.stableId, 0x454e444d41524bL))
-                add(WidgetAtom(identity, InlineEndMarkerWidgetModel(identity, marker)))
+                val lastInteractiveIndex = atom.marks.indexOfLast { it.kind in InteractiveInlineMarkKinds }
+                for (markIndex in lastInteractiveIndex downTo 0) {
+                    val mark = atom.marks[markIndex]
+                    if (mark.kind !in InteractiveInlineMarkKinds || !mark.isRangeEnd) continue
+                    val marker = decorate(MarkdownInlineDecorationRequest(mark.kind, atom.text, mark.payload, mark.attributes))?.endMarker?.takeIf { it.painter != null } ?: continue
+                    require(marker.diameter.value.isFinite() && marker.diameter.value > 0f)
+                    require(marker.gap.value.isFinite() && marker.gap.value >= 0f)
+                    // 用原 mark 下标区分共终点范围，不依赖回调结果；最内层保留旧 ID。
+                    val seed = 0x454e444d41524bL + markIndex - lastInteractiveIndex
+                    val identity = id(atom.identity, marker).copy(stableId = renderIdentityMix(atom.identity.stableId, seed))
+                    add(WidgetAtom(identity, InlineEndMarkerWidgetModel(identity, marker)))
+                }
             }
         }
         val identity = id(m.identity, atoms)
