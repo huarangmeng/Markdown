@@ -61,7 +61,7 @@ mavenPublishing {
     coordinates(
         "io.github.huarangmeng",
         "markdown-runtime",
-        rootProject.property("VERSION").toString()
+        rootProject.version.toString()
     )
 
     pom {

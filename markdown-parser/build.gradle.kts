@@ -90,7 +90,7 @@ mavenPublishing {
     coordinates(
         "io.github.huarangmeng",
         "markdown-parser",
-        rootProject.property("VERSION").toString()
+        rootProject.version.toString()
     )
 
     pom {

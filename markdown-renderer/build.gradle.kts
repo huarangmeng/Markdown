@@ -132,7 +132,7 @@ mavenPublishing {
     coordinates(
         "io.github.huarangmeng",
         "markdown-renderer",
-        rootProject.property("VERSION").toString()
+        rootProject.version.toString()
     )
 
     pom {

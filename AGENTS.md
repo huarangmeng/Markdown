@@ -104,6 +104,15 @@ compilation; `Parser Stress Tests` runs isolated extreme-input checks; `JVM Perf
 parser performance budgets. Each job uploads its reports on success or failure. Android Macrobenchmark
 requires a physical device and is documented in the benchmark module's AGENTS.md.
 
+## Publishing
+
+Publish a GitHub Release with a `release-X.Y.Z` tag on the commit to ship.
+For prereleases, use an `-alpha`, `-beta`, or `-rc` suffix with an optional number,
+such as `release-1.7.1-rc.1`. The [Publish workflow](.github/workflows/publish.yml)
+passes the version from the tag to Gradle as `-PVERSION` for all three Maven modules.
+Development builds default to `0.0.0-SNAPSHOT`. To retry, rerun the failed workflow.
+To trigger it manually from a release tag, use `gh workflow run publish.yml --ref release-X.Y.Z`.
+
 ## Documentation Audiences
 
 - `README.md` and `README_zh.md` serve component users: supported features, installation, public APIs,

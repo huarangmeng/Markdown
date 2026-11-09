@@ -71,7 +71,7 @@
 
 ### 安装
 
-从 `1.7.0` 起，主线使用 Kotlin **2.4.21** 和 Compose Multiplatform **1.12.2** 构建，Android 使用方需要 **compileSdk 37 或更高版本**。集成的子组件同步升级为 LaTeX `1.7.0`、CodeHigh `1.3.0` 和 Diagram `1.1.0`。
+从 `1.7.0` 起，主线使用 Kotlin **2.4.21** 和 Compose Multiplatform **1.12.2** 构建，Android 使用方需要 **compileSdk 37 或更高版本**。当前主线集成 LaTeX `1.7.1`、CodeHigh `1.3.0` 和 Diagram `1.1.0`。
 
 需要继续使用较低版本工具链的项目，请切换到 **`1.6.3`**：这是使用 Kotlin **2.4.0**、Compose Multiplatform **1.11.1** 和 **compileSdk 36** 构建的最后一个版本。源码和发布流程保留在 [release-1.6.3](https://github.com/huarangmeng/Markdown/tree/release-1.6.3) 分支，后续主线不再维护该工具链。使用时请将所有 Markdown 模块统一固定为 `1.6.3`。
 

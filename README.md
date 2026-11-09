@@ -71,7 +71,7 @@ Full CommonMark HTML parsing/export, safe Compose rendering for common inline an
 
 ### Installation
 
-Starting with `1.7.0`, the mainline is built with Kotlin **2.4.21** and Compose Multiplatform **1.12.2**. Android consumers need **compileSdk 37 or later**. The integrated components are LaTeX `1.7.0`, CodeHigh `1.3.0`, and Diagram `1.1.0`.
+Starting with `1.7.0`, the mainline is built with Kotlin **2.4.21** and Compose Multiplatform **1.12.2**. Android consumers need **compileSdk 37 or later**. The current mainline integrates LaTeX `1.7.1`, CodeHigh `1.3.0`, and Diagram `1.1.0`.
 
 For projects on the earlier toolchain, use **`1.6.3`**, the final release built with Kotlin **2.4.0**, Compose Multiplatform **1.11.1**, and **compileSdk 36**. Its source and release workflow are preserved on [release-1.6.3](https://github.com/huarangmeng/Markdown/tree/release-1.6.3); the mainline no longer maintains that toolchain. Pin all Markdown modules to `1.6.3` when using it.
 
