@@ -1,10 +1,13 @@
 package com.hrm.markdown.preview
 
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import com.hrm.markdown.renderer.Markdown
+import com.hrm.markdown.runtime.MarkdownDirectivePlugin
+import com.hrm.markdown.runtime.MarkdownInlineDirectiveRenderer
 
 internal const val ULTRA_LONG_MARKDOWN_SECTION_COUNT = 1_000
 
@@ -19,9 +22,51 @@ internal val performancePreviewGroups = listOf(
                 title = "超长 Markdown（1000 章节）",
                 content = { UltraLongMarkdownPreview() },
             ),
+            PreviewItem(
+                id = "issue_58_long_paragraph",
+                title = "Issue #58 超长单段落",
+                content = { LongParagraphPreview(mixed = false) },
+            ),
+            PreviewItem(
+                id = "issue_58_long_mixed_paragraph",
+                title = "Issue #58 长段落、公式与行内组件",
+                content = { LongParagraphPreview(mixed = true) },
+            ),
         ),
     ),
 )
+
+@Composable
+private fun LongParagraphPreview(mixed: Boolean) {
+    val markdown = remember(mixed) {
+        buildString {
+            appendLine(if (mixed) "# 长段落与行内内容混排" else "# 超长单段落")
+            appendLine()
+            repeat(8) { index ->
+                append("连续中文😀与EnglishWords混排，检查窄屏换行和完整文本。".repeat(50))
+                if (mixed) {
+                    append(" **第${index + 1}段加粗** ")
+                    append("\$\\frac{a_1+b^2}{\\sqrt{x}}\$")
+                    append(" `inlineCode()` {% layout-badge text=组件 %} ")
+                }
+            }
+            if (mixed) append(" `" + "very_wide_inline_component_".repeat(24) + "`")
+            append("结尾：应显示完整，可选择和复制，超宽行内代码可横向滚动。")
+        }
+    }
+    Markdown(
+        markdown = markdown,
+        modifier = Modifier.fillMaxSize(),
+        directivePlugins = if (mixed) listOf(LongParagraphBadgePlugin) else emptyList(),
+    )
+}
+
+private object LongParagraphBadgePlugin : MarkdownDirectivePlugin {
+    override val id = "long-paragraph-layout"
+    override val inlineDirectiveRenderers: Map<String, MarkdownInlineDirectiveRenderer> = mapOf(
+        "layout-badge" to { BasicText("组件") },
+    )
+}
 
 @Composable
 private fun UltraLongMarkdownPreview() {

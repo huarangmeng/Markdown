@@ -585,6 +585,7 @@ Compose 渲染器默认提供基础阅读语义，无需启用 `enableLinting`�
 | 增量与流式解析 | 四种方言下，连续编辑及流式前缀的结果与独立完整解析一致 |
 | 异步生命周期 | 覆盖快速替换全文、取消、切换配置及退出页面的回归场景 |
 | 极端输入 | 512 层引用、百万字符单行、密集分隔符和巨大未闭合块通过独立进程检查 |
+| 长段落排版 | JVM 回归验证 Unicode 安全断行、受限文本测量工作量，以及多种宽度和字体缩放下的真实公式、自定义行内组件排版 |
 | 回归检查 | JVM 测试及 Parser 性能预算通过；Parser、Renderer 测试可编译至 JS 和 Wasm |
 
 当前版本的执行结果见 [CI](https://github.com/huarangmeng/Markdown/actions/workflows/test.yml)。

@@ -589,6 +589,7 @@ These semantics are supplied by the shared Compose rendering path. Platform scre
 | Incremental and streaming parsing | Matches independent full parsing across four flavours, including continuous edits and streamed prefixes |
 | Asynchronous lifecycle | Regression coverage for full-text replacement, cancellation, configuration changes, and page disposal |
 | Extreme inputs | Isolated-process checks pass for 512 nested quotes, million-character lines, dense delimiters, and large unclosed blocks |
+| Long paragraph layout | JVM regressions cover Unicode-safe wrapping, bounded text-measurement work, and real formula/custom inline component layout at multiple widths and font scales |
 | Regression checks | JVM tests and parser performance budgets pass; parser and renderer tests compile for JS and Wasm |
 
 See the [CI results](https://github.com/huarangmeng/Markdown/actions/workflows/test.yml) for the current revision.

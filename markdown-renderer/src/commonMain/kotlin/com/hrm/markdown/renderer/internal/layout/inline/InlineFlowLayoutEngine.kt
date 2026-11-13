@@ -18,6 +18,8 @@ internal fun computeInlineFlowLayout(
     textMeasurer: TextMeasurer,
     maxWidthPx: Float,
     maxLines: Int,
+    // Tests/benchmarks explicitly create counters; normal rendering leaves them disabled.
+    measurementStats: InlineFlowMeasurementStats? = null,
 ): InlineFlowLayout {
     if (maxLines <= 0 || maxWidthPx <= 0f) {
         return InlineFlowLayout(
@@ -28,6 +30,7 @@ internal fun computeInlineFlowLayout(
     }
 
     val textStyle = textMeasurementStyle(style)
+    val measurement = InlineFlowTextMeasurement(textMeasurer, textStyle, measurementStats)
     val baseLineHeightPx = baseLineHeightPx(style, density)
     val baseMetrics = textMeasurer.measure(
         text = "Ag",
@@ -43,13 +46,7 @@ internal fun computeInlineFlowLayout(
 
     fun measureText(a: AnnotatedString): MeasuredText {
         if (a.isEmpty()) return MeasuredText(0f, 0f, 0f)
-        val res = textMeasurer.measure(
-            text = a,
-            style = textStyle,
-            constraints = Constraints(maxWidth = Int.MAX_VALUE),
-            maxLines = 1,
-            softWrap = false,
-        )
+        val res = measurement.measure(a)
         return MeasuredText(
             widthPx = res.size.width.toFloat(),
             heightPx = res.size.height.toFloat(),
@@ -140,74 +137,58 @@ internal fun computeInlineFlowLayout(
             }
 
             is InlineFlowSegment.TextRun -> {
-                var remaining = token.annotated
-                var remainingSourceStart = token.sourceStart
-                while (remaining.isNotEmpty() && lineCount < maxLines) {
-                    val measured = measureText(remaining)
-                    val w = measured.widthPx
-                    val used = currentWidth
-                    val available = (maxWidthPx - used).coerceAtLeast(0f)
-                    if (w <= available) {
-                        appendTextItem(remaining, measured, sourceStart = remainingSourceStart)
-                        break
-                    }
-
+                val text = token.annotated
+                var offset = 0
+                while (offset < text.length && lineCount < maxLines) {
+                    val available = (maxWidthPx - currentWidth).coerceAtLeast(0f)
                     if (available <= 0f && currentItems.isNotEmpty()) {
                         flushLine(force = true)
                         continue
                     }
-
-                    val fit = splitTextToFit(
-                        text = remaining,
-                        style = textStyle,
-                        textMeasurer = textMeasurer,
-                        maxWidthPx = available,
-                    )
-                    if (fit.fit.isNotEmpty()) {
-                        val adjustedFit = shrinkTextToWidth(
-                            text = fit.fit,
-                            style = textStyle,
-                            textMeasurer = textMeasurer,
-                            maxWidthPx = available,
+                    val partialLine = currentItems.isNotEmpty()
+                    val window = measurement.window(text, offset, available)
+                    for (index in 0 until window.completeLines) {
+                        if (lineCount >= maxLines) break
+                        val lineEnd = safeTextBreakIndex(
+                            text.text,
+                            window.sourceStart + window.layout.getLineEnd(index, visibleEnd = false),
                         )
-                        if (adjustedFit.isEmpty()) {
+                        val candidate = text.subSequence(offset, lineEnd.coerceAtLeast(offset))
+                        var measured = measureText(candidate)
+                        val lineAvailable = (maxWidthPx - currentWidth).coerceAtLeast(0f)
+                        val fitLength = if (measured.widthPx <= lineAvailable) candidate.length else {
+                            fittingTextPrefixLength(candidate.text, lineAvailable) { end ->
+                                measureText(candidate.subSequence(0, end)).widthPx
+                            }
+                        }
+                        if (fitLength == 0) {
                             if (currentItems.isNotEmpty()) {
                                 flushLine(force = true)
-                                continue
+                            } else {
+                                // A single code point can exceed the container. Emit it once
+                                // without splitting a surrogate pair, then continue on a new line.
+                                val end = nextCodePointEnd(text.text, offset)
+                                val emergency = text.subSequence(offset, end)
+                                appendTextItem(emergency, measureText(emergency), sourceStart = token.sourceStart?.plus(offset))
+                                offset = end
+                                flushLine(force = true)
                             }
-                        } else {
-                            val fitMeasured = measureText(adjustedFit)
-                            appendTextItem(
-                                text = adjustedFit,
-                                measured = fitMeasured,
-                                sourceStart = remainingSourceStart,
-                            )
+                            break
+                        }
+                        val fit = if (fitLength == candidate.length) candidate else {
+                            candidate.subSequence(0, fitLength).also { measured = measureText(it) }
+                        }
+                        appendTextItem(fit, measured, sourceStart = token.sourceStart?.plus(offset))
+                        offset += fitLength
+                        if (offset < text.length) {
                             flushLine(force = true)
-                            val rest = remaining.subSequence(adjustedFit.length, remaining.length)
-                            val leadingSpaces = rest.leadingSpaceCount()
-                            remainingSourceStart = remainingSourceStart
-                                ?.plus(adjustedFit.length + leadingSpaces)
-                            remaining = rest.dropLeadingSpaces(leadingSpaces)
-                            continue
+                            val beforeSpaces = offset
+                            while (offset < text.length && text[offset].isWhitespace() && text[offset] != '\n') offset++
+                            // The first line after a widget has a different width. A shortened
+                            // line or skipped whitespace also invalidates subsequent native cuts.
+                            if (partialLine || fitLength != candidate.length || offset != beforeSpaces) break
                         }
                     }
-
-                    if (currentItems.isNotEmpty()) {
-                        flushLine(force = true)
-                        continue
-                    }
-
-                    val cut = firstBreakIndex(remaining.text)
-                    val emergencyFit = remaining.subSequence(0, cut)
-                    val emergencyMeasured = measureText(emergencyFit)
-                    appendTextItem(
-                        text = emergencyFit,
-                        measured = emergencyMeasured,
-                        sourceStart = remainingSourceStart,
-                    )
-                    flushLine(force = true)
-                    remainingSourceStart = remainingSourceStart?.plus(cut)
-                    remaining = remaining.subSequence(cut, remaining.length)
                 }
             }
         }
@@ -231,152 +212,6 @@ internal fun computeInlineFlowLayout(
         lastBaselinePx = lastBaselinePx,
         lines = lines,
     )
-}
-
-private data class SplitResult(val fit: AnnotatedString, val rest: AnnotatedString)
-
-private fun shrinkTextToWidth(
-    text: AnnotatedString,
-    style: TextStyle,
-    textMeasurer: TextMeasurer,
-    maxWidthPx: Float,
-): AnnotatedString {
-    if (text.isEmpty() || maxWidthPx <= 0f) return AnnotatedString("")
-    val fullWidth = textMeasurer.measure(
-        text = text,
-        style = style,
-        constraints = Constraints(maxWidth = Int.MAX_VALUE),
-        maxLines = 1,
-        softWrap = false,
-    ).size.width.toFloat()
-    if (fullWidth <= maxWidthPx) return text
-
-    var lo = 1
-    var hi = text.length
-    var best = 0
-    while (lo <= hi) {
-        val mid = safeBreakIndex(text.text, (lo + hi) / 2)
-        if (mid <= 0) {
-            hi = -1
-            continue
-        }
-        val sub = text.subSequence(0, mid)
-        val width = textMeasurer.measure(
-            text = sub,
-            style = style,
-            constraints = Constraints(maxWidth = Int.MAX_VALUE),
-            maxLines = 1,
-            softWrap = false,
-        ).size.width.toFloat()
-        if (width <= maxWidthPx) {
-            best = mid
-            lo = mid + 1
-        } else {
-            hi = mid - 1
-        }
-    }
-    if (best <= 0) return AnnotatedString("")
-    return text.subSequence(0, safeBreakIndex(text.text, best))
-}
-
-private fun splitTextToFit(
-    text: AnnotatedString,
-    style: TextStyle,
-    textMeasurer: TextMeasurer,
-    maxWidthPx: Float,
-): SplitResult {
-    if (text.isEmpty() || maxWidthPx <= 0f) return SplitResult(AnnotatedString(""), text)
-    val softWrapCut = firstSoftWrapLineEnd(
-        text = text,
-        style = style,
-        textMeasurer = textMeasurer,
-        maxWidthPx = maxWidthPx,
-    )
-    if (softWrapCut != null) {
-        return SplitResult(
-            fit = text.subSequence(0, softWrapCut),
-            rest = text.subSequence(softWrapCut, text.length),
-        )
-    }
-
-    val full = text.text
-    var lo = 0
-    var hi = full.length
-    var best = 0
-    while (lo <= hi) {
-        val mid = (lo + hi) / 2
-        val sub = text.subSequence(0, mid)
-        val w = textMeasurer.measure(
-            text = sub,
-            style = style,
-            constraints = Constraints(maxWidth = Int.MAX_VALUE),
-            maxLines = 1,
-            softWrap = false,
-        ).size.width.toFloat()
-        if (w <= maxWidthPx) {
-            best = mid
-            lo = mid + 1
-        } else {
-            hi = mid - 1
-        }
-    }
-    if (best <= 0) return SplitResult(AnnotatedString(""), text)
-
-    val region = full.substring(0, best)
-    val lastSpace = region.indexOfLast { it.isWhitespace() }
-    val cut = if (lastSpace >= 1) lastSpace + 1 else best
-    return SplitResult(
-        fit = text.subSequence(0, cut),
-        rest = text.subSequence(cut, full.length),
-    )
-}
-
-private fun firstSoftWrapLineEnd(
-    text: AnnotatedString,
-    style: TextStyle,
-    textMeasurer: TextMeasurer,
-    maxWidthPx: Float,
-): Int? {
-    val layout = textMeasurer.measure(
-        text = text,
-        style = style,
-        constraints = Constraints(maxWidth = ceil(maxWidthPx).toInt().coerceAtLeast(1)),
-        maxLines = 1,
-        softWrap = true,
-    )
-    if (!layout.didOverflowWidth && !layout.hasVisualOverflow) return null
-
-    val lineEnd = layout.getLineEnd(lineIndex = 0, visibleEnd = false)
-    return lineEnd.takeIf { it in 1 until text.length }
-}
-
-private fun firstBreakIndex(text: String): Int {
-    if (text.length >= 2 && text[0].isHighSurrogate() && text[1].isLowSurrogate()) {
-        return 2
-    }
-    return 1.coerceAtMost(text.length)
-}
-
-private fun safeBreakIndex(text: String, index: Int): Int {
-    val bounded = index.coerceIn(0, text.length)
-    if (bounded in 1 until text.length &&
-        text[bounded - 1].isHighSurrogate() &&
-        text[bounded].isLowSurrogate()
-    ) {
-        return bounded - 1
-    }
-    return bounded
-}
-
-private fun AnnotatedString.leadingSpaceCount(): Int {
-    val s = text
-    var i = 0
-    while (i < s.length && s[i].isWhitespace() && s[i] != '\n') i++
-    return i
-}
-
-private fun AnnotatedString.dropLeadingSpaces(count: Int): AnnotatedString {
-    return if (count == 0) this else subSequence(count, length)
 }
 
 internal fun textMeasurementStyle(style: TextStyle): TextStyle {

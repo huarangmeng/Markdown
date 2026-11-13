@@ -65,6 +65,10 @@ Benchmark commands and baseline maintenance live in [markdown-benchmark/AGENTS.m
   publication splices and retains immutable IR, with identities independent of source coordinates.
 - Input-transformer identity controls parser state; renderer callbacks control layout/rendering.
   IR compilation depends only on heading numbering and soft-break policy, not streaming state.
+- Inline text layout uses source offsets and bounded, overlapping measurement windows. Window ends
+  must not introduce synthetic line breaks. Keep Unicode-safe search bounds advancing, preserve
+  source/style ranges, and verify measured-character budgets in `InlineFlowLongTextTest`.
+  Opt-in renderer layout timing belongs in `markdown-benchmark`, not the renderer module.
 
 ### `markdown-preview`
 

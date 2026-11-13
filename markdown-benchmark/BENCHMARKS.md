@@ -12,6 +12,7 @@ Execution and budget rules are in [AGENTS.md](AGENTS.md). Paths below are relati
 | `failedInlineScalingBenchmark` | Fully materialized failed scans at 1,024 / 4,096 / 16,384 characters | `build/reports/failed-inline-scaling/results.json` |
 | `parserCallSampleTimeBenchmark` | Closed-loop individual-call latency at fixed 100 / 1,000 / 10,000 paragraphs; lazy / materialized existing AST | `build/reports/parser-call-sample-time/results.json` |
 | `growingBlockStreamingBenchmark` | Repeated small appends to one growing block, with optional consumption after each commit | stdout CSV plus `#` metadata |
+| `inlineFlowLayoutBenchmark` | Actual renderer text flow at 1,000–32,000 characters, with and without inline placeholders | stdout CSV plus `#` metadata |
 | `:markdown-renderer:renderCompilerScalingBenchmark` | Parser commits and real render-model compilation at 100 / 1,000 / 10,000 stable paragraphs | stdout CSV plus `#` metadata |
 
 JMH AverageTime percentiles describe iteration means. The scaling harnesses instead report empirical
@@ -22,6 +23,34 @@ provides the broader JMH configuration; `ciBenchmark` is a smoke run.
 Full-parse suites construct input outside measurement. Incremental scaling also excludes parser
 setup, full-source String materialization and whole-AST traversal. Its `--coalesce 16` append reaches
 the threshold and commits real parsing work. Allocation growth guards run separately in parser tests.
+
+## Long paragraph layout
+
+```bash
+./gradlew -q :markdown-benchmark:inlineFlowLayoutBenchmark -PbenchmarkRevision=CANDIDATE_SHA
+# Cap the input size for baseline comparisons:
+./gradlew -q :markdown-benchmark:inlineFlowLayoutBenchmark --args='8000' -PbenchmarkRevision=BASELINE_SHA
+```
+
+This opt-in suite calls the actual inline flow engine through a separate `rendererBenchmark` source
+set. Kotlin friend access avoids exposing internal renderer APIs. Renderer/Compose/Skia dependencies
+do not enter the historical parser/JMH source set or performance gate.
+
+The fixed-width workload uses a 260 px line, 16 sp text, 24 sp line height, density/font scale 1,
+and 1,000 / 2,000 / 4,000 / 8,000 / 16,000 / 32,000 characters. Five 1,000-character text layouts
+warm up each fresh JVM; each scenario/size records three samples and reports their median. Heap is
+256/512 MiB. Input, font resolver setup, parsing and painting are excluded; each timed operation
+includes a fresh `TextMeasurer` and uncached flow layout. `mixed_placeholders` inserts fixed 96×36 px
+formula and 40×24 px component specs. It does not benchmark live LaTeX measurement or UI rendering.
+Real LaTeX, inline code, custom directive activation, narrow/fractional widths and font scaling are
+tested separately in renderer common tests.
+
+CSV rows include line count, measurement calls and measured UTF-16 characters. Counters cover
+transient text/window measurements; the fixed `Ag` baseline measurement is excluded. The renderer's
+normal call sites leave these optional counters disabled. Deterministic tests require bounded work
+and prevent remeasurement of the full remaining tail on each line; wall-clock samples remain
+observational and do not redefine parser budgets. Preserve revision/JVM/OS/configuration metadata
+and follow the serial, same-environment comparison rules in [AGENTS.md](AGENTS.md).
 
 ## Failed inline scans
 

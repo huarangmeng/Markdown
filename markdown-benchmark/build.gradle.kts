@@ -1,3 +1,6 @@
+import org.gradle.api.artifacts.component.ProjectComponentIdentifier
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+
 plugins {
     id("org.jetbrains.kotlin.jvm")
     application
@@ -17,6 +20,43 @@ dependencies {
 
 kotlin {
     jvmToolchain(21)
+}
+
+// Keep renderer/Skia dependencies out of the historical parser/JMH classpath.
+val rendererBenchmark = sourceSets.create("rendererBenchmark")
+val desktopOs = when {
+    System.getProperty("os.name").startsWith("Mac") -> "macos"
+    System.getProperty("os.name").startsWith("Windows") -> "windows"
+    else -> "linux"
+}
+val desktopArch = if (System.getProperty("os.arch") in listOf("aarch64", "arm64")) "arm64" else "x64"
+dependencies {
+    add(rendererBenchmark.implementationConfigurationName, project(":markdown-renderer"))
+    add(rendererBenchmark.implementationConfigurationName, libs.compose.ui)
+    add(rendererBenchmark.runtimeOnlyConfigurationName,
+        "org.jetbrains.compose.desktop:desktop-jvm-$desktopOs-$desktopArch:${libs.versions.composeMultiplatform.get()}")
+}
+val rendererFriendArtifacts = configurations[rendererBenchmark.compileClasspathConfigurationName]
+    .incoming.artifactView {
+        componentFilter { it is ProjectComponentIdentifier && it.projectPath == ":markdown-renderer" }
+    }.files
+tasks.named<KotlinCompile>(rendererBenchmark.getCompileTaskName("kotlin")) {
+    dependsOn(rendererFriendArtifacts)
+    compilerOptions.freeCompilerArgs.addAll(rendererFriendArtifacts.elements.map { artifacts ->
+        artifacts.map { "-Xfriend-paths=${it.asFile.absolutePath}" }
+    })
+}
+
+tasks.register<JavaExec>("inlineFlowLayoutBenchmark") {
+    group = "benchmark"
+    description = "Measures long paragraph layout with text and mixed inline placeholders. Optional argument: maximum character count."
+    classpath = rendererBenchmark.runtimeClasspath
+    mainClass.set("com.hrm.markdown.benchmark.InlineFlowLayoutBenchmarkKt")
+    javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(21)) })
+    jvmArgs("-Xms256m", "-Xmx512m")
+    systemProperty("markdown.benchmark.revision", providers.gradleProperty("benchmarkRevision").getOrElse("working-tree"))
+    mustRunAfter("performanceGate", "fullParsingBenchmark", "failedInlineScalingBenchmark",
+        "parserCallSampleTimeBenchmark", "growingBlockStreamingBenchmark", "incrementalScalingBenchmark")
 }
 
 application {

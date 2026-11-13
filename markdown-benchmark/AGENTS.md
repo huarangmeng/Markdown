@@ -1,6 +1,6 @@
 # Benchmark module guidance
 
-Follow the repository [AGENTS.md](../AGENTS.md). This module owns parser workloads, performance
+Follow the repository [AGENTS.md](../AGENTS.md). This module owns parser and renderer workloads, performance
 regression checks and budget maintenance. Publish user-facing verified results in the root READMEs.
 See [BENCHMARKS.md](BENCHMARKS.md) for scenarios, report formats and revision comparisons.
 
@@ -14,6 +14,7 @@ Run from the repository root, one benchmark process at a time:
 ./gradlew :markdown-benchmark:incrementalScalingBenchmark --args='--warmups 20 --iterations 40 --coalesce 16'
 ./gradlew :markdown-benchmark:failedInlineScalingBenchmark
 ./gradlew -q :markdown-benchmark:growingBlockStreamingBenchmark --args='--revision CANDIDATE_SHA'
+./gradlew -q :markdown-benchmark:inlineFlowLayoutBenchmark -PbenchmarkRevision=CANDIDATE_SHA
 ./gradlew :macrobenchmark:connectedBenchmarkAndroidTest
 ```
 
@@ -43,6 +44,16 @@ lock or run competing benchmark processes on the same machine.
 
 The gate report is `build/reports/performance-gate/results.json`; other outputs are listed in
 [BENCHMARKS.md](BENCHMARKS.md). New observational suites do not silently redefine gate workloads.
+
+## Renderer layout
+
+`inlineFlowLayoutBenchmark` uses a separate `rendererBenchmark` source set and a Kotlin friend path
+to the real renderer JVM artifact. Keep its Compose/Skia dependencies off the parser/JMH classpath.
+The task selects the host desktop runtime and prints revision, JVM, OS, configuration and CSV rows.
+Run with `--args='8000'` to cap input length. This observational suite has no parser gate budget.
+Its fixed formula/component placeholders measure text-flow layout, not live LaTeX or UI painting;
+real formula/plugin layout and activation are covered by renderer common tests. Deterministic
+measurement-work budgets also live in renderer common tests; wall-clock thresholds do not.
 
 ## Android and related checks
 
